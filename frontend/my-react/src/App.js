@@ -113,6 +113,13 @@ function App() {
             </AdminRoute>
           }
         />
+                {/* PRODUCTS */}
+
+        <Route
+          path="/products"
+          element={<Products />}
+        />
+
 
 
         {/* ==========================================
