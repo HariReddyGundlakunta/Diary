@@ -7,56 +7,25 @@ import {
   Navigate,
 } from "react-router-dom";
 
+// ==================================================
+// PAGES
+// ==================================================
+
 import Register from "./Pages/Register";
 import Login from "./Pages/Login";
-import AdminDashboard from "./Pages/AdminDashboard";
 import Home from "./Pages/Home";
 import Products from "./Pages/Products";
+import Cart from "./Pages/Cart";
+import Checkout from "./Pages/Checkout";
+import Orders from "./Pages/Orders";
+import OrderConfirmation from "./Pages/OrderConfirmation";
 
+import AdminDashboard from "./Pages/AdminDashboard";
+import AddProduct from "./Pages/AddProduct";
 
-
-// ======================================================
-// ADMIN ROUTE
-// ======================================================
-
-function AdminRoute({ children }) {
-
-  const token =
-    localStorage.getItem("token");
-
-  const user =
-    JSON.parse(
-      localStorage.getItem("user") || "null"
-    );
-
-  if (!token) {
-    return (
-      <Navigate
-        to="/login"
-        replace
-      />
-    );
-  }
-
-  if (
-    !user ||
-    user.role?.toLowerCase() !== "admin"
-  ) {
-    return (
-      <Navigate
-        to="/"
-        replace
-      />
-    );
-  }
-
-  return children;
-}
-
-
-// ======================================================
+// ==================================================
 // APP
-// ======================================================
+// ==================================================
 
 function App() {
 
@@ -67,17 +36,21 @@ function App() {
       <Routes>
 
         {/* ==========================================
-            HOME
+            DEFAULT PAGE
         ========================================== */}
 
         <Route
-  path="/"
-  element={<Home />}
-/>
-
+          path="/"
+          element={
+            <Navigate
+              to="/register"
+              replace
+            />
+          }
+        />
 
         {/* ==========================================
-            REGISTER
+            AUTH
         ========================================== */}
 
         <Route
@@ -87,11 +60,6 @@ function App() {
           }
         />
 
-
-        {/* ==========================================
-            LOGIN
-        ========================================== */}
-
         <Route
           path="/login"
           element={
@@ -99,8 +67,71 @@ function App() {
           }
         />
 
+        {/* ==========================================
+            USER HOME
+        ========================================== */}
 
+        <Route
+          path="/home"
+          element={
+            <Home />
+          }
+        />
 
+        {/* ==========================================
+            PRODUCTS
+        ========================================== */}
+
+        <Route
+          path="/products"
+          element={
+            <Products />
+          }
+        />
+
+        {/* ==========================================
+            CART
+        ========================================== */}
+
+        <Route
+          path="/cart"
+          element={
+            <Cart />
+          }
+        />
+
+        {/* ==========================================
+            CHECKOUT
+        ========================================== */}
+
+        <Route
+          path="/checkout"
+          element={
+            <Checkout />
+          }
+        />
+
+        {/* ==========================================
+            ORDERS
+        ========================================== */}
+
+        <Route
+          path="/orders"
+          element={
+            <Orders />
+          }
+        />
+
+        {/* ==========================================
+            ORDER CONFIRMATION
+        ========================================== */}
+
+        <Route
+          path="/order-confirmation"
+          element={
+            <OrderConfirmation />
+          }
+        />
 
         {/* ==========================================
             ADMIN DASHBOARD
@@ -109,29 +140,30 @@ function App() {
         <Route
           path="/admin-dashboard"
           element={
-            <AdminRoute>
-              <AdminDashboard />
-            </AdminRoute>
+            <AdminDashboard />
           }
         />
-                {/* PRODUCTS */}
-
-        <Route
-          path="/products"
-          element={<Products />}
-        />
-
-
 
         {/* ==========================================
-            UNKNOWN ROUTE
+            ADMIN ADD PRODUCT
+        ========================================== */}
+
+        <Route
+          path="/admin/products/add"
+          element={
+            <AddProduct />
+          }
+        />
+
+        {/* ==========================================
+            UNKNOWN ROUTES
         ========================================== */}
 
         <Route
           path="*"
           element={
             <Navigate
-              to="/login"
+              to="/register"
               replace
             />
           }
@@ -140,8 +172,9 @@ function App() {
       </Routes>
 
     </BrowserRouter>
-  );
-}
 
+  );
+
+}
 
 export default App;

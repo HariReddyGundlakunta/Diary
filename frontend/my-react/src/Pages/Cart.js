@@ -1,198 +1,367 @@
-import React, {  useCallback, useEffect, useState } from "react";
+import React, {
+  useCallback,
+  useEffect,
+  useState,
+} from "react";
+
 import axios from "axios";
-import { Link, useNavigate } from "react-router-dom";
+
+import {
+  Link,
+  useNavigate,
+} from "react-router-dom";
 
 function Cart() {
+
   const navigate = useNavigate();
 
-  const API_URL = "http://localhost:5000";
+  // ==================================================
+  // API URL
+  // ==================================================
 
-  const [cart, setCart] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
+  const API_URL =
+    process.env.REACT_APP_API_URL ||
+    "http://localhost:5000";
 
-  // ==========================================
-  // GET LOGGED-IN USER
-  // ==========================================
+  // ==================================================
+  // STATE
+  // ==================================================
 
-  const getUser = () => {
-    try {
-      const user = JSON.parse(
-        localStorage.getItem("user")
-      );
+  const [cart, setCart] =
+    useState([]);
 
-      return user;
-    } catch (error) {
-      console.error(
-        "USER DATA ERROR:",
-        error
-      );
+  const [loading, setLoading] =
+    useState(true);
 
-      return null;
-    }
-  };
+  const [error, setError] =
+    useState("");
 
-  // ==========================================
-  // GET CART FROM MYSQL
-  // ==========================================
+  const [updatingId, setUpdatingId] =
+    useState(null);
 
-const loadCart = useCallback(async () => {
+  // ==================================================
+  // LOAD CART
+  // ==================================================
+
+  const loadCart = useCallback(
+    async () => {
+
       try {
-      setLoading(true);
-      setError("");
 
-      const user = getUser();
+        setLoading(true);
+        setError("");
 
-      if (!user || !user.id) {
-        navigate("/login", {
-          replace: true,
-        });
+        const user =
+          JSON.parse(
+            localStorage.getItem("user")
+          );
 
-        return;
-      }
+        const token =
+          localStorage.getItem("token");
 
-      console.log(
-        "Getting cart for user:",
-        user.id
-      );
+        if (!user || !user.id) {
 
-      const response = await axios.get(
-        `${API_URL}/api/cart/${user.id}`
-      );
+          alert(
+            "Please login to view your cart."
+          );
 
-      console.log(
-        "CART RESPONSE:",
-        response.data
-      );
+          navigate("/login");
 
-      if (response.data.success) {
+          return;
+        }
+
+        const response =
+          await axios.get(
+            `${API_URL}/api/cart/${user.id}`,
+            {
+              headers: {
+                Authorization:
+                  `Bearer ${token}`,
+              },
+            }
+          );
+
+        console.log(
+          "CART RESPONSE:",
+          response.data
+        );
+
+        const cartData =
+          response.data.cart ||
+          response.data.items ||
+          [];
+
         setCart(
-          Array.isArray(response.data.items)
-            ? response.data.items
+          Array.isArray(cartData)
+            ? cartData
             : []
         );
-      } else {
-        setCart([]);
-        setError(
-          response.data.message ||
-            "Failed to load cart"
+
+      } catch (err) {
+
+        console.error(
+          "LOAD CART ERROR:",
+          err
         );
+
+        console.error(
+          "SERVER RESPONSE:",
+          err.response?.data
+        );
+
+        setError(
+          err.response?.data?.message ||
+          "Unable to load cart."
+        );
+
+      } finally {
+
+        setLoading(false);
+
       }
 
-    } catch (error) {
+    },
+    [API_URL, navigate]
+  );
 
-      console.error(
-        "GET CART ERROR:",
-        error
+  // ==================================================
+  // LOAD CART ON PAGE LOAD
+  // ==================================================
+
+  useEffect(() => {
+
+    loadCart();
+
+  }, [loadCart]);
+
+  // ==================================================
+  // GET PRICE
+  // ==================================================
+
+  const getPrice = (item) => {
+
+    return Number(
+      item.price ||
+      item.product_price ||
+      0
+    );
+
+  };
+
+  // ==================================================
+  // GET PRODUCT NAME
+  // ==================================================
+
+  const getProductName = (item) => {
+
+    return (
+      item.name ||
+      item.product_name ||
+      "Product"
+    );
+
+  };
+
+  // ==================================================
+  // GET PRODUCT IMAGE
+  // ==================================================
+
+  const getProductImage = (item) => {
+
+    if (item.image) {
+      return item.image;
+    }
+
+    return "https://images.unsplash.com/photo-1550583724-b2692b85b150?auto=format&fit=crop&w=500&q=80";
+
+  };
+
+  // ==================================================
+  // TOTAL
+  // ==================================================
+
+  const total = cart.reduce(
+    (sum, item) => {
+
+      const price =
+        getPrice(item);
+
+      const quantity =
+        Number(
+          item.quantity || 0
+        );
+
+      return (
+        sum +
+        price * quantity
       );
 
-      if (
-        error.response?.data?.message
-      ) {
-        setError(
-          error.response.data.message
-        );
-      } else {
-        setError(
-          "Unable to load cart. Please check the server."
-        );
-      }
+    },
+    0
+  );
 
-    } finally {
-      setLoading(false);
-    }
-  }, [navigate]);
-  // ==========================================
-  // LOAD CART
-  // ==========================================
-useEffect(() => {
-  loadCart();
-}, [loadCart]);
-
-  // ==========================================
+  // ==================================================
   // UPDATE QUANTITY
-  // ==========================================
+  // ==================================================
 
   const updateQuantity = async (
-    cartId,
+    item,
     newQuantity
   ) => {
+
+    if (newQuantity < 1) {
+      return;
+    }
+
     try {
 
-      if (newQuantity < 1) {
-        await removeItem(cartId);
+      setUpdatingId(
+        item.id ||
+        item.cart_id ||
+        item.product_id
+      );
+
+      const user =
+        JSON.parse(
+          localStorage.getItem("user")
+        );
+
+      const token =
+        localStorage.getItem("token");
+
+      if (!user || !user.id) {
+
+        navigate("/login");
+
         return;
       }
 
+      const cartItemId =
+        item.id ||
+        item.cart_id;
+
       await axios.put(
-        `${API_URL}/api/cart/${cartId}`,
+        `${API_URL}/api/cart/${cartItemId}`,
         {
-          quantity: newQuantity,
+          quantity:
+            newQuantity,
+        },
+        {
+          headers: {
+            Authorization:
+              `Bearer ${token}`,
+          },
         }
       );
 
       await loadCart();
 
-    } catch (error) {
+    } catch (err) {
 
       console.error(
         "UPDATE CART ERROR:",
-        error
+        err
+      );
+
+      console.error(
+        "SERVER RESPONSE:",
+        err.response?.data
       );
 
       alert(
-        error.response?.data?.message ||
-          "Failed to update cart"
+        err.response?.data?.message ||
+        "Unable to update quantity."
       );
+
+    } finally {
+
+      setUpdatingId(null);
+
     }
+
   };
 
-  // ==========================================
+  // ==================================================
   // REMOVE ITEM
-  // ==========================================
+  // ==================================================
 
-  const removeItem = async (cartId) => {
+  const removeItem = async (item) => {
+
     try {
 
+      setUpdatingId(
+        item.id ||
+        item.cart_id ||
+        item.product_id
+      );
+
+      const user =
+        JSON.parse(
+          localStorage.getItem("user")
+        );
+
+      const token =
+        localStorage.getItem("token");
+
+      if (!user || !user.id) {
+
+        navigate("/login");
+
+        return;
+      }
+
+      const cartItemId =
+        item.id ||
+        item.cart_id;
+
       await axios.delete(
-        `${API_URL}/api/cart/${cartId}`
+        `${API_URL}/api/cart/${cartItemId}`,
+        {
+          headers: {
+            Authorization:
+              `Bearer ${token}`,
+          },
+        }
       );
 
       await loadCart();
 
-    } catch (error) {
+    } catch (err) {
 
       console.error(
-        "DELETE CART ERROR:",
-        error
+        "REMOVE CART ERROR:",
+        err
+      );
+
+      console.error(
+        "SERVER RESPONSE:",
+        err.response?.data
       );
 
       alert(
-        error.response?.data?.message ||
-          "Failed to remove item"
+        err.response?.data?.message ||
+        "Unable to remove item."
       );
+
+    } finally {
+
+      setUpdatingId(null);
+
     }
+
   };
 
-  // ==========================================
-  // TOTAL
-  // ==========================================
+  // ==================================================
+  // PROCEED TO CHECKOUT
+  // ==================================================
 
-  const total = cart.reduce(
-    (sum, item) =>
-      sum +
-      Number(item.price) *
-        Number(item.quantity),
-    0
-  );
+  const goToCheckout = () => {
 
-  // ==========================================
-  // PLACE ORDER
-  // ==========================================
+    if (
+      !cart ||
+      cart.length === 0
+    ) {
 
-  const placeOrder = async () => {
-
-    if (cart.length === 0) {
       alert(
         "Your cart is empty."
       );
@@ -200,427 +369,772 @@ useEffect(() => {
       return;
     }
 
-    try {
+    navigate("/checkout");
 
-      const user = getUser();
-
-      if (!user || !user.id) {
-        navigate("/login", {
-          replace: true,
-        });
-
-        return;
-      }
-
-      console.log(
-        "Placing order for user:",
-        user.id
-      );
-
-      const response =
-        await axios.post(
-          `${API_URL}/api/orders`,
-          {
-            userId: user.id,
-            total: total,
-            items: cart,
-          }
-        );
-
-      console.log(
-        "ORDER RESPONSE:",
-        response.data
-      );
-
-      if (response.data.success) {
-
-        alert(
-          "Order placed successfully!"
-        );
-
-        // Reload cart from MySQL.
-        // Backend should have deleted cart_items.
-        await loadCart();
-
-        navigate("/orders");
-
-      } else {
-
-        alert(
-          response.data.message ||
-            "Failed to place order"
-        );
-      }
-
-    } catch (error) {
-
-      console.error(
-        "PLACE ORDER ERROR:",
-        error
-      );
-
-      alert(
-        error.response?.data?.message ||
-          "Failed to place order"
-      );
-    }
   };
 
-  // ==========================================
+  // ==================================================
   // LOADING
-  // ==========================================
+  // ==================================================
 
   if (loading) {
-    return (
-      <div style={styles.container}>
-        <h1>🛒 My Cart</h1>
 
-        <div style={styles.message}>
-          Loading cart...
+    return (
+
+      <div
+        style={styles.loading}
+      >
+
+        <div
+          style={styles.loadingIcon}
+        >
+          🛒
         </div>
+
+        <h2>
+          Loading your cart...
+        </h2>
+
       </div>
+
     );
+
   }
 
-  // ==========================================
-  // PAGE
-  // ==========================================
+  // ==================================================
+  // ERROR
+  // ==================================================
 
-  return (
-    <div style={styles.container}>
+  if (error) {
 
-      <div style={styles.header}>
+    return (
 
-        <div>
-          <h1>🛒 My Cart</h1>
+      <div
+        style={styles.loading}
+      >
 
-          <p style={styles.subtitle}>
-            Your products from MySQL database
-          </p>
+        <div
+          style={styles.errorIcon}
+        >
+          ⚠️
         </div>
 
-        <Link
-          to="/products"
-          style={styles.back}
+        <h2>
+          {error}
+        </h2>
+
+        <button
+          onClick={loadCart}
+          style={styles.retryButton}
         >
-          ← Continue Shopping
-        </Link>
+          Try Again
+        </button>
 
       </div>
 
-      {error && (
-        <div style={styles.error}>
-          {error}
-        </div>
-      )}
+    );
 
-      {/* EMPTY CART */}
+  }
 
-      {cart.length === 0 ? (
+  // ==================================================
+  // EMPTY CART
+  // ==================================================
 
-        <div style={styles.empty}>
+  if (cart.length === 0) {
 
-          <div style={styles.emptyIcon}>
+    return (
+
+      <div
+        style={styles.page}
+      >
+
+        {/* NAVBAR */}
+
+        <nav
+          style={styles.navbar}
+        >
+
+          <Link
+            to="/home"
+            style={styles.logo}
+          >
+            🥛 HARI FARMS
+          </Link>
+
+          <div
+            style={styles.navLinks}
+          >
+
+            <Link
+              to="/home"
+              style={styles.navLink}
+            >
+              Home
+            </Link>
+
+            <Link
+              to="/products"
+              style={styles.navLink}
+            >
+              Products
+            </Link>
+
+            <span
+              style={styles.cartActive}
+            >
+              🛒 Cart
+            </span>
+
+          </div>
+
+        </nav>
+
+        {/* EMPTY CART */}
+
+        <div
+          style={styles.emptyContainer}
+        >
+
+          <div
+            style={styles.emptyIcon}
+          >
             🛒
           </div>
 
-          <h2>
-            Your cart is empty
-          </h2>
+          <h1>
+            Your Cart is Empty
+          </h1>
 
           <p>
-            Add products from the
-            products page.
+            Add some fresh dairy products
+            to your cart.
           </p>
 
-          <Link
-            to="/products"
+          <button
+            onClick={() =>
+              navigate("/products")
+            }
             style={styles.shopButton}
           >
-            View Products
-          </Link>
+            Continue Shopping
+          </button>
 
         </div>
 
-      ) : (
+      </div>
 
-        <>
+    );
 
-          {/* CART ITEMS */}
+  }
 
-          {cart.map((item) => (
+  // ==================================================
+  // CART PAGE
+  // ==================================================
+
+  return (
+
+    <div
+      style={styles.page}
+    >
+
+      {/* ==================================================
+          NAVBAR
+      ================================================== */}
+
+      <nav
+        style={styles.navbar}
+      >
+
+        <Link
+          to="/home"
+          style={styles.logo}
+        >
+          🥛 HARI FARMS
+        </Link>
+
+        <div
+          style={styles.navLinks}
+        >
+
+          <Link
+            to="/home"
+            style={styles.navLink}
+          >
+            Home
+          </Link>
+
+          <Link
+            to="/products"
+            style={styles.navLink}
+          >
+            Products
+          </Link>
+
+          <span
+            style={styles.cartActive}
+          >
+            🛒 Cart
+          </span>
+
+        </div>
+
+      </nav>
+
+      {/* ==================================================
+          MAIN
+      ================================================== */}
+
+      <main
+        style={styles.main}
+      >
+
+        <h1
+          style={styles.heading}
+        >
+          Shopping Cart
+        </h1>
+
+        <div
+          style={styles.content}
+        >
+
+          {/* ==============================================
+              CART ITEMS
+          =============================================== */}
+
+          <div
+            style={styles.itemsSection}
+          >
+
+            {cart.map(
+              (item, index) => {
+
+                const price =
+                  getPrice(item);
+
+                const quantity =
+                  Number(
+                    item.quantity || 0
+                  );
+
+                const itemId =
+                  item.id ||
+                  item.cart_id ||
+                  item.product_id ||
+                  index;
+
+                const itemTotal =
+                  price * quantity;
+
+                const isUpdating =
+                  updatingId === itemId;
+
+                return (
+
+                  <div
+                    key={itemId}
+                    style={styles.itemCard}
+                  >
+
+                    {/* IMAGE */}
+
+                    <img
+                      src={
+                        getProductImage(
+                          item
+                        )
+                      }
+                      alt={
+                        getProductName(
+                          item
+                        )
+                      }
+                      style={
+                        styles.productImage
+                      }
+                    />
+
+                    {/* DETAILS */}
+
+                    <div
+                      style={
+                        styles.itemDetails
+                      }
+                    >
+
+                      <h3>
+                        {
+                          getProductName(
+                            item
+                          )
+                        }
+                      </h3>
+
+                      <p
+                        style={
+                          styles.unit
+                        }
+                      >
+                        ₹
+                        {price.toFixed(2)}
+                      </p>
+
+                      {/* QUANTITY */}
+
+                      <div
+                        style={
+                          styles.quantityBox
+                        }
+                      >
+
+                        <button
+                          type="button"
+                          disabled={
+                            isUpdating ||
+                            quantity <= 1
+                          }
+                          onClick={() =>
+                            updateQuantity(
+                              item,
+                              quantity - 1
+                            )
+                          }
+                          style={
+                            styles.quantityButton
+                          }
+                        >
+                          −
+                        </button>
+
+                        <span
+                          style={
+                            styles.quantity
+                          }
+                        >
+                          {quantity}
+                        </span>
+
+                        <button
+                          type="button"
+                          disabled={
+                            isUpdating
+                          }
+                          onClick={() =>
+                            updateQuantity(
+                              item,
+                              quantity + 1
+                            )
+                          }
+                          style={
+                            styles.quantityButton
+                          }
+                        >
+                          +
+                        </button>
+
+                      </div>
+
+                    </div>
+
+                    {/* ITEM TOTAL */}
+
+                    <div
+                      style={
+                        styles.itemRight
+                      }
+                    >
+
+                      <strong
+                        style={
+                          styles.itemTotal
+                        }
+                      >
+                        ₹
+                        {itemTotal.toFixed(2)}
+                      </strong>
+
+                      <button
+                        type="button"
+                        disabled={
+                          isUpdating
+                        }
+                        onClick={() =>
+                          removeItem(item)
+                        }
+                        style={
+                          styles.removeButton
+                        }
+                      >
+                        Remove
+                      </button>
+
+                    </div>
+
+                  </div>
+
+                );
+
+              }
+            )}
+
+          </div>
+
+          {/* ==============================================
+              SUMMARY
+          =============================================== */}
+
+          <div
+            style={styles.summary}
+          >
+
+            <h2>
+              Order Summary
+            </h2>
 
             <div
-              key={item.id}
-              style={styles.item}
+              style={styles.summaryRow}
             >
 
-              <div style={styles.productInfo}>
+              <span>
+                Items
+              </span>
 
-                <div style={styles.emoji}>
-                  {item.emoji || "🥛"}
-                </div>
-
-                <div>
-
-                  <h3>
-                    {item.name}
-                  </h3>
-
-                  <p>
-                    ₹
-                    {Number(
-                      item.price
-                    ).toFixed(2)}
-                  </p>
-
-                  {item.unit && (
-                    <small>
-                      {item.unit}
-                    </small>
-                  )}
-
-                </div>
-
-              </div>
-
-              <div style={styles.controls}>
-
-                <button
-                  onClick={() =>
-                    updateQuantity(
-                      item.id,
-                      Number(
-                        item.quantity
-                      ) - 1
-                    )
-                  }
-                  style={styles.quantityButton}
-                >
-                  −
-                </button>
-
-                <strong>
-                  {item.quantity}
-                </strong>
-
-                <button
-                  onClick={() =>
-                    updateQuantity(
-                      item.id,
-                      Number(
-                        item.quantity
-                      ) + 1
-                    )
-                  }
-                  style={styles.quantityButton}
-                >
-                  +
-                </button>
-
-                <button
-                  onClick={() =>
-                    removeItem(item.id)
-                  }
-                  style={styles.remove}
-                >
-                  Remove
-                </button>
-
-              </div>
+              <span>
+                {cart.length}
+              </span>
 
             </div>
 
-          ))}
+            <div
+              style={styles.summaryRow}
+            >
 
-          {/* TOTAL */}
+              <span>
+                Subtotal
+              </span>
 
-          <div style={styles.total}>
-
-            <div>
-
-              <p>
-                Total Items:{" "}
-                <strong>
-                  {cart.reduce(
-                    (sum, item) =>
-                      sum +
-                      Number(
-                        item.quantity
-                      ),
-                    0
-                  )}
-                </strong>
-              </p>
-
-              <h2>
-                Total: ₹
+              <strong>
+                ₹
                 {total.toFixed(2)}
-              </h2>
+              </strong>
 
             </div>
+
+            <div
+              style={styles.summaryRow}
+            >
+
+              <span>
+                Delivery
+              </span>
+
+              <strong>
+                FREE
+              </strong>
+
+            </div>
+
+            <hr />
+
+            <div
+              style={styles.totalRow}
+            >
+
+              <strong>
+                Total
+              </strong>
+
+              <strong>
+                ₹
+                {total.toFixed(2)}
+              </strong>
+
+            </div>
+
+            {/* IMPORTANT:
+                THIS NOW GOES TO CHECKOUT */}
 
             <button
-              onClick={placeOrder}
-              style={styles.orderButton}
+              type="button"
+              onClick={
+                goToCheckout
+              }
+              style={
+                styles.checkoutButton
+              }
             >
-              📦 Place Order
+              Proceed to Checkout
+            </button>
+
+            <button
+              type="button"
+              onClick={() =>
+                navigate("/products")
+              }
+              style={
+                styles.continueButton
+              }
+            >
+              Continue Shopping
             </button>
 
           </div>
 
-        </>
-      )}
+        </div>
+
+      </main>
 
     </div>
+
   );
 }
 
-
-// ==========================================
+// ==================================================
 // STYLES
-// ==========================================
+// ==================================================
 
 const styles = {
 
-  container: {
+  page: {
     minHeight: "100vh",
-    padding: "40px",
-    background: "#f8faf8",
-    boxSizing: "border-box",
+    background: "#f5f8f4",
   },
 
-  header: {
+  navbar: {
     display: "flex",
-    justifyContent: "space-between",
+    justifyContent:
+      "space-between",
     alignItems: "center",
-    marginBottom: "30px",
-    gap: "20px",
-    flexWrap: "wrap",
+    padding:
+      "18px 50px",
+    background: "#ffffff",
+    boxShadow:
+      "0 2px 10px rgba(0,0,0,0.08)",
   },
 
-  subtitle: {
-    color: "#777",
-  },
-
-  back: {
-    background: "#2e7d32",
-    color: "white",
-    padding: "10px 18px",
-    borderRadius: "8px",
+  logo: {
     textDecoration: "none",
+    color: "#2e7d32",
+    fontSize: "22px",
     fontWeight: "bold",
   },
 
-  message: {
-    background: "white",
-    padding: "40px",
-    textAlign: "center",
-    borderRadius: "15px",
+  navLinks: {
+    display: "flex",
+    alignItems: "center",
+    gap: "25px",
   },
 
-  error: {
-    background: "#ffebee",
-    color: "#c62828",
-    padding: "15px",
-    borderRadius: "10px",
-    marginBottom: "20px",
-  },
-
-  empty: {
-    background: "white",
-    padding: "60px",
-    borderRadius: "15px",
-    textAlign: "center",
-    boxShadow:
-      "0 5px 15px rgba(0,0,0,0.06)",
-  },
-
-  emptyIcon: {
-    fontSize: "70px",
-  },
-
-  shopButton: {
-    display: "inline-block",
-    marginTop: "15px",
-    background: "#2e7d32",
-    color: "white",
-    padding: "12px 22px",
-    borderRadius: "8px",
+  navLink: {
     textDecoration: "none",
+    color: "#333",
+    fontSize: "16px",
   },
 
-  item: {
-    background: "white",
-    marginBottom: "15px",
-    padding: "20px",
+  cartActive: {
+    color: "#2e7d32",
+    fontWeight: "bold",
+    fontSize: "16px",
+  },
+
+  main: {
+    maxWidth: "1100px",
+    margin: "auto",
+    padding:
+      "40px 20px",
+  },
+
+  heading: {
+    marginBottom: "30px",
+    color: "#222",
+  },
+
+  content: {
+    display: "grid",
+    gridTemplateColumns:
+      "1fr 350px",
+    gap: "25px",
+    alignItems: "start",
+  },
+
+  itemsSection: {
+    display: "flex",
+    flexDirection: "column",
+    gap: "15px",
+  },
+
+  itemCard: {
+    background: "#ffffff",
     borderRadius: "12px",
+    padding: "18px",
     display: "flex",
-    justifyContent: "space-between",
     alignItems: "center",
-    gap: "20px",
-    flexWrap: "wrap",
+    gap: "18px",
     boxShadow:
-      "0 3px 10px rgba(0,0,0,0.05)",
+      "0 3px 12px rgba(0,0,0,0.08)",
   },
 
-  productInfo: {
-    display: "flex",
-    alignItems: "center",
-    gap: "20px",
+  productImage: {
+    width: "110px",
+    height: "110px",
+    objectFit: "cover",
+    borderRadius: "10px",
   },
 
-  emoji: {
-    fontSize: "50px",
+  itemDetails: {
+    flex: 1,
   },
 
-  controls: {
+  unit: {
+    color: "#666",
+    margin:
+      "5px 0 12px",
+  },
+
+  quantityBox: {
     display: "flex",
     alignItems: "center",
     gap: "12px",
   },
 
   quantityButton: {
-    width: "35px",
-    height: "35px",
-    border: "none",
+    width: "32px",
+    height: "32px",
+    border: "1px solid #ccc",
+    background: "#fff",
     borderRadius: "6px",
-    background: "#e8f5e9",
+    fontSize: "20px",
     cursor: "pointer",
+  },
+
+  quantity: {
+    minWidth: "25px",
+    textAlign: "center",
+    fontWeight: "bold",
+  },
+
+  itemRight: {
+    textAlign: "right",
+  },
+
+  itemTotal: {
+    display: "block",
+    marginBottom: "12px",
+    fontSize: "17px",
+  },
+
+  removeButton: {
+    border: "none",
+    background: "transparent",
+    color: "#d32f2f",
+    cursor: "pointer",
+    fontSize: "14px",
+  },
+
+  summary: {
+    background: "#ffffff",
+    padding: "25px",
+    borderRadius: "12px",
+    boxShadow:
+      "0 3px 12px rgba(0,0,0,0.08)",
+    position: "sticky",
+    top: "20px",
+  },
+
+  summaryRow: {
+    display: "flex",
+    justifyContent:
+      "space-between",
+    margin:
+      "15px 0",
+  },
+
+  totalRow: {
+    display: "flex",
+    justifyContent:
+      "space-between",
+    margin:
+      "20px 0",
     fontSize: "20px",
   },
 
-  remove: {
-    background: "#e53935",
-    color: "white",
-    border: "none",
-    padding: "9px 13px",
-    borderRadius: "6px",
-    cursor: "pointer",
-  },
-
-  total: {
-    background: "white",
-    padding: "25px",
-    borderRadius: "15px",
-    marginTop: "20px",
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "center",
-    gap: "20px",
-    flexWrap: "wrap",
-  },
-
-  orderButton: {
-    padding: "14px 25px",
+  checkoutButton: {
+    width: "100%",
     background: "#2e7d32",
-    color: "white",
+    color: "#ffffff",
     border: "none",
+    padding: "15px",
     borderRadius: "8px",
-    cursor: "pointer",
     fontSize: "16px",
     fontWeight: "bold",
+    cursor: "pointer",
+    marginBottom: "12px",
   },
+
+  continueButton: {
+    width: "100%",
+    background: "#ffffff",
+    color: "#2e7d32",
+    border:
+      "1px solid #2e7d32",
+    padding: "13px",
+    borderRadius: "8px",
+    fontSize: "15px",
+    cursor: "pointer",
+  },
+
+  emptyContainer: {
+    maxWidth: "600px",
+    margin: "100px auto",
+    textAlign: "center",
+    padding: "40px 20px",
+  },
+
+  emptyIcon: {
+    fontSize: "70px",
+    marginBottom: "20px",
+  },
+
+  shopButton: {
+    marginTop: "20px",
+    background: "#2e7d32",
+    color: "#ffffff",
+    border: "none",
+    padding:
+      "14px 30px",
+    borderRadius: "8px",
+    fontSize: "16px",
+    cursor: "pointer",
+  },
+
+  loading: {
+    minHeight: "100vh",
+    display: "flex",
+    flexDirection: "column",
+    justifyContent: "center",
+    alignItems: "center",
+    background: "#f5f8f4",
+  },
+
+  loadingIcon: {
+    fontSize: "60px",
+  },
+
+  errorIcon: {
+    fontSize: "50px",
+  },
+
+  retryButton: {
+    marginTop: "15px",
+    padding:
+      "12px 25px",
+    border: "none",
+    borderRadius: "7px",
+    background: "#2e7d32",
+    color: "white",
+    cursor: "pointer",
+  },
+
 };
 
 export default Cart;

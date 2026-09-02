@@ -1,521 +1,652 @@
-import React, { useEffect, useState } from "react";
+import React, {
+  useEffect,
+  useState,
+} from "react";
+
 import axios from "axios";
-import { Link, useNavigate } from "react-router-dom";
+
+import {
+  Link,
+  useNavigate,
+} from "react-router-dom";
 
 function Products() {
 
-  const navigate = useNavigate();
+  const navigate =
+    useNavigate();
 
-const API_URL =
-  process.env.REACT_APP_API_URL ||
-  "https://diary-88q0.onrender.com";
-  const [products, setProducts] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
-  const [message, setMessage] = useState("");
+  // ==================================================
+  // API URL
+  // ==================================================
 
-  // ==========================================
-  // GET PRODUCTS FROM MYSQL
-  // ==========================================
+  const API_URL =
+    process.env.REACT_APP_API_URL ||
+    "http://localhost:5000";
 
-  useEffect(() => {
+  // ==================================================
+  // STATE
+  // ==================================================
 
-    const getProducts = async () => {
+  const [products, setProducts] =
+    useState([]);
+
+  const [loading, setLoading] =
+    useState(true);
+
+  const [error, setError] =
+    useState("");
+
+  const [cartLoading, setCartLoading] =
+    useState(null);
+
+  // ==================================================
+  // GET PRODUCTS
+  // ==================================================
+
+  const fetchProducts =
+    async () => {
 
       try {
 
-        console.log("=================================");
-        console.log("GETTING PRODUCTS FROM MYSQL");
+        setLoading(true);
 
-        const response = await axios.get(
-          `${API_URL}/api/products`
-        );
+        setError("");
 
         console.log(
-          "PRODUCT RESPONSE:",
+          "Fetching products..."
+        );
+
+        const response =
+          await axios.get(
+            `${API_URL}/api/products`
+          );
+
+        console.log(
+          "Products received:",
           response.data
         );
 
-        if (response.data.success) {
-
-          setProducts(
-            response.data.products || []
-          );
-
-        } else {
-
-          setError(
-            response.data.message ||
-            "Failed to load products"
-          );
-        }
+        setProducts(
+          Array.isArray(response.data)
+            ? response.data
+            : []
+        );
 
       } catch (error) {
 
         console.error(
-          "❌ GET PRODUCTS ERROR:",
+          "GET PRODUCTS ERROR:",
           error
         );
 
         setError(
           error.response?.data?.message ||
-          "Failed to connect to server"
+          "Failed to load products"
         );
 
       } finally {
 
         setLoading(false);
+
       }
+
     };
 
-    getProducts();
+  // ==================================================
+  // LOAD PRODUCTS
+  // ==================================================
+
+  useEffect(() => {
+
+    fetchProducts();
 
   }, []);
 
-
-  // ==========================================
+  // ==================================================
   // ADD TO CART
-  // ==========================================
+  // ==================================================
 
-  const addToCart = async (product) => {
+  const addToCart =
+    async (productId) => {
 
-    try {
+      try {
 
-      const user = JSON.parse(
-        localStorage.getItem("user")
-      );
+        const token =
+          localStorage.getItem(
+            "token"
+          );
 
-      if (!user || !user.id) {
+        const userData =
+          localStorage.getItem(
+            "user"
+          );
 
-        alert("Please login first.");
+        if (!token || !userData) {
 
-        navigate("/login");
+          alert(
+            "Please login to add products to cart."
+          );
 
-        return;
-      }
+          navigate("/login");
 
-      console.log("=================================");
-      console.log("ADDING PRODUCT TO CART");
-      console.log("User:", user.id);
-      console.log("Product:", product.id);
+          return;
 
-
-      const response = await axios.post(
-        `${API_URL}/api/cart`,
-        {
-          userId: user.id,
-          productId: product.id,
-          quantity: 1,
         }
-      );
 
+        const user =
+          JSON.parse(userData);
 
-      if (response.data.success) {
+        if (!user?.id) {
 
-        setMessage(
-          `${product.name} added to cart!`
+          alert(
+            "User information is missing. Please login again."
+          );
+
+          localStorage.removeItem(
+            "token"
+          );
+
+          localStorage.removeItem(
+            "user"
+          );
+
+          navigate("/login");
+
+          return;
+
+        }
+
+        setCartLoading(
+          productId
         );
 
-        setTimeout(() => {
-          setMessage("");
-        }, 2000);
+        const response =
+          await axios.post(
 
-      } else {
+            `${API_URL}/api/cart`,
+
+            {
+              userId:
+                user.id,
+
+              productId:
+                productId,
+
+              quantity:
+                1,
+            },
+
+            {
+              headers: {
+                Authorization:
+                  `Bearer ${token}`,
+
+                "Content-Type":
+                  "application/json",
+              },
+            }
+
+          );
+
+        console.log(
+          "Cart response:",
+          response.data
+        );
 
         alert(
-          response.data.message ||
-          "Failed to add product"
+          "Product added to cart successfully!"
         );
+
+      } catch (error) {
+
+        console.error(
+          "ADD TO CART ERROR:",
+          error
+        );
+
+        if (
+          error.response?.status === 401
+        ) {
+
+          alert(
+            "Session expired. Please login again."
+          );
+
+          localStorage.removeItem(
+            "token"
+          );
+
+          localStorage.removeItem(
+            "user"
+          );
+
+          navigate("/login");
+
+          return;
+
+        }
+
+        alert(
+          error.response?.data?.message ||
+          "Failed to add product to cart"
+        );
+
+      } finally {
+
+        setCartLoading(null);
+
       }
 
-    } catch (error) {
+    };
 
-      console.error(
-        "❌ ADD TO CART ERROR:",
-        error
-      );
-
-      alert(
-        error.response?.data?.message ||
-        "Failed to add product to cart"
-      );
-    }
-  };
-
-
-  // ==========================================
+  // ==================================================
   // LOADING
-  // ==========================================
+  // ==================================================
 
   if (loading) {
 
     return (
-      <div style={styles.center}>
-        <h2>Loading products...</h2>
+
+      <div
+        style={{
+          minHeight: "100vh",
+          display: "flex",
+          justifyContent: "center",
+          alignItems: "center",
+          fontSize: "22px",
+        }}
+      >
+
+        Loading products...
+
       </div>
+
     );
+
   }
 
-
-  // ==========================================
+  // ==================================================
   // ERROR
-  // ==========================================
+  // ==================================================
 
   if (error) {
 
     return (
-      <div style={styles.center}>
 
-        <h2>❌ {error}</h2>
+      <div
+        style={{
+          minHeight: "100vh",
+          padding: "40px",
+          textAlign: "center",
+        }}
+      >
+
+        <h2>
+          Unable to load products
+        </h2>
+
+        <p>
+          {error}
+        </p>
 
         <button
-          onClick={() => window.location.reload()}
-          style={styles.retry}
+          onClick={fetchProducts}
+          style={{
+            padding:
+              "10px 20px",
+            cursor: "pointer",
+          }}
         >
-          Retry
+          Try Again
         </button>
 
       </div>
+
     );
+
   }
 
-
-  // ==========================================
-  // PRODUCTS PAGE
-  // ==========================================
+  // ==================================================
+  // UI
+  // ==================================================
 
   return (
-    <div style={styles.container}>
 
-      {/* HEADER */}
+    <div
+      style={{
+        minHeight: "100vh",
+        background:
+          "#f5f7f5",
+      }}
+    >
 
-      <div style={styles.header}>
+      {/* ============================================
+          NAVBAR
+      ============================================ */}
 
-        <div>
-          <h1>🥛 Dairy Products</h1>
+      <nav
+        style={{
+          background:
+            "#ffffff",
+          padding:
+            "18px 40px",
+          display: "flex",
+          justifyContent:
+            "space-between",
+          alignItems: "center",
+          boxShadow:
+            "0 2px 10px rgba(0,0,0,0.08)",
+        }}
+      >
 
-          <p>
-            Fresh products directly from our farm
-          </p>
-        </div>
+        <Link
+          to="/home"
+          style={{
+            textDecoration:
+              "none",
+            fontSize:
+              "24px",
+            fontWeight:
+              "bold",
+            color:
+              "#2e7d32",
+          }}
+        >
+          HARI FARMS
+        </Link>
 
-        <div>
+        <div
+          style={{
+            display: "flex",
+            gap: "20px",
+          }}
+        >
 
           <Link
-            to="/dashboard"
-            style={styles.dashboard}
+            to="/home"
+            style={{
+              textDecoration:
+                "none",
+              color:
+                "#333",
+            }}
           >
-            Dashboard
+            Home
           </Link>
 
           <Link
             to="/cart"
-            style={styles.cart}
+            style={{
+              textDecoration:
+                "none",
+              color:
+                "#333",
+            }}
           >
-            🛒 Cart
+            Cart 🛒
+          </Link>
+
+          <Link
+            to="/orders"
+            style={{
+              textDecoration:
+                "none",
+              color:
+                "#333",
+            }}
+          >
+            My Orders
           </Link>
 
         </div>
 
+      </nav>
+
+      {/* ============================================
+          HEADER
+      ============================================ */}
+
+      <div
+        style={{
+          textAlign:
+            "center",
+          padding:
+            "45px 20px 25px",
+        }}
+      >
+
+        <h1>
+          Our Products
+        </h1>
+
+        <p>
+          Fresh dairy products
+          from HARI FARMS
+        </p>
+
       </div>
 
+      {/* ============================================
+          PRODUCTS
+      ============================================ */}
 
-      {/* SUCCESS MESSAGE */}
+      <div
+        style={{
+          maxWidth:
+            "1200px",
+          margin:
+            "0 auto",
+          padding:
+            "20px",
+          display:
+            "grid",
+          gridTemplateColumns:
+            "repeat(auto-fit, minmax(250px, 1fr))",
+          gap:
+            "25px",
+        }}
+      >
 
-      {message && (
-        <div style={styles.message}>
-          ✅ {message}
-        </div>
-      )}
+        {products.length === 0 ? (
 
+          <div
+            style={{
+              gridColumn:
+                "1 / -1",
+              textAlign:
+                "center",
+              padding:
+                "50px",
+            }}
+          >
 
-      {/* PRODUCTS */}
+            <h2>
+              No products available
+            </h2>
 
-      {products.length === 0 ? (
+            <p>
+              Add products from
+              the admin dashboard.
+            </p>
 
-        <div style={styles.empty}>
+          </div>
 
-          <h2>
-            No products available
-          </h2>
+        ) : (
 
-          <p>
-            Products will appear here once they
-            are available in the database.
-          </p>
+          products.map(
+            (product) => (
 
-        </div>
+              <div
+                key={product.id}
+                style={{
+                  background:
+                    "#ffffff",
+                  borderRadius:
+                    "12px",
+                  padding:
+                    "20px",
+                  boxShadow:
+                    "0 3px 12px rgba(0,0,0,0.1)",
+                }}
+              >
 
-      ) : (
-
-        <div style={styles.grid}>
-
-          {products.map((product) => (
-
-            <div
-              key={product.id}
-              style={styles.card}
-            >
-
-              {/* IMAGE / EMOJI */}
-
-              <div style={styles.emoji}>
+                {/* IMAGE */}
 
                 {product.image ? (
 
                   <img
-                    src={product.image}
-                    alt={product.name}
-                    style={styles.productImage}
+                    src={
+                      product.image
+                    }
+                    alt={
+                      product.name
+                    }
+                    style={{
+                      width:
+                        "100%",
+                      height:
+                        "200px",
+                      objectFit:
+                        "cover",
+                      borderRadius:
+                        "10px",
+                    }}
+                    onError={(
+                      e
+                    ) => {
+
+                      e.target.style.display =
+                        "none";
+
+                    }}
                   />
 
                 ) : (
 
-                  product.emoji || "🥛"
+                  <div
+                    style={{
+                      height:
+                        "200px",
+                      display:
+                        "flex",
+                      justifyContent:
+                        "center",
+                      alignItems:
+                        "center",
+                      fontSize:
+                        "70px",
+                      background:
+                        "#f0f0f0",
+                      borderRadius:
+                        "10px",
+                    }}
+                  >
+
+                    {product.emoji ||
+                      "🥛"}
+
+                  </div>
 
                 )}
 
-              </div>
+                {/* NAME */}
 
+                <h2>
+                  {product.emoji}{" "}
+                  {product.name}
+                </h2>
 
-              <h2>
-                {product.name}
-              </h2>
+                {/* DESCRIPTION */}
 
+                <p>
+                  {product.description ||
+                    "Fresh dairy product"}
+                </p>
 
-              <p style={styles.unit}>
-                {product.unit}
-              </p>
+                {/* UNIT */}
 
+                <p>
+                  Unit:{" "}
+                  {product.unit ||
+                    "N/A"}
+                </p>
 
-              <p style={styles.description}>
-                {product.description}
-              </p>
+                {/* PRICE */}
 
+                <h3>
+                  ₹
+                  {Number(
+                    product.price
+                  ).toFixed(2)}
+                </h3>
 
-              <h3 style={styles.price}>
-                ₹
-                {Number(product.price).toFixed(2)}
-              </h3>
+                {/* STOCK */}
 
-
-              <p>
-                Stock:{" "}
-                <strong>
+                <p>
+                  Stock:{" "}
                   {product.stock}
-                </strong>
-              </p>
+                </p>
 
-
-              <div style={styles.buttons}>
-
-                <Link
-                  to={`/products/${product.id}`}
-                  style={styles.view}
-                >
-                  View Details
-                </Link>
-
+                {/* BUTTON */}
 
                 <button
                   onClick={() =>
-                    addToCart(product)
+                    addToCart(
+                      product.id
+                    )
                   }
                   disabled={
-                    Number(product.stock) <= 0
+                    product.stock <= 0 ||
+                    cartLoading ===
+                      product.id
                   }
                   style={{
-                    ...styles.button,
-                    opacity:
-                      Number(product.stock) <= 0
-                        ? 0.5
-                        : 1,
+                    width:
+                      "100%",
+                    padding:
+                      "12px",
+                    border:
+                      "none",
+                    borderRadius:
+                      "8px",
+                    background:
+                      product.stock <= 0
+                        ? "#aaa"
+                        : "#2e7d32",
+                    color:
+                      "#ffffff",
+                    cursor:
+                      product.stock <= 0
+                        ? "not-allowed"
+                        : "pointer",
+                    fontSize:
+                      "16px",
                   }}
                 >
 
-                  {Number(product.stock) <= 0
+                  {cartLoading ===
+                  product.id
+                    ? "Adding..."
+                    : product.stock <=
+                        0
                     ? "Out of Stock"
-                    : "🛒 Add to Cart"}
+                    : "Add to Cart 🛒"}
 
                 </button>
 
               </div>
 
-            </div>
+            )
+          )
 
-          ))}
+        )}
 
-        </div>
-
-      )}
-
-
-      <button
-        onClick={() =>
-          navigate("/dashboard")
-        }
-        style={styles.back}
-      >
-        ← Back to Dashboard
-      </button>
+      </div>
 
     </div>
+
   );
+
 }
-
-
-// ==========================================
-// STYLES
-// ==========================================
-
-const styles = {
-
-  container: {
-    minHeight: "100vh",
-    padding: "40px",
-    background: "#f6fbf7",
-    boxSizing: "border-box",
-  },
-
-  center: {
-    minHeight: "100vh",
-    display: "flex",
-    flexDirection: "column",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-
-  header: {
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "center",
-    flexWrap: "wrap",
-    gap: "20px",
-  },
-
-  dashboard: {
-    background: "#2e7d32",
-    color: "white",
-    padding: "12px 16px",
-    borderRadius: "8px",
-    textDecoration: "none",
-    marginRight: "10px",
-  },
-
-  cart: {
-    background: "#f57c00",
-    color: "white",
-    padding: "12px 16px",
-    borderRadius: "8px",
-    textDecoration: "none",
-  },
-
-  message: {
-    background: "#dff7e5",
-    color: "#1b5e20",
-    padding: "15px",
-    marginTop: "20px",
-    borderRadius: "10px",
-  },
-
-  grid: {
-    display: "grid",
-    gridTemplateColumns:
-      "repeat(auto-fit, minmax(250px, 1fr))",
-    gap: "25px",
-    marginTop: "30px",
-  },
-
-  card: {
-    background: "white",
-    padding: "25px",
-    borderRadius: "18px",
-    textAlign: "center",
-    boxShadow:
-      "0 5px 20px rgba(0,0,0,0.08)",
-  },
-
-  emoji: {
-    height: "130px",
-    display: "flex",
-    justifyContent: "center",
-    alignItems: "center",
-    fontSize: "75px",
-  },
-
-  productImage: {
-    maxWidth: "120px",
-    maxHeight: "120px",
-    objectFit: "contain",
-  },
-
-  unit: {
-    color: "#777",
-    fontWeight: "bold",
-  },
-
-  description: {
-    color: "#666",
-    minHeight: "45px",
-  },
-
-  price: {
-    color: "#2e7d32",
-    fontSize: "22px",
-  },
-
-  buttons: {
-    display: "flex",
-    flexDirection: "column",
-    gap: "10px",
-  },
-
-  view: {
-    padding: "10px",
-    borderRadius: "8px",
-    background: "#eeeeee",
-    color: "#333",
-    textDecoration: "none",
-    fontWeight: "bold",
-  },
-
-  button: {
-    width: "100%",
-    padding: "12px",
-    background: "#2e7d32",
-    color: "white",
-    border: "none",
-    borderRadius: "10px",
-    cursor: "pointer",
-    fontWeight: "bold",
-  },
-
-  empty: {
-    marginTop: "40px",
-    background: "white",
-    padding: "50px",
-    textAlign: "center",
-    borderRadius: "15px",
-  },
-
-  retry: {
-    padding: "12px 25px",
-    background: "#2e7d32",
-    color: "white",
-    border: "none",
-    borderRadius: "8px",
-    cursor: "pointer",
-  },
-
-  back: {
-    marginTop: "30px",
-    padding: "12px 20px",
-    border: "none",
-    background: "#555",
-    color: "white",
-    borderRadius: "8px",
-    cursor: "pointer",
-  },
-};
 
 export default Products;

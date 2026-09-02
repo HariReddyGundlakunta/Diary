@@ -1,16 +1,38 @@
 const express = require("express");
 const cors = require("cors");
+
 require("dotenv").config();
 
 const db = require("./db");
-const authRoutes = require("./routes/AuthRoutes");
+
+// ==================================================
+// ROUTES
+// ==================================================
+
+const authRoutes =
+  require("./routes/AuthRoutes");
+
+const productRoutes =
+  require("./routes/productRoutes");
+
+const cartRoutes =
+  require("./routes/cartRoutes");
+
+const orderRoutes =
+  require("./routes/orderRoutes");
+
+// ==================================================
+// APP
+// ==================================================
 
 const app = express();
 
+const PORT =
+  process.env.PORT || 5000;
 
-// ======================================================
+// ==================================================
 // CORS
-// ======================================================
+// ==================================================
 
 app.use(
   cors({
@@ -18,166 +40,167 @@ app.use(
       "http://localhost:3000",
       "https://farm-self-six.vercel.app",
     ],
-    credentials: true,
+
+    methods: [
+      "GET",
+      "POST",
+      "PUT",
+      "DELETE",
+      "OPTIONS",
+    ],
+
+    allowedHeaders: [
+      "Content-Type",
+      "Authorization",
+    ],
   })
 );
 
+// ==================================================
+// BODY PARSER
+// ==================================================
 
-// ======================================================
-// MIDDLEWARE
-// ======================================================
+app.use(
+  express.json()
+);
 
-app.use(express.json());
+app.use(
+  express.urlencoded({
+    extended: true,
+  })
+);
 
-
-// ======================================================
-// HOME / HEALTH CHECK
-// ======================================================
+// ==================================================
+// HOME
+// ==================================================
 
 app.get("/", (req, res) => {
-  res.status(200).json({
-    message: "Dairy Farm API is running",
+
+  res.json({
+    success: true,
+    message:
+      "HARI FARMS API is running",
   });
+
 });
 
+// ==================================================
+// TEST DATABASE
+// ==================================================
 
-// ======================================================
-// DATABASE TEST
-// ======================================================
+app.get(
+  "/api/test-db",
+  async (req, res) => {
 
-app.get("/api/test-db", async (req, res) => {
-  try {
-    const [rows] = await db.execute(
-      "SELECT 1 AS connected"
-    );
+    try {
 
-    res.status(200).json({
-      success: true,
-      message: "Database connected successfully",
-      database: process.env.DB_NAME,
-      result: rows[0].connected,
-    });
+      const [result] =
+        await db.query(
+          "SELECT 1 AS test"
+        );
 
-  } catch (error) {
-    console.error(
-      "DATABASE TEST ERROR:",
-      error
-    );
+      res.json({
+        success: true,
+        message:
+          "Database connected successfully",
+        result,
+      });
 
-    res.status(500).json({
-      success: false,
-      message: "Database connection failed",
-      error: error.message,
-    });
+    } catch (error) {
+
+      console.error(
+        "DATABASE ERROR:",
+        error
+      );
+
+      res.status(500).json({
+        success: false,
+        message:
+          "Database connection failed",
+        error:
+          error.message,
+      });
+
+    }
+
   }
-});
+);
 
-
-// ======================================================
-// AUTH ROUTES
-// ======================================================
+// ==================================================
+// API ROUTES
+// ==================================================
 
 app.use(
   "/api/auth",
   authRoutes
 );
 
+app.use(
+  "/api/products",
+  productRoutes
+);
 
-// ======================================================
-// 404 HANDLER
-// ======================================================
+app.use(
+  "/api/cart",
+  cartRoutes
+);
 
-app.use((req, res) => {
-  res.status(404).json({
-    message: "API route not found",
-    path: req.originalUrl,
-  });
-});
+app.use(
+  "/api/orders",
+  orderRoutes
+);
 
+// ==================================================
+// 404
+// ==================================================
 
-// ======================================================
-// ERROR HANDLER
-// ======================================================
-
-app.use((err, req, res, next) => {
-  console.error(
-    "SERVER ERROR:",
-    err
-  );
-
-  res.status(500).json({
-    message: "Internal server error",
-  });
-});
-
-
-// ======================================================
-// START SERVER
-// ======================================================
-
-const PORT =
-  process.env.PORT || 5000;
-
-
-async function startServer() {
-  try {
+app.use(
+  (req, res) => {
 
     console.log(
-      "================================="
+      "API ROUTE NOT FOUND:",
+      req.method,
+      req.originalUrl
     );
 
-    console.log(
-      "🔄 Testing database connection..."
-    );
+    res.status(404).json({
 
-    await db.testConnection();
+      success: false,
 
-    console.log(
-      "✅ Database test completed"
-    );
+      message:
+        "API route not found",
 
-    console.log(
-      "================================="
-    );
-
-
-    app.listen(PORT, () => {
-
-      console.log(
-        `🚀 Server running on port ${PORT}`
-      );
-
-      console.log(
-        `🌐 http://localhost:${PORT}`
-      );
+      path:
+        req.originalUrl,
 
     });
 
-  } catch (error) {
-
-    console.error(
-      "================================="
-    );
-
-    console.error(
-      "❌ SERVER NOT STARTED"
-    );
-
-    console.error(
-      "Database connection failed."
-    );
-
-    console.error(
-      error.message
-    );
-
-    console.error(
-      "================================="
-    );
-
-    process.exit(1);
   }
-}
+);
 
+// ==================================================
+// START SERVER
+// ==================================================
 
-startServer();
+app.listen(
+  PORT,
+  () => {
+
+    console.log(
+      "================================="
+    );
+
+    console.log(
+      `🚀 Server running on port ${PORT}`
+    );
+
+    console.log(
+      `🌐 http://localhost:${PORT}`
+    );
+
+    console.log(
+      "================================="
+    );
+
+  }
+);

@@ -1,291 +1,779 @@
 const express = require("express");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
-const db = require("../db");
 
 const router = express.Router();
 
+const db = require("../db");
 
-// ======================================================
+// ==================================================
+// JWT SECRET
+// ==================================================
+
+const JWT_SECRET =
+  process.env.JWT_SECRET ||
+  "hari_farms_secret_key_2026";
+
+// ==================================================
 // REGISTER
-// ======================================================
+// ==================================================
 
-router.post("/register", async (req, res) => {
-  try {
-    const {
-      name,
-      email,
-      password,
-      confirmPassword,
-    } = req.body;
+router.post(
+  "/register",
+  async (req, res) => {
 
-    console.log("=================================");
-    console.log("REGISTER REQUEST");
-    console.log("Email:", email);
+    try {
 
-    // Check required fields
-    if (!name || !email || !password) {
-      return res.status(400).json({
-        message: "Name, email and password are required",
-      });
-    }
+      console.log(
+        "================================="
+      );
 
-    // Check confirm password
-    if (
-      confirmPassword !== undefined &&
-      password !== confirmPassword
-    ) {
-      return res.status(400).json({
-        message: "Passwords do not match",
-      });
-    }
+      console.log(
+        "POST /api/auth/register"
+      );
 
-    const cleanName = name.trim();
-    const cleanEmail = email.trim().toLowerCase();
+      console.log(
+        "================================="
+      );
 
-    // Check if email already exists
-    const [existingUsers] = await db.execute(
-      `SELECT id
-       FROM users
-       WHERE LOWER(TRIM(email)) = ?
-       LIMIT 1`,
-      [cleanEmail]
-    );
-
-    if (existingUsers.length > 0) {
-      console.log("❌ EMAIL ALREADY EXISTS");
-
-      return res.status(409).json({
-        message: "Email already registered",
-      });
-    }
-
-    // Hash password
-    const hashedPassword = await bcrypt.hash(
-      password,
-      10
-    );
-
-    console.log("Password hashed successfully");
-
-    // Default role
-    const role = "user";
-
-    // Insert user
-    const [result] = await db.execute(
-      `INSERT INTO users
-       (name, email, password, role)
-       VALUES (?, ?, ?, ?)`,
-      [
-        cleanName,
-        cleanEmail,
-        hashedPassword,
-        role,
-      ]
-    );
-
-    console.log(
-      "✅ USER REGISTERED:",
-      result.insertId
-    );
-
-    console.log("=================================");
-
-    return res.status(201).json({
-      message: "Registration successful",
-      user: {
-        id: result.insertId,
-        name: cleanName,
-        email: cleanEmail,
-        role,
-      },
-    });
-
-  } catch (error) {
-    console.error("❌ REGISTER ERROR:");
-    console.error(error);
-
-    return res.status(500).json({
-      message: "Server error during registration",
-      error: error.message,
-    });
-  }
-});
-
-
-// ======================================================
-// LOGIN
-// ======================================================
-
-router.post("/login", async (req, res) => {
-  try {
-    const {
-      email,
-      password,
-    } = req.body;
-
-    console.log("=================================");
-    console.log("LOGIN REQUEST");
-    console.log("Email:", email);
-    console.log(
-      "Password provided:",
-      !!password
-    );
-
-    // Check input
-    if (!email || !password) {
-      return res.status(400).json({
-        message: "Email and password are required",
-      });
-    }
-
-    const cleanEmail = email
-      .trim()
-      .toLowerCase();
-
-    console.log(
-      "Searching user:",
-      cleanEmail
-    );
-
-    // Find user
-    const [users] = await db.execute(
-      `SELECT
-        id,
+      const {
         name,
         email,
         password,
-        role
-       FROM users
-       WHERE LOWER(TRIM(email)) = ?
-       LIMIT 1`,
-      [cleanEmail]
-    );
+        confirmPassword,
+      } = req.body;
 
-    console.log(
-      "USER FOUND:",
-      users.length
-    );
+      // ------------------------------------------
+      // VALIDATION
+      // ------------------------------------------
 
-    // User doesn't exist
-    if (users.length === 0) {
-      console.log("❌ USER NOT FOUND");
+      if (
+        !name ||
+        !email ||
+        !password
+      ) {
 
-      return res.status(401).json({
-        message: "Invalid email or password",
-      });
-    }
+        return res.status(400).json({
+          success: false,
+          message:
+            "Name, email and password are required",
+        });
 
-    const user = users[0];
-
-    console.log(
-      "User ID:",
-      user.id
-    );
-
-    console.log(
-      "User email:",
-      user.email
-    );
-
-    console.log(
-      "User role:",
-      user.role
-    );
-
-    // Check password exists
-    if (!user.password) {
-      console.log(
-        "❌ PASSWORD IS EMPTY"
-      );
-
-      return res.status(401).json({
-        message: "Invalid email or password",
-      });
-    }
-
-    // Compare password
-    const passwordMatch =
-      await bcrypt.compare(
-        password,
-        user.password
-      );
-
-    console.log(
-      "PASSWORD MATCH:",
-      passwordMatch
-    );
-
-    // Wrong password
-    if (!passwordMatch) {
-      console.log(
-        "❌ PASSWORD DOES NOT MATCH"
-      );
-
-      return res.status(401).json({
-        message: "Invalid email or password",
-      });
-    }
-
-    // Check JWT secret
-    if (!process.env.JWT_SECRET) {
-      console.error(
-        "❌ JWT_SECRET is missing"
-      );
-
-      return res.status(500).json({
-        message:
-          "JWT_SECRET is not configured",
-      });
-    }
-
-    // Create JWT
-    const token = jwt.sign(
-      {
-        id: user.id,
-        email: user.email,
-        role: user.role,
-      },
-      process.env.JWT_SECRET,
-      {
-        expiresIn: "7d",
       }
-    );
 
-    console.log(
-      "✅ LOGIN SUCCESS:",
-      user.email
-    );
+      // ------------------------------------------
+      // PASSWORD CONFIRMATION
+      // ------------------------------------------
 
-    console.log("=================================");
+      if (
+        confirmPassword !== undefined &&
+        password !== confirmPassword
+      ) {
 
-    return res.status(200).json({
-      message: "Login successful",
+        return res.status(400).json({
+          success: false,
+          message:
+            "Passwords do not match",
+        });
 
-      token,
+      }
 
-      user: {
-        id: user.id,
-        name: user.name,
-        email: user.email,
-        role: user.role,
-      },
-    });
+      // ------------------------------------------
+      // CLEAN VALUES
+      // ------------------------------------------
 
-  } catch (error) {
-    console.error(
-      "❌ LOGIN DATABASE ERROR:"
-    );
+      const cleanName =
+        name.trim();
 
-    console.error(error);
+      const cleanEmail =
+        email.trim().toLowerCase();
 
-    return res.status(500).json({
-      message:
-        "Server error during login",
-      error: error.message,
-    });
+      // ------------------------------------------
+      // CHECK EMAIL
+      // ------------------------------------------
+
+      const [existingUsers] =
+        await db.query(
+          `
+          SELECT id
+          FROM users
+          WHERE LOWER(email) = ?
+          LIMIT 1
+          `,
+          [cleanEmail]
+        );
+
+      if (
+        existingUsers.length > 0
+      ) {
+
+        return res.status(409).json({
+          success: false,
+          message:
+            "Email is already registered",
+        });
+
+      }
+
+      // ------------------------------------------
+      // HASH PASSWORD
+      // ------------------------------------------
+
+      const hashedPassword =
+        await bcrypt.hash(
+          password,
+          10
+        );
+
+      // ------------------------------------------
+      // CHECK ROLE COLUMN
+      // ------------------------------------------
+
+      const [userColumns] =
+        await db.query(
+          `
+          SELECT COLUMN_NAME
+          FROM INFORMATION_SCHEMA.COLUMNS
+          WHERE TABLE_SCHEMA = DATABASE()
+            AND TABLE_NAME = 'users'
+          `
+        );
+
+      const columnNames =
+        userColumns.map(
+          (row) =>
+            row.COLUMN_NAME.toLowerCase()
+        );
+
+      // ------------------------------------------
+      // INSERT USER
+      // ------------------------------------------
+
+      let result;
+
+      if (
+        columnNames.includes("role")
+      ) {
+
+        [
+          result
+        ] = await db.query(
+          `
+          INSERT INTO users
+          (
+            name,
+            email,
+            password,
+            role
+          )
+          VALUES (?, ?, ?, ?)
+          `,
+          [
+            cleanName,
+            cleanEmail,
+            hashedPassword,
+            "user",
+          ]
+        );
+
+      } else {
+
+        [
+          result
+        ] = await db.query(
+          `
+          INSERT INTO users
+          (
+            name,
+            email,
+            password
+          )
+          VALUES (?, ?, ?)
+          `,
+          [
+            cleanName,
+            cleanEmail,
+            hashedPassword,
+          ]
+        );
+
+      }
+
+      console.log(
+        "User registered:",
+        result.insertId
+      );
+
+      // ------------------------------------------
+      // RESPONSE
+      // ------------------------------------------
+
+      res.status(201).json({
+
+        success: true,
+
+        message:
+          "Registration successful",
+
+        user: {
+          id:
+            result.insertId,
+
+          name:
+            cleanName,
+
+          email:
+            cleanEmail,
+
+          role:
+            "user",
+        },
+
+      });
+
+    } catch (error) {
+
+      console.error(
+        "REGISTER ERROR:",
+        error
+      );
+
+      res.status(500).json({
+
+        success: false,
+
+        message:
+          "Registration failed",
+
+        error:
+          error.message,
+
+      });
+
+    }
+
   }
-});
+);
 
+// ==================================================
+// LOGIN
+// ==================================================
+
+router.post(
+  "/login",
+  async (req, res) => {
+
+    try {
+
+      console.log(
+        "================================="
+      );
+
+      console.log(
+        "POST /api/auth/login"
+      );
+
+      console.log(
+        "================================="
+      );
+
+      const {
+        email,
+        password,
+      } = req.body;
+
+      // ------------------------------------------
+      // VALIDATION
+      // ------------------------------------------
+
+      if (
+        !email ||
+        !password
+      ) {
+
+        return res.status(400).json({
+          success: false,
+          message:
+            "Email and password are required",
+        });
+
+      }
+
+      // ------------------------------------------
+      // CLEAN EMAIL
+      // ------------------------------------------
+
+      const cleanEmail =
+        email.trim().toLowerCase();
+
+      // ------------------------------------------
+      // FIND USER
+      // ------------------------------------------
+
+      const [users] =
+        await db.query(
+          `
+          SELECT *
+          FROM users
+          WHERE LOWER(email) = ?
+          LIMIT 1
+          `,
+          [cleanEmail]
+        );
+
+      if (
+        users.length === 0
+      ) {
+
+        return res.status(401).json({
+          success: false,
+          message:
+            "Invalid email or password",
+        });
+
+      }
+
+      const user =
+        users[0];
+
+      // ------------------------------------------
+      // CHECK PASSWORD
+      // ------------------------------------------
+
+      const passwordMatch =
+        await bcrypt.compare(
+          password,
+          user.password
+        );
+
+      if (!passwordMatch) {
+
+        return res.status(401).json({
+          success: false,
+          message:
+            "Invalid email or password",
+        });
+
+      }
+
+      // ------------------------------------------
+      // USER ROLE
+      // ------------------------------------------
+
+      const role =
+        String(
+          user.role || "user"
+        ).toLowerCase();
+
+      // ------------------------------------------
+      // CREATE TOKEN
+      // ------------------------------------------
+
+      const token =
+        jwt.sign(
+          {
+            id:
+              user.id,
+
+            email:
+              user.email,
+
+            role:
+              role,
+          },
+
+          JWT_SECRET,
+
+          {
+            expiresIn:
+              "7d",
+          }
+        );
+
+      // ------------------------------------------
+      // USER RESPONSE
+      // ------------------------------------------
+
+      const userResponse = {
+
+        id:
+          user.id,
+
+        name:
+          user.name,
+
+        email:
+          user.email,
+
+        role:
+          role,
+
+      };
+
+      console.log(
+        "Login successful:",
+        userResponse
+      );
+
+      // ------------------------------------------
+      // RESPONSE
+      // ------------------------------------------
+
+      res.status(200).json({
+
+        success: true,
+
+        message:
+          "Login successful",
+
+        token:
+
+          token,
+
+        user:
+          userResponse,
+
+      });
+
+    } catch (error) {
+
+      console.error(
+        "LOGIN ERROR:",
+        error
+      );
+
+      res.status(500).json({
+
+        success: false,
+
+        message:
+          "Login failed",
+
+        error:
+          error.message,
+
+      });
+
+    }
+
+  }
+);
+
+// ==================================================
+// ADMIN DASHBOARD STATISTICS
+// ==================================================
+
+router.get(
+  "/admin/stats",
+  async (req, res) => {
+
+    try {
+
+      console.log(
+        "================================="
+      );
+
+      console.log(
+        "GET /api/auth/admin/stats"
+      );
+
+      console.log(
+        "Loading admin statistics..."
+      );
+
+      console.log(
+        "================================="
+      );
+
+      // ==================================================
+      // TOTAL PRODUCTS
+      // ==================================================
+
+      const [
+        productRows
+      ] = await db.query(
+        `
+        SELECT COUNT(*) AS totalProducts
+        FROM products
+        `
+      );
+
+      const totalProducts =
+        Number(
+          productRows[0]
+            ?.totalProducts || 0
+        );
+
+      // ==================================================
+      // TOTAL ORDERS
+      // ==================================================
+
+      const [
+        orderRows
+      ] = await db.query(
+        `
+        SELECT COUNT(*) AS totalOrders
+        FROM orders
+        `
+      );
+
+      const totalOrders =
+        Number(
+          orderRows[0]
+            ?.totalOrders || 0
+        );
+
+      // ==================================================
+      // TOTAL CUSTOMERS
+      // ==================================================
+
+      let totalCustomers = 0;
+
+      // Get users table columns
+      const [
+        userColumns
+      ] = await db.query(
+        `
+        SELECT COLUMN_NAME
+        FROM INFORMATION_SCHEMA.COLUMNS
+        WHERE TABLE_SCHEMA = DATABASE()
+          AND TABLE_NAME = 'users'
+        `
+      );
+
+      const usersColumnNames =
+        userColumns.map(
+          (row) =>
+            row.COLUMN_NAME.toLowerCase()
+        );
+
+      // ------------------------------------------
+      // IF ROLE COLUMN EXISTS
+      // ------------------------------------------
+
+      if (
+        usersColumnNames.includes(
+          "role"
+        )
+      ) {
+
+        const [
+          customerRows
+        ] = await db.query(
+          `
+          SELECT COUNT(*) AS totalCustomers
+          FROM users
+          WHERE LOWER(
+            COALESCE(role, 'user')
+          ) <> 'admin'
+          `
+        );
+
+        totalCustomers =
+          Number(
+            customerRows[0]
+              ?.totalCustomers || 0
+          );
+
+      } else {
+
+        // ----------------------------------------
+        // NO ROLE COLUMN
+        // ----------------------------------------
+
+        const [
+          customerRows
+        ] = await db.query(
+          `
+          SELECT COUNT(*) AS totalCustomers
+          FROM users
+          `
+        );
+
+        totalCustomers =
+          Number(
+            customerRows[0]
+              ?.totalCustomers || 0
+          );
+
+      }
+
+      // ==================================================
+      // REVENUE
+      // ==================================================
+
+      // Find which column contains order total
+      const [
+        orderColumns
+      ] = await db.query(
+        `
+        SELECT COLUMN_NAME
+        FROM INFORMATION_SCHEMA.COLUMNS
+        WHERE TABLE_SCHEMA = DATABASE()
+          AND TABLE_NAME = 'orders'
+        `
+      );
+
+      const ordersColumnNames =
+        orderColumns.map(
+          (row) =>
+            row.COLUMN_NAME.toLowerCase()
+        );
+
+      let revenue = 0;
+
+      // Possible total column names
+      const possibleRevenueColumns = [
+        "total",
+        "total_amount",
+        "totalamount",
+        "amount",
+        "order_total",
+      ];
+
+      let revenueColumn = null;
+
+      for (
+        const column
+        of possibleRevenueColumns
+      ) {
+
+        if (
+          ordersColumnNames.includes(
+            column
+          )
+        ) {
+
+          revenueColumn =
+            column;
+
+          break;
+
+        }
+
+      }
+
+      // ------------------------------------------
+      // CALCULATE REVENUE
+      // ------------------------------------------
+
+      if (
+        revenueColumn
+      ) {
+
+        const [
+          revenueRows
+        ] = await db.query(
+          `
+          SELECT
+            COALESCE(
+              SUM(
+                COALESCE(
+                  \`${revenueColumn}\`,
+                  0
+                )
+              ),
+              0
+            ) AS revenue
+          FROM orders
+          `
+        );
+
+        revenue =
+          Number(
+            revenueRows[0]
+              ?.revenue || 0
+          );
+
+      }
+
+      // ==================================================
+      // FINAL STATS
+      // ==================================================
+
+      const stats = {
+
+        totalProducts:
+          totalProducts,
+
+        totalOrders:
+          totalOrders,
+
+        totalCustomers:
+          totalCustomers,
+
+        revenue:
+          revenue,
+
+      };
+
+      console.log(
+        "================================="
+      );
+
+      console.log(
+        "ADMIN DASHBOARD STATS:"
+      );
+
+      console.log(
+        stats
+      );
+
+      console.log(
+        "================================="
+      );
+
+      // ==================================================
+      // RESPONSE
+      // ==================================================
+
+      res.status(200).json({
+
+        success: true,
+
+        stats:
+
+          stats,
+
+      });
+
+    } catch (error) {
+
+      console.error(
+        "================================="
+      );
+
+      console.error(
+        "ADMIN STATS ERROR:"
+      );
+
+      console.error(
+        error
+      );
+
+      console.error(
+        "================================="
+      );
+
+      res.status(500).json({
+
+        success: false,
+
+        message:
+          "Failed to load admin statistics",
+
+        error:
+          error.message,
+
+      });
+
+    }
+
+  }
+);
+
+// ==================================================
+// EXPORT
+// ==================================================
 
 module.exports = router;
