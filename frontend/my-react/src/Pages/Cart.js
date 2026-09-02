@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, {  useCallback, useEffect, useState } from "react";
 import axios from "axios";
 import { Link, useNavigate } from "react-router-dom";
 
@@ -36,8 +36,8 @@ function Cart() {
   // GET CART FROM MYSQL
   // ==========================================
 
-  const loadCart = async () => {
-    try {
+const loadCart = useCallback(async () => {
+      try {
       setLoading(true);
       setError("");
 
@@ -101,15 +101,13 @@ function Cart() {
     } finally {
       setLoading(false);
     }
-  };
-
+  }, [navigate]);
   // ==========================================
   // LOAD CART
   // ==========================================
-
-  useEffect(() => {
-    loadCart();
-  }, []);
+useEffect(() => {
+  loadCart();
+}, [loadCart]);
 
   // ==========================================
   // UPDATE QUANTITY
