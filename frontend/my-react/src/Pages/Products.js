@@ -1,4 +1,5 @@
 import React, {
+  useCallback,
   useEffect,
   useState,
 } from "react";
@@ -44,7 +45,7 @@ function Products() {
   // ==================================================
 
   const fetchProducts =
-    async () => {
+    useCallback(async () => {
 
       try {
 
@@ -90,7 +91,7 @@ function Products() {
 
       }
 
-    };
+    }, [API_URL]);
 
   // ==================================================
   // LOAD PRODUCTS
@@ -100,7 +101,7 @@ function Products() {
 
     fetchProducts();
 
-  }, []);
+  }, [fetchProducts]);
 
   // ==================================================
   // ADD TO CART
@@ -133,8 +134,33 @@ function Products() {
 
         }
 
-        const user =
-          JSON.parse(userData);
+        let user;
+
+        try {
+
+          user =
+            JSON.parse(userData);
+
+        } catch (parseError) {
+
+          console.error(
+            "USER DATA ERROR:",
+            parseError
+          );
+
+          localStorage.removeItem(
+            "token"
+          );
+
+          localStorage.removeItem(
+            "user"
+          );
+
+          navigate("/login");
+
+          return;
+
+        }
 
         if (!user?.id) {
 
@@ -178,11 +204,13 @@ function Products() {
 
             {
               headers: {
+
                 Authorization:
                   `Bearer ${token}`,
 
                 "Content-Type":
                   "application/json",
+
               },
             }
 
@@ -249,11 +277,20 @@ function Products() {
 
       <div
         style={{
-          minHeight: "100vh",
-          display: "flex",
-          justifyContent: "center",
-          alignItems: "center",
-          fontSize: "22px",
+          minHeight:
+            "100vh",
+
+          display:
+            "flex",
+
+          justifyContent:
+            "center",
+
+          alignItems:
+            "center",
+
+          fontSize:
+            "22px",
         }}
       >
 
@@ -275,9 +312,14 @@ function Products() {
 
       <div
         style={{
-          minHeight: "100vh",
-          padding: "40px",
-          textAlign: "center",
+          minHeight:
+            "100vh",
+
+          padding:
+            "40px",
+
+          textAlign:
+            "center",
         }}
       >
 
@@ -290,11 +332,15 @@ function Products() {
         </p>
 
         <button
-          onClick={fetchProducts}
+          onClick={
+            fetchProducts
+          }
           style={{
             padding:
               "10px 20px",
-            cursor: "pointer",
+
+            cursor:
+              "pointer",
           }}
         >
           Try Again
@@ -314,7 +360,9 @@ function Products() {
 
     <div
       style={{
-        minHeight: "100vh",
+        minHeight:
+          "100vh",
+
         background:
           "#f5f7f5",
       }}
@@ -328,12 +376,19 @@ function Products() {
         style={{
           background:
             "#ffffff",
+
           padding:
             "18px 40px",
-          display: "flex",
+
+          display:
+            "flex",
+
           justifyContent:
             "space-between",
-          alignItems: "center",
+
+          alignItems:
+            "center",
+
           boxShadow:
             "0 2px 10px rgba(0,0,0,0.08)",
         }}
@@ -344,10 +399,13 @@ function Products() {
           style={{
             textDecoration:
               "none",
+
             fontSize:
               "24px",
+
             fontWeight:
               "bold",
+
             color:
               "#2e7d32",
           }}
@@ -357,8 +415,11 @@ function Products() {
 
         <div
           style={{
-            display: "flex",
-            gap: "20px",
+            display:
+              "flex",
+
+            gap:
+              "20px",
           }}
         >
 
@@ -367,6 +428,7 @@ function Products() {
             style={{
               textDecoration:
                 "none",
+
               color:
                 "#333",
             }}
@@ -379,6 +441,7 @@ function Products() {
             style={{
               textDecoration:
                 "none",
+
               color:
                 "#333",
             }}
@@ -391,6 +454,7 @@ function Products() {
             style={{
               textDecoration:
                 "none",
+
               color:
                 "#333",
             }}
@@ -410,6 +474,7 @@ function Products() {
         style={{
           textAlign:
             "center",
+
           padding:
             "45px 20px 25px",
         }}
@@ -434,14 +499,19 @@ function Products() {
         style={{
           maxWidth:
             "1200px",
+
           margin:
             "0 auto",
+
           padding:
             "20px",
+
           display:
             "grid",
+
           gridTemplateColumns:
             "repeat(auto-fit, minmax(250px, 1fr))",
+
           gap:
             "25px",
         }}
@@ -453,8 +523,10 @@ function Products() {
             style={{
               gridColumn:
                 "1 / -1",
+
               textAlign:
                 "center",
+
               padding:
                 "50px",
             }}
@@ -477,14 +549,20 @@ function Products() {
             (product) => (
 
               <div
-                key={product.id}
+                key={
+                  product.id
+                }
+
                 style={{
                   background:
                     "#ffffff",
+
                   borderRadius:
                     "12px",
+
                   padding:
                     "20px",
+
                   boxShadow:
                     "0 3px 12px rgba(0,0,0,0.1)",
                 }}
@@ -498,27 +576,33 @@ function Products() {
                     src={
                       product.image
                     }
+
                     alt={
                       product.name
                     }
+
                     style={{
                       width:
                         "100%",
+
                       height:
                         "200px",
+
                       objectFit:
                         "cover",
+
                       borderRadius:
                         "10px",
                     }}
-                    onError={(
-                      e
-                    ) => {
 
-                      e.target.style.display =
-                        "none";
+                    onError={
+                      (e) => {
 
-                    }}
+                        e.target.style.display =
+                          "none";
+
+                      }
+                    }
                   />
 
                 ) : (
@@ -527,23 +611,31 @@ function Products() {
                     style={{
                       height:
                         "200px",
+
                       display:
                         "flex",
+
                       justifyContent:
                         "center",
+
                       alignItems:
                         "center",
+
                       fontSize:
                         "70px",
+
                       background:
                         "#f0f0f0",
+
                       borderRadius:
                         "10px",
                     }}
                   >
 
-                    {product.emoji ||
-                      "🥛"}
+                    {
+                      product.emoji ||
+                      "🥛"
+                    }
 
                   </div>
 
@@ -552,23 +644,31 @@ function Products() {
                 {/* NAME */}
 
                 <h2>
-                  {product.emoji}{" "}
-                  {product.name}
+                  {
+                    product.emoji
+                  }{" "}
+                  {
+                    product.name
+                  }
                 </h2>
 
                 {/* DESCRIPTION */}
 
                 <p>
-                  {product.description ||
-                    "Fresh dairy product"}
+                  {
+                    product.description ||
+                    "Fresh dairy product"
+                  }
                 </p>
 
                 {/* UNIT */}
 
                 <p>
                   Unit:{" "}
-                  {product.unit ||
-                    "N/A"}
+                  {
+                    product.unit ||
+                    "N/A"
+                  }
                 </p>
 
                 {/* PRICE */}
@@ -584,7 +684,9 @@ function Products() {
 
                 <p>
                   Stock:{" "}
-                  {product.stock}
+                  {
+                    product.stock
+                  }
                 </p>
 
                 {/* BUTTON */}
@@ -595,42 +697,64 @@ function Products() {
                       product.id
                     )
                   }
+
                   disabled={
-                    product.stock <= 0 ||
+                    Number(
+                      product.stock
+                    ) <= 0 ||
                     cartLoading ===
                       product.id
                   }
+
                   style={{
                     width:
                       "100%",
+
                     padding:
                       "12px",
+
                     border:
                       "none",
+
                     borderRadius:
                       "8px",
+
                     background:
-                      product.stock <= 0
+                      Number(
+                        product.stock
+                      ) <= 0
                         ? "#aaa"
                         : "#2e7d32",
+
                     color:
                       "#ffffff",
+
                     cursor:
-                      product.stock <= 0
+                      Number(
+                        product.stock
+                      ) <= 0
                         ? "not-allowed"
                         : "pointer",
+
                     fontSize:
                       "16px",
                   }}
                 >
 
-                  {cartLoading ===
-                  product.id
-                    ? "Adding..."
-                    : product.stock <=
-                        0
-                    ? "Out of Stock"
-                    : "Add to Cart 🛒"}
+                  {
+                    cartLoading ===
+                    product.id
+
+                      ? "Adding..."
+
+                      : Number(
+                          product.stock
+                        ) <= 0
+
+                      ? "Out of Stock"
+
+                      : "Add to Cart 🛒"
+                  }
 
                 </button>
 
