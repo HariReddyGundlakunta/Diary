@@ -16,7 +16,7 @@ import AdminDashboard from "./Pages/AdminDashboard";
 // PROTECTED ROUTE
 // ======================================================
 
-function ProtectedRoute({ children }) {
+{/*function ProtectedRoute({ children }) {
 
   const token =
     localStorage.getItem("token");
@@ -32,7 +32,7 @@ function ProtectedRoute({ children }) {
 
   return children;
 }
-
+*/}
 
 // ======================================================
 // ADMIN ROUTE
@@ -127,15 +127,7 @@ function App() {
         {/* ==========================================
             USER DASHBOARD
         ========================================== 
-        
-        <Route
-          path="/dashboard"
-          element={
-            <ProtectedRoute>
-              <Dashboard />
-            </ProtectedRoute>
-          }
-        />*/}
+        */}
 
 
 
