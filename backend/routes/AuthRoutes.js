@@ -1,245 +1,182 @@
 const express = require("express");
-const bcrypt = require("bcrypt");
+const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
-
 const db = require("../db");
 
 const router = express.Router();
 
 
-// ==================================================
+// ======================================================
 // REGISTER
-// ==================================================
+// ======================================================
 
 router.post("/register", async (req, res) => {
   try {
-
     const {
       name,
       email,
-      password
+      password,
+      confirmPassword,
     } = req.body;
 
     console.log("=================================");
     console.log("REGISTER REQUEST");
-    console.log("Name:", name);
     console.log("Email:", email);
 
-    // Validate
+    // Check required fields
     if (!name || !email || !password) {
       return res.status(400).json({
-        success: false,
-        message: "Name, email and password are required"
+        message: "Name, email and password are required",
       });
     }
 
-    // Check existing user
-    const [existingUsers] = await db.query(
-      `
-      SELECT id
-      FROM users
-      WHERE email = ?
-      `,
-      [email.trim()]
+    // Check confirm password
+    if (
+      confirmPassword !== undefined &&
+      password !== confirmPassword
+    ) {
+      return res.status(400).json({
+        message: "Passwords do not match",
+      });
+    }
+
+    const cleanName = name.trim();
+    const cleanEmail = email.trim().toLowerCase();
+
+    // Check if email already exists
+    const [existingUsers] = await db.execute(
+      `SELECT id
+       FROM users
+       WHERE LOWER(TRIM(email)) = ?
+       LIMIT 1`,
+      [cleanEmail]
     );
 
     if (existingUsers.length > 0) {
+      console.log("❌ EMAIL ALREADY EXISTS");
+
       return res.status(409).json({
-        success: false,
-        message: "Email already registered"
+        message: "Email already registered",
       });
     }
 
     // Hash password
-    const hashedPassword =
-      await bcrypt.hash(password, 10);
+    const hashedPassword = await bcrypt.hash(
+      password,
+      10
+    );
+
+    console.log("Password hashed successfully");
+
+    // Default role
+    const role = "user";
 
     // Insert user
-    const [result] = await db.query(
-      `
-      INSERT INTO users
-      (
-        name,
-        email,
-        password
-      )
-      VALUES (?, ?, ?)
-      `,
+    const [result] = await db.execute(
+      `INSERT INTO users
+       (name, email, password, role)
+       VALUES (?, ?, ?, ?)`,
       [
-        name.trim(),
-        email.trim(),
-        hashedPassword
+        cleanName,
+        cleanEmail,
+        hashedPassword,
+        role,
       ]
     );
 
     console.log(
-      "✅ USER CREATED:",
+      "✅ USER REGISTERED:",
       result.insertId
     );
 
     console.log("=================================");
 
     return res.status(201).json({
-      success: true,
       message: "Registration successful",
-      userId: result.insertId
+      user: {
+        id: result.insertId,
+        name: cleanName,
+        email: cleanEmail,
+        role,
+      },
     });
 
   } catch (error) {
-
-    console.error("=================================");
-    console.error("❌ REGISTER ERROR");
-    console.error("Message:", error.message);
-    console.error("Code:", error.code);
-    console.error("SQL:", error.sql);
-    console.error("=================================");
+    console.error("❌ REGISTER ERROR:");
+    console.error(error);
 
     return res.status(500).json({
-      success: false,
-      message: error.message
+      message: "Server error during registration",
+      error: error.message,
     });
   }
 });
 
 
-// ==================================================
+// ======================================================
 // LOGIN
-// ==================================================
+// ======================================================
 
 router.post("/login", async (req, res) => {
-
   try {
-
     const {
       email,
-      password
+      password,
     } = req.body;
 
     console.log("=================================");
-    console.log("🔐 LOGIN REQUEST");
+    console.log("LOGIN REQUEST");
     console.log("Email:", email);
+    console.log(
+      "Password provided:",
+      !!password
+    );
 
-    // Validate
+    // Check input
     if (!email || !password) {
-
       return res.status(400).json({
-        success: false,
-        message: "Email and password are required"
+        message: "Email and password are required",
       });
-
     }
 
+    const cleanEmail = email
+      .trim()
+      .toLowerCase();
 
-    // ==================================================
-    // FIND USER
-    // ==================================================
+    console.log(
+      "Searching user:",
+      cleanEmail
+    );
 
-    const [users] = await db.query(
-      `
-      SELECT
+    // Find user
+    const [users] = await db.execute(
+      `SELECT
         id,
         name,
         email,
-        password
-      FROM users
-      WHERE email = ?
-      `,
-      [email.trim()]
+        password,
+        role
+       FROM users
+       WHERE LOWER(TRIM(email)) = ?
+       LIMIT 1`,
+      [cleanEmail]
     );
 
     console.log(
-      "Users found:",
+      "USER FOUND:",
       users.length
     );
 
-
     // User doesn't exist
     if (users.length === 0) {
-
-      console.log(
-        "❌ USER NOT FOUND"
-      );
+      console.log("❌ USER NOT FOUND");
 
       return res.status(401).json({
-        success: false,
-        message: "Invalid email or password"
+        message: "Invalid email or password",
       });
-
     }
-
 
     const user = users[0];
-
-    console.log(
-      "✅ USER FOUND:",
-      user.email
-    );
-
-
-    // ==================================================
-    // CHECK PASSWORD
-    // ==================================================
-
-    const passwordMatch =
-      await bcrypt.compare(
-        password,
-        user.password
-      );
-
-    console.log(
-      "Password match:",
-      passwordMatch
-    );
-
-
-    if (!passwordMatch) {
-
-      console.log(
-        "❌ WRONG PASSWORD"
-      );
-
-      return res.status(401).json({
-        success: false,
-        message: "Invalid email or password"
-      });
-
-    }
-
-
-    // ==================================================
-    // CREATE JWT
-    // ==================================================
-
-    if (!process.env.JWT_SECRET) {
-
-      console.error(
-        "❌ JWT_SECRET IS MISSING"
-      );
-
-      return res.status(500).json({
-        success: false,
-        message: "JWT_SECRET is not configured"
-      });
-
-    }
-
-
-    const token = jwt.sign(
-      {
-        id: user.id,
-        name: user.name,
-        email: user.email
-      },
-      process.env.JWT_SECRET,
-      {
-        expiresIn: "1d"
-      }
-    );
-
-
-    console.log(
-      "✅ LOGIN SUCCESSFUL"
-    );
 
     console.log(
       "User ID:",
@@ -247,49 +184,107 @@ router.post("/login", async (req, res) => {
     );
 
     console.log(
-      "JWT CREATED"
+      "User email:",
+      user.email
+    );
+
+    console.log(
+      "User role:",
+      user.role
+    );
+
+    // Check password exists
+    if (!user.password) {
+      console.log(
+        "❌ PASSWORD IS EMPTY"
+      );
+
+      return res.status(401).json({
+        message: "Invalid email or password",
+      });
+    }
+
+    // Compare password
+    const passwordMatch =
+      await bcrypt.compare(
+        password,
+        user.password
+      );
+
+    console.log(
+      "PASSWORD MATCH:",
+      passwordMatch
+    );
+
+    // Wrong password
+    if (!passwordMatch) {
+      console.log(
+        "❌ PASSWORD DOES NOT MATCH"
+      );
+
+      return res.status(401).json({
+        message: "Invalid email or password",
+      });
+    }
+
+    // Check JWT secret
+    if (!process.env.JWT_SECRET) {
+      console.error(
+        "❌ JWT_SECRET is missing"
+      );
+
+      return res.status(500).json({
+        message:
+          "JWT_SECRET is not configured",
+      });
+    }
+
+    // Create JWT
+    const token = jwt.sign(
+      {
+        id: user.id,
+        email: user.email,
+        role: user.role,
+      },
+      process.env.JWT_SECRET,
+      {
+        expiresIn: "7d",
+      }
+    );
+
+    console.log(
+      "✅ LOGIN SUCCESS:",
+      user.email
     );
 
     console.log("=================================");
 
-
-    // ==================================================
-    // RESPONSE
-    // ==================================================
-
     return res.status(200).json({
-
-      success: true,
-
       message: "Login successful",
 
-      token: token,
+      token,
 
       user: {
         id: user.id,
         name: user.name,
-        email: user.email
-      }
-
+        email: user.email,
+        role: user.role,
+      },
     });
 
   } catch (error) {
+    console.error(
+      "❌ LOGIN DATABASE ERROR:"
+    );
 
-    console.error("=================================");
-    console.error("❌ LOGIN ERROR");
-    console.error("Message:", error.message);
-    console.error("Code:", error.code);
-    console.error("SQL:", error.sql);
-    console.error("Stack:", error.stack);
-    console.error("=================================");
+    console.error(error);
 
     return res.status(500).json({
-      success: false,
-      message: error.message || "Login failed"
+      message:
+        "Server error during login",
+      error: error.message,
     });
-
   }
-
 });
 
 

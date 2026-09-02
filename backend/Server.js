@@ -3,105 +3,79 @@ const cors = require("cors");
 require("dotenv").config();
 
 const db = require("./db");
-const createTables = require("./createTables");
+const authRoutes = require("./routes/authRoutes");
 
 const app = express();
 
-const PORT = process.env.PORT || 5000;
 
-
-// ==========================================
+// ======================================================
 // CORS
-// ==========================================
-
-const allowedOrigins = [
-  "http://localhost:3000",
-  "https://farm-self-six.vercel.app",
-];
+// ======================================================
 
 app.use(
   cors({
-    origin: function (origin, callback) {
-
-      if (!origin) {
-        return callback(null, true);
-      }
-
-      if (allowedOrigins.includes(origin)) {
-        return callback(null, true);
-      }
-
-      console.log(
-        "CORS blocked:",
-        origin
-      );
-
-      return callback(
-        new Error("Not allowed by CORS")
-      );
-    },
-
-    methods: [
-      "GET",
-      "POST",
-      "PUT",
-      "DELETE",
-      "PATCH",
-      "OPTIONS",
+    origin: [
+      "http://localhost:3000",
+      "https://farm-self-six.vercel.app",
     ],
-
-    allowedHeaders: [
-      "Content-Type",
-      "Authorization",
-    ],
-
     credentials: true,
   })
 );
 
 
-// ==========================================
-// JSON
-// ==========================================
+// ======================================================
+// MIDDLEWARE
+// ======================================================
 
 app.use(express.json());
 
 
-// ==========================================
-// HOME
-// ==========================================
+// ======================================================
+// HOME / HEALTH CHECK
+// ======================================================
 
 app.get("/", (req, res) => {
-
-  res.json({
-    success: true,
-    message:
-      "Dairy Management Backend is Running!",
+  res.status(200).json({
+    message: "Dairy Farm API is running",
   });
-
 });
 
 
-// ==========================================
-// API TEST
-// ==========================================
+// ======================================================
+// DATABASE TEST
+// ======================================================
 
-app.get("/api/test", (req, res) => {
+app.get("/api/test-db", async (req, res) => {
+  try {
+    const [rows] = await db.execute(
+      "SELECT 1 AS connected"
+    );
 
-  res.json({
-    success: true,
-    message: "API is working!",
-  });
+    res.status(200).json({
+      success: true,
+      message: "Database connected successfully",
+      database: process.env.DB_NAME,
+      result: rows[0].connected,
+    });
 
+  } catch (error) {
+    console.error(
+      "DATABASE TEST ERROR:",
+      error
+    );
+
+    res.status(500).json({
+      success: false,
+      message: "Database connection failed",
+      error: error.message,
+    });
+  }
 });
 
 
-// ==========================================
-// AUTH
-// ==========================================
-
-const authRoutes =
-  require("./routes/authRoutes");
+// ======================================================
+// AUTH ROUTES
+// ======================================================
 
 app.use(
   "/api/auth",
@@ -109,115 +83,101 @@ app.use(
 );
 
 
-// ==========================================
-// PRODUCTS
-// ==========================================
-
-const productRoutes =
-  require("./routes/productRoutes");
-
-app.use(
-  "/api/products",
-  productRoutes
-);
-
-
-// ==========================================
-// CART
-// ==========================================
-
-const cartRoutes =
-  require("./routes/cartRoutes");
-
-app.use(
-  "/api/cart",
-  cartRoutes
-);
-
-
-// ==========================================
-// ORDERS
-// ==========================================
-
-const orderRoutes =
-  require("./routes/orderRoutes");
-
-app.use(
-  "/api/orders",
-  orderRoutes
-);
-
-
-// ==========================================
-// 404
-// ==========================================
+// ======================================================
+// 404 HANDLER
+// ======================================================
 
 app.use((req, res) => {
-
   res.status(404).json({
-    success: false,
-    message: "Route not found",
+    message: "API route not found",
+    path: req.originalUrl,
   });
-
 });
 
 
-// ==========================================
+// ======================================================
 // ERROR HANDLER
-// ==========================================
+// ======================================================
 
-app.use(
-  (err, req, res, next) => {
+app.use((err, req, res, next) => {
+  console.error(
+    "SERVER ERROR:",
+    err
+  );
 
-    console.error(
-      "❌ SERVER ERROR:",
-      err.message
-    );
-
-    res.status(500).json({
-      success: false,
-      message:
-        err.message ||
-        "Internal server error",
-    });
-  }
-);
+  res.status(500).json({
+    message: "Internal server error",
+  });
+});
 
 
-// ==========================================
+// ======================================================
 // START SERVER
-// ==========================================
+// ======================================================
+
+const PORT =
+  process.env.PORT || 5000;
+
 
 async function startServer() {
-
   try {
+
+    console.log(
+      "================================="
+    );
+
+    console.log(
+      "🔄 Testing database connection..."
+    );
 
     await db.testConnection();
 
-    await createTables();
+    console.log(
+      "✅ Database test completed"
+    );
+
+    console.log(
+      "================================="
+    );
+
 
     app.listen(PORT, () => {
 
-      console.log("=================================");
       console.log(
         `🚀 Server running on port ${PORT}`
       );
+
       console.log(
         `🌐 http://localhost:${PORT}`
       );
-      console.log("=================================");
 
     });
 
   } catch (error) {
 
-    console.error("=================================");
-    console.error("❌ SERVER START FAILED");
-    console.error(error.message);
-    console.error("=================================");
+    console.error(
+      "================================="
+    );
+
+    console.error(
+      "❌ SERVER NOT STARTED"
+    );
+
+    console.error(
+      "Database connection failed."
+    );
+
+    console.error(
+      error.message
+    );
+
+    console.error(
+      "================================="
+    );
 
     process.exit(1);
   }
 }
+
 
 startServer();
