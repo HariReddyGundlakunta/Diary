@@ -6,8 +6,9 @@ function Products() {
 
   const navigate = useNavigate();
 
-  const API_URL = "http://localhost:5000";
-
+const API_URL =
+  process.env.REACT_APP_API_URL ||
+  "https://diary-88q0.onrender.com";
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
