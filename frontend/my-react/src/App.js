@@ -11,6 +11,7 @@ import Register from "./Pages/Register";
 import Login from "./Pages/Login";
 import AdminDashboard from "./Pages/AdminDashboard";
 import Home from "./Pages/Home";
+import Products from "./Pages/Products";
 
 
 
