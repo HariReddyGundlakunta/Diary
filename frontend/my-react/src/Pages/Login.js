@@ -198,7 +198,7 @@ function Login() {
           );
 
           navigate(
-            "/dashboard",
+            "/home",
             {
               replace: true,
             }
