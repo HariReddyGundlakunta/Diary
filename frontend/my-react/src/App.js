@@ -10,6 +10,7 @@ import {
 import Register from "./Pages/Register";
 import Login from "./Pages/Login";
 import AdminDashboard from "./Pages/AdminDashboard";
+import Home from "./Pages/Home";
 
 
 
@@ -42,7 +43,7 @@ function AdminRoute({ children }) {
   ) {
     return (
       <Navigate
-        to="/dashboard"
+        to="/"
         replace
       />
     );
@@ -69,14 +70,9 @@ function App() {
         ========================================== */}
 
         <Route
-          path="/"
-          element={
-            <Navigate
-              to="/login"
-              replace
-            />
-          }
-        />
+  path="/"
+  element={<Home />}
+/>
 
 
         {/* ==========================================
@@ -102,11 +98,6 @@ function App() {
           }
         />
 
-
-        {/* ==========================================
-            USER DASHBOARD
-        ========================================== 
-        */}
 
 
 
