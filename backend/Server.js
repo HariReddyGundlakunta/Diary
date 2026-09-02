@@ -79,7 +79,7 @@ app.get("/api/test-db", async (req, res) => {
 
 app.use(
   "/api/auth",
-  AuthRoutes
+  authRoutes
 );
 
 
