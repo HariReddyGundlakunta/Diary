@@ -13,13 +13,13 @@ const authRoutes =
   require("./routes/AuthRoutes");
 
 const productRoutes =
-  require("./routes/productRoutes");
+  require("./routes/ProductRoutes");
 
 const cartRoutes =
-  require("./routes/cartRoutes");
+  require("./routes/CartRoutes");
 
 const orderRoutes =
-  require("./routes/orderRoutes");
+  require("./routes/OrderRoutes");
 
 // ==================================================
 // APP
