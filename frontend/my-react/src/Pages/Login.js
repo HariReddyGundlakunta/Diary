@@ -3,21 +3,19 @@ import axios from "axios";
 import { Link, useNavigate } from "react-router-dom";
 
 function Login() {
-
   const navigate = useNavigate();
 
-  // ================================================
+  // ==================================================
   // API URL
-  // ================================================
+  // ==================================================
 
   const API_URL =
     process.env.REACT_APP_API_URL ||
     "https://diary-88q0.onrender.com";
 
-
-  // ================================================
+  // ==================================================
   // FORM STATE
-  // ================================================
+  // ==================================================
 
   const [formData, setFormData] = useState({
     email: "",
@@ -25,32 +23,26 @@ function Login() {
   });
 
   const [error, setError] = useState("");
-
   const [loading, setLoading] = useState(false);
 
-
-  // ================================================
+  // ==================================================
   // HANDLE INPUT
-  // ================================================
+  // ==================================================
 
   const handleChange = (e) => {
-
     const { name, value } = e.target;
 
     setFormData({
       ...formData,
       [name]: value,
     });
-
   };
 
-
-  // ================================================
+  // ==================================================
   // LOGIN
-  // ================================================
+  // ==================================================
 
   const handleSubmit = async (e) => {
-
     e.preventDefault();
 
     setError("");
@@ -58,7 +50,7 @@ function Login() {
     const email = formData.email.trim();
     const password = formData.password;
 
-
+    // Validation
     if (!email) {
       setError("Please enter your email.");
       return;
@@ -69,20 +61,14 @@ function Login() {
       return;
     }
 
-
     setLoading(true);
 
-
+    console.log("=================================");
     console.log("LOGIN REQUEST");
     console.log("Email:", email);
-    console.log(
-      "API:",
-      `${API_URL}/api/auth/login`
-    );
-
+    console.log("API:", `${API_URL}/api/auth/login`);
 
     try {
-
       const response = await axios.post(
         `${API_URL}/api/auth/login`,
         {
@@ -91,34 +77,22 @@ function Login() {
         }
       );
 
-
       console.log(
         "LOGIN RESPONSE:",
         response.data
       );
 
-
-      const token =
-        response.data?.token;
-
-      const user =
-        response.data?.user;
-
+      const token = response.data?.token;
+      const user = response.data?.user;
 
       if (!token || !user) {
-
         setError(
           "Login failed. Please try again."
         );
-
         return;
       }
 
-
-      // ==========================================
-      // SAVE LOGIN
-      // ==========================================
-
+      // Save login information
       localStorage.setItem(
         "token",
         token
@@ -129,33 +103,18 @@ function Login() {
         JSON.stringify(user)
       );
 
-
       console.log("LOGIN SUCCESS");
       console.log("USER:", user);
 
+      // Get role
+      const role = String(
+        user?.role || "user"
+      ).toLowerCase();
 
-      // ==========================================
-      // ROLE
-      // ==========================================
+      console.log("ROLE:", role);
 
-      const role =
-        String(
-          user?.role || "user"
-        ).toLowerCase();
-
-
-      console.log(
-        "ROLE:",
-        role
-      );
-
-
-      // ==========================================
-      // ADMIN
-      // ==========================================
-
+      // Admin
       if (role === "admin") {
-
         navigate(
           "/admin-dashboard",
           {
@@ -166,11 +125,7 @@ function Login() {
         return;
       }
 
-
-      // ==========================================
-      // NORMAL USER
-      // ==========================================
-
+      // Normal user
       navigate(
         "/home",
         {
@@ -178,19 +133,16 @@ function Login() {
         }
       );
 
-
     } catch (error) {
-
       console.error(
         "LOGIN ERROR:",
         error
       );
 
-
+      // 401
       if (
         error.response?.status === 401
       ) {
-
         setError(
           error.response?.data?.message ||
           "Invalid email or password."
@@ -199,11 +151,10 @@ function Login() {
         return;
       }
 
-
+      // 500+
       if (
         error.response?.status >= 500
       ) {
-
         setError(
           "Server error. Please try again."
         );
@@ -211,9 +162,8 @@ function Login() {
         return;
       }
 
-
+      // Network
       if (!error.response) {
-
         setError(
           "Unable to connect to the server. Please try again."
         );
@@ -221,42 +171,38 @@ function Login() {
         return;
       }
 
-
+      // Other
       setError(
         error.response?.data?.message ||
         "Login failed. Please try again."
       );
 
     } finally {
-
       setLoading(false);
-
     }
-
   };
 
-
-  // ================================================
+  // ==================================================
   // UI
-  // ================================================
+  // ==================================================
 
   return (
-
     <div style={styles.page}>
 
-      {/* ============================================
-          LEFT SIDE
-      ============================================ */}
+      {/* ==================================================
+          LEFT HARI FARMS OVERVIEW
+      ================================================== */}
 
-      <div style={styles.hero}>
+      <section style={styles.hero}>
 
-        <div style={styles.heroOverlay}></div>
+        <div style={styles.heroGlowOne}></div>
+        <div style={styles.heroGlowTwo}></div>
 
         <div style={styles.heroContent}>
 
-          {/* BRAND */}
+          {/* Logo */}
 
-          <div style={styles.brandIcon}>
+          <div style={styles.logoCircle}>
             🐄
           </div>
 
@@ -264,129 +210,143 @@ function Login() {
             HARI FARMS
           </h1>
 
-          <p style={styles.brandSubtitle}>
+          <p style={styles.brandTagline}>
             Freshness You Can Trust
           </p>
 
+          <div style={styles.line}></div>
 
-          {/* OVERVIEW */}
+          <h2 style={styles.heroHeading}>
+            From Our Farm
+            <br />
+            To Your Family
+          </h2>
 
-          <div style={styles.overviewBox}>
+          <p style={styles.heroDescription}>
+            Welcome to HARI FARMS, your trusted
+            destination for fresh and quality dairy
+            products. We bring the goodness of the
+            farm directly to your home.
+          </p>
 
-            <h2 style={styles.overviewTitle}>
-              Welcome to HARI FARMS
-            </h2>
+          {/* Features */}
 
-            <p style={styles.overviewText}>
-              Experience fresh, quality dairy
-              products delivered with care.
-              HARI FARMS brings farm-fresh
-              goodness directly to your family.
-            </p>
+          <div style={styles.features}>
 
+            <div style={styles.feature}>
 
-            <div style={styles.features}>
-
-              <div style={styles.feature}>
-                <span style={styles.featureIcon}>
-                  🥛
-                </span>
-
-                <div>
-                  <strong>
-                    Fresh Dairy
-                  </strong>
-
-                  <small>
-                    Quality products every day
-                  </small>
-                </div>
+              <div style={styles.featureIcon}>
+                🥛
               </div>
 
+              <div>
+                <h3 style={styles.featureTitle}>
+                  Fresh Dairy
+                </h3>
 
-              <div style={styles.feature}>
-                <span style={styles.featureIcon}>
-                  🌱
-                </span>
-
-                <div>
-                  <strong>
-                    Farm Fresh
-                  </strong>
-
-                  <small>
-                    Naturally sourced products
-                  </small>
-                </div>
+                <p style={styles.featureText}>
+                  Quality dairy products
+                  every day
+                </p>
               </div>
 
+            </div>
 
-              <div style={styles.feature}>
-                <span style={styles.featureIcon}>
-                  🚚
-                </span>
 
-                <div>
-                  <strong>
-                    Easy Ordering
-                  </strong>
+            <div style={styles.feature}>
 
-                  <small>
-                    Simple and convenient shopping
-                  </small>
-                </div>
+              <div style={styles.featureIcon}>
+                🌱
+              </div>
+
+              <div>
+                <h3 style={styles.featureTitle}>
+                  Farm Fresh
+                </h3>
+
+                <p style={styles.featureText}>
+                  Naturally sourced
+                  ingredients
+                </p>
+              </div>
+
+            </div>
+
+
+            <div style={styles.feature}>
+
+              <div style={styles.featureIcon}>
+                🚚
+              </div>
+
+              <div>
+                <h3 style={styles.featureTitle}>
+                  Easy Ordering
+                </h3>
+
+                <p style={styles.featureText}>
+                  Simple and convenient
+                  shopping
+                </p>
               </div>
 
             </div>
 
           </div>
 
-
-          <p style={styles.bottomText}>
-            From our farm to your family ❤️
+          <p style={styles.bottomMessage}>
+            ♥ Goodness in every drop
           </p>
 
         </div>
 
-      </div>
+      </section>
 
 
-      {/* ============================================
-          RIGHT SIDE
-      ============================================ */}
+      {/* ==================================================
+          RIGHT LOGIN SECTION
+      ================================================== */}
 
-      <div style={styles.loginSide}>
+      <section style={styles.loginSection}>
 
         <div style={styles.loginCard}>
 
-          {/* MOBILE BRAND */}
+          {/* Mobile Logo */}
 
           <div style={styles.mobileBrand}>
 
-            <div style={styles.mobileIcon}>
+            <div style={styles.mobileLogo}>
               🐄
             </div>
 
-            <h1>
-              HARI FARMS
-            </h1>
+            <div>
+              <h1 style={styles.mobileTitle}>
+                HARI FARMS
+              </h1>
+
+              <p style={styles.mobileSubtitle}>
+                Freshness You Can Trust
+              </p>
+            </div>
 
           </div>
 
 
-          <div style={styles.welcome}>
+          {/* Welcome */}
 
-            <span style={styles.welcomeIcon}>
+          <div style={styles.welcomeArea}>
+
+            <div style={styles.welcomeEmoji}>
               👋
-            </span>
+            </div>
 
             <div>
 
-              <h2>
+              <h2 style={styles.loginTitle}>
                 Welcome Back!
               </h2>
 
-              <p>
+              <p style={styles.loginSubtitle}>
                 Login to continue to HARI FARMS
               </p>
 
@@ -395,10 +355,9 @@ function Login() {
           </div>
 
 
-          {/* ERROR */}
+          {/* Error */}
 
           {error && (
-
             <div style={styles.errorBox}>
 
               <span>
@@ -410,27 +369,25 @@ function Login() {
               </span>
 
             </div>
-
           )}
 
 
-          {/* FORM */}
+          {/* Form */}
 
           <form onSubmit={handleSubmit}>
 
-
-            {/* EMAIL */}
+            {/* Email */}
 
             <div style={styles.inputGroup}>
 
-              <label>
+              <label style={styles.label}>
                 Email Address
               </label>
 
-              <div style={styles.inputWrapper}>
+              <div style={styles.inputContainer}>
 
                 <span style={styles.inputIcon}>
-                  ✉️
+                  ✉
                 </span>
 
                 <input
@@ -450,15 +407,15 @@ function Login() {
             </div>
 
 
-            {/* PASSWORD */}
+            {/* Password */}
 
             <div style={styles.inputGroup}>
 
-              <label>
+              <label style={styles.label}>
                 Password
               </label>
 
-              <div style={styles.inputWrapper}>
+              <div style={styles.inputContainer}>
 
                 <span style={styles.inputIcon}>
                   🔒
@@ -481,7 +438,7 @@ function Login() {
             </div>
 
 
-            {/* LOGIN BUTTON */}
+            {/* Login Button */}
 
             <button
               type="submit"
@@ -489,7 +446,7 @@ function Login() {
               style={{
                 ...styles.loginButton,
                 ...(loading
-                  ? styles.loginButtonLoading
+                  ? styles.loginButtonDisabled
                   : {}),
               }}
             >
@@ -513,9 +470,9 @@ function Login() {
           </form>
 
 
-          {/* REGISTER */}
+          {/* Register */}
 
-          <div style={styles.registerSection}>
+          <div style={styles.registerArea}>
 
             <span>
               Don't have an account?
@@ -531,7 +488,7 @@ function Login() {
           </div>
 
 
-          {/* FOOTER */}
+          {/* Footer */}
 
           <div style={styles.footer}>
 
@@ -540,7 +497,7 @@ function Login() {
             </span>
 
             <span>
-              •
+              |
             </span>
 
             <span>
@@ -551,27 +508,95 @@ function Login() {
 
         </div>
 
-      </div>
+      </section>
+
+
+      {/* ==================================================
+          RESPONSIVE STYLE
+      ================================================== */}
+
+      <style>
+        {`
+          @keyframes spin {
+            from {
+              transform: rotate(0deg);
+            }
+
+            to {
+              transform: rotate(360deg);
+            }
+          }
+
+          * {
+            box-sizing: border-box;
+          }
+
+          @media (max-width: 850px) {
+
+            .hari-farms-page {
+              flex-direction: column !important;
+            }
+
+          }
+
+          @media (max-width: 850px) {
+
+            .hari-farms-hero {
+              min-height: auto !important;
+              padding: 40px 20px !important;
+            }
+
+          }
+
+          @media (max-width: 850px) {
+
+            .hari-farms-login {
+              min-height: auto !important;
+              padding: 40px 20px !important;
+            }
+
+          }
+
+          @media (max-width: 500px) {
+
+            .hari-farms-login-card {
+              padding: 10px !important;
+            }
+
+          }
+
+          @media (max-width: 850px) {
+
+            .hari-farms-mobile-brand {
+              display: flex !important;
+            }
+
+          }
+
+        `}
+      </style>
 
     </div>
-
   );
-
 }
 
 
-// ==================================================
+// ======================================================
 // STYLES
-// ==================================================
+// ======================================================
 
 const styles = {
+
+  // ================================================
+  // PAGE
+  // ================================================
 
   page: {
     minHeight: "100vh",
     display: "flex",
     fontFamily:
       "'Segoe UI', Arial, sans-serif",
-    background: "#f5f7f5",
+    background: "#ffffff",
   },
 
 
@@ -580,99 +605,123 @@ const styles = {
   // ================================================
 
   hero: {
-    flex: "1.15",
+    flex: 1.15,
     minHeight: "100vh",
     position: "relative",
     overflow: "hidden",
-    background:
-      "linear-gradient(135deg, #0f5d32 0%, #2e7d32 45%, #66bb6a 100%)",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
+    background:
+      "linear-gradient(135deg, #0b542c 0%, #1b6f35 45%, #43a047 100%)",
+    color: "#ffffff",
+    padding: "50px",
   },
 
 
-  heroOverlay: {
+  heroGlowOne: {
     position: "absolute",
-    inset: 0,
+    width: "350px",
+    height: "350px",
+    borderRadius: "50%",
     background:
-      "radial-gradient(circle at 20% 20%, rgba(255,255,255,0.16), transparent 30%), radial-gradient(circle at 80% 80%, rgba(255,255,255,0.12), transparent 30%)",
+      "rgba(255,255,255,0.07)",
+    top: "-130px",
+    left: "-120px",
+  },
+
+
+  heroGlowTwo: {
+    position: "absolute",
+    width: "450px",
+    height: "450px",
+    borderRadius: "50%",
+    background:
+      "rgba(255,255,255,0.05)",
+    bottom: "-220px",
+    right: "-180px",
   },
 
 
   heroContent: {
     position: "relative",
     zIndex: 2,
-    width: "85%",
-    maxWidth: "600px",
-    color: "#ffffff",
-    padding: "50px 20px",
+    width: "100%",
+    maxWidth: "570px",
   },
 
 
-  brandIcon: {
-    width: "76px",
-    height: "76px",
-    borderRadius: "22px",
-    background:
-      "rgba(255,255,255,0.18)",
-    backdropFilter: "blur(10px)",
+  logoCircle: {
+    width: "80px",
+    height: "80px",
+    borderRadius: "24px",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
+    background:
+      "rgba(255,255,255,0.16)",
+    border:
+      "1px solid rgba(255,255,255,0.25)",
     fontSize: "42px",
     marginBottom: "20px",
     boxShadow:
-      "0 10px 30px rgba(0,0,0,0.15)",
+      "0 15px 35px rgba(0,0,0,0.18)",
   },
 
 
   brandTitle: {
-    fontSize: "52px",
-    letterSpacing: "3px",
-    margin: "0 0 8px",
+    margin: 0,
+    fontSize: "48px",
     fontWeight: "800",
+    letterSpacing: "4px",
   },
 
 
-  brandSubtitle: {
-    fontSize: "21px",
-    margin: "0 0 40px",
+  brandTagline: {
+    margin:
+      "8px 0 0",
+    fontSize: "18px",
+    letterSpacing: "1px",
     opacity: 0.9,
   },
 
 
-  overviewBox: {
-    background:
-      "rgba(255,255,255,0.12)",
-    border:
-      "1px solid rgba(255,255,255,0.2)",
-    borderRadius: "24px",
-    padding: "30px",
-    backdropFilter: "blur(12px)",
-    boxShadow:
-      "0 20px 50px rgba(0,0,0,0.12)",
+  line: {
+    width: "70px",
+    height: "4px",
+    borderRadius: "10px",
+    background: "#ffffff",
+    margin:
+      "28px 0",
   },
 
 
-  overviewTitle: {
-    margin: "0 0 12px",
-    fontSize: "28px",
+  heroHeading: {
+    fontSize: "38px",
+    lineHeight: 1.2,
+    margin:
+      "0 0 18px",
+    fontWeight: "700",
   },
 
 
-  overviewText: {
-    lineHeight: 1.7,
+  heroDescription: {
     fontSize: "16px",
-    opacity: 0.92,
-    marginBottom: "28px",
+    lineHeight: 1.8,
+    maxWidth: "520px",
+    opacity: 0.9,
+    marginBottom: "32px",
   },
 
+
+  // ================================================
+  // FEATURES
+  // ================================================
 
   features: {
     display: "flex",
     flexDirection: "column",
-    gap: "17px",
+    gap: "18px",
   },
 
 
@@ -684,56 +733,50 @@ const styles = {
 
 
   featureIcon: {
-    width: "45px",
-    height: "45px",
-    borderRadius: "13px",
+    minWidth: "50px",
+    height: "50px",
+    borderRadius: "15px",
     background:
-      "rgba(255,255,255,0.18)",
+      "rgba(255,255,255,0.16)",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
-    fontSize: "22px",
+    fontSize: "23px",
   },
 
 
-  feature: {
-    display: "flex",
-    alignItems: "center",
-    gap: "15px",
+  featureTitle: {
+    margin: 0,
+    fontSize: "16px",
   },
 
 
-  featureIcon: {
-    minWidth: "45px",
-    height: "45px",
-    borderRadius: "13px",
-    background:
-      "rgba(255,255,255,0.18)",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    fontSize: "22px",
+  featureText: {
+    margin:
+      "4px 0 0",
+    fontSize: "13px",
+    opacity: 0.75,
   },
 
 
-  bottomText: {
-    marginTop: "30px",
-    fontSize: "15px",
-    opacity: 0.85,
+  bottomMessage: {
+    marginTop: "35px",
+    fontSize: "14px",
+    opacity: 0.8,
   },
 
 
   // ================================================
-  // LOGIN SIDE
+  // LOGIN SECTION
   // ================================================
 
-  loginSide: {
-    flex: "0.85",
+  loginSection: {
+    flex: 0.85,
     minHeight: "100vh",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
-    padding: "40px",
+    padding: "50px",
     background: "#ffffff",
   },
 
@@ -744,55 +787,121 @@ const styles = {
   },
 
 
+  // ================================================
+  // MOBILE BRAND
+  // ================================================
+
   mobileBrand: {
     display: "none",
-  },
-
-
-  welcome: {
-    display: "flex",
     alignItems: "center",
-    gap: "15px",
+    gap: "12px",
     marginBottom: "35px",
   },
 
 
-  welcomeIcon: {
+  mobileLogo: {
+    width: "55px",
+    height: "55px",
+    borderRadius: "16px",
+    background: "#e8f5e9",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    fontSize: "30px",
+  },
+
+
+  mobileTitle: {
+    margin: 0,
+    color: "#2e7d32",
+    fontSize: "24px",
+  },
+
+
+  mobileSubtitle: {
+    margin: "3px 0 0",
+    color: "#777",
+    fontSize: "12px",
+  },
+
+
+  // ================================================
+  // WELCOME
+  // ================================================
+
+  welcomeArea: {
+    display: "flex",
+    alignItems: "center",
+    gap: "14px",
+    marginBottom: "32px",
+  },
+
+
+  welcomeEmoji: {
     fontSize: "34px",
   },
 
+
+  loginTitle: {
+    margin: 0,
+    color: "#222",
+    fontSize: "30px",
+  },
+
+
+  loginSubtitle: {
+    margin:
+      "7px 0 0",
+    color: "#777",
+    fontSize: "14px",
+  },
+
+
+  // ================================================
+  // ERROR
+  // ================================================
+
+  errorBox: {
+    display: "flex",
+    alignItems: "center",
+    gap: "9px",
+    background: "#fff3f3",
+    color: "#c62828",
+    border:
+      "1px solid #ffcdd2",
+    borderRadius: "10px",
+    padding: "13px 15px",
+    marginBottom: "20px",
+    fontSize: "14px",
+  },
+
+
+  // ================================================
+  // INPUTS
+  // ================================================
 
   inputGroup: {
     marginBottom: "22px",
   },
 
 
-  inputGroupLabel: {
+  label: {
     display: "block",
-  },
-
-
-  errorBox: {
-    display: "flex",
-    gap: "9px",
-    alignItems: "center",
-    background: "#fff1f0",
-    border: "1px solid #ffcdd2",
-    color: "#c62828",
-    padding: "13px 15px",
-    borderRadius: "10px",
-    marginBottom: "20px",
+    color: "#333",
+    fontWeight: "600",
     fontSize: "14px",
+    marginBottom: "8px",
   },
 
 
-  inputWrapper: {
+  inputContainer: {
     display: "flex",
     alignItems: "center",
-    border: "1px solid #d7ddd8",
+    width: "100%",
+    border:
+      "1px solid #dce2dd",
     borderRadius: "12px",
     background: "#fafcfb",
-    transition: "all 0.2s",
     overflow: "hidden",
   },
 
@@ -800,19 +909,25 @@ const styles = {
   inputIcon: {
     paddingLeft: "15px",
     fontSize: "18px",
+    color: "#2e7d32",
   },
 
 
   input: {
+    flex: 1,
     width: "100%",
     border: "none",
     outline: "none",
     background: "transparent",
-    padding: "14px 15px",
-    fontSize: "16px",
+    padding: "14px",
+    fontSize: "15px",
     color: "#222",
   },
 
+
+  // ================================================
+  // BUTTON
+  // ================================================
 
   loginButton: {
     width: "100%",
@@ -831,17 +946,14 @@ const styles = {
     gap: "10px",
     boxShadow:
       "0 8px 20px rgba(46,125,50,0.25)",
+    transition:
+      "transform 0.2s",
   },
 
 
-  loginButtonLoading: {
-    opacity: 0.75,
+  loginButtonDisabled: {
+    opacity: 0.7,
     cursor: "not-allowed",
-  },
-
-
-  arrow: {
-    fontSize: "22px",
   },
 
 
@@ -849,7 +961,7 @@ const styles = {
     width: "17px",
     height: "17px",
     border:
-      "2px solid rgba(255,255,255,0.5)",
+      "2px solid rgba(255,255,255,0.4)",
     borderTop:
       "2px solid #ffffff",
     borderRadius: "50%",
@@ -859,10 +971,19 @@ const styles = {
   },
 
 
-  registerSection: {
+  arrow: {
+    fontSize: "22px",
+  },
+
+
+  // ================================================
+  // REGISTER
+  // ================================================
+
+  registerArea: {
     textAlign: "center",
     marginTop: "28px",
-    color: "#666",
+    color: "#777",
     fontSize: "14px",
   },
 
@@ -875,10 +996,15 @@ const styles = {
   },
 
 
+  // ================================================
+  // FOOTER
+  // ================================================
+
   footer: {
     marginTop: "35px",
     paddingTop: "20px",
-    borderTop: "1px solid #eeeeee",
+    borderTop:
+      "1px solid #eeeeee",
     display: "flex",
     justifyContent: "center",
     gap: "10px",
