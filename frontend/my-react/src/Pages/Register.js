@@ -13,40 +13,48 @@ function Register() {
   });
 
   const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  const API_URL =
+    process.env.REACT_APP_API_URL ||
+    "https://diary-88q0.onrender.com";
 
   const handleChange = (e) => {
-    setFormData({
-      ...formData,
-      [e.target.name]: e.target.value,
-    });
+    const { name, value } = e.target;
+
+    setFormData((prev) => ({
+      ...prev,
+      [name]: value,
+    }));
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
 
     setError("");
-
-    if (
-      !formData.name ||
-      !formData.email ||
-      !formData.password ||
-      !formData.confirmPassword
-    ) {
-      setError("Please fill all fields");
-      return;
-    }
+    setSuccess("");
 
     if (
       formData.password !==
       formData.confirmPassword
     ) {
-      setError("Passwords do not match");
+      setError("Passwords do not match.");
       return;
     }
 
+    if (formData.password.length < 6) {
+      setError(
+        "Password must contain at least 6 characters."
+      );
+      return;
+    }
+
+    setLoading(true);
+
     try {
       await axios.post(
-        `${process.env.REACT_APP_API_URL}/api/auth/register`,
+        API_URL + "/api/auth/register",
         {
           name: formData.name,
           email: formData.email,
@@ -54,20 +62,28 @@ function Register() {
         }
       );
 
-      alert("Registration successful!");
+      setSuccess(
+        "Registration successful! Please login."
+      );
 
-      navigate("/login");
-    } catch (error) {
-      console.error(error);
+      setTimeout(() => {
+        navigate("/login");
+      }, 1500);
 
-      if (error.response) {
+    } catch (err) {
+      if (err.response) {
         setError(
-          error.response.data.message ||
-            "Registration failed"
+          err.response.data?.message ||
+          "Registration failed."
         );
       } else {
-        setError("Cannot connect to backend");
+        setError(
+          "Unable to connect to the server."
+        );
       }
+
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -75,10 +91,26 @@ function Register() {
     <div style={styles.container}>
       <div style={styles.card}>
 
-        <h2>🥛 Create Account</h2>
+        <div style={styles.icon}>
+          🐄
+        </div>
+
+        <h1>Create Account</h1>
+
+        <p style={styles.subtitle}>
+          Join the Dairy Management System
+        </p>
 
         {error && (
-          <p style={styles.error}>{error}</p>
+          <div style={styles.error}>
+            {error}
+          </div>
+        )}
+
+        {success && (
+          <div style={styles.success}>
+            {success}
+          </div>
         )}
 
         <form onSubmit={handleSubmit}>
@@ -90,15 +122,17 @@ function Register() {
             value={formData.name}
             onChange={handleChange}
             style={styles.input}
+            required
           />
 
           <input
             type="email"
             name="email"
-            placeholder="Email"
+            placeholder="Email Address"
             value={formData.email}
             onChange={handleChange}
             style={styles.input}
+            required
           />
 
           <input
@@ -108,6 +142,7 @@ function Register() {
             value={formData.password}
             onChange={handleChange}
             style={styles.input}
+            required
           />
 
           <input
@@ -117,18 +152,22 @@ function Register() {
             value={formData.confirmPassword}
             onChange={handleChange}
             style={styles.input}
+            required
           />
 
           <button
             type="submit"
+            disabled={loading}
             style={styles.button}
           >
-            Register
+            {loading
+              ? "Creating Account..."
+              : "Create Account"}
           </button>
 
         </form>
 
-        <p>
+        <p style={styles.loginText}>
           Already have an account?{" "}
           <Link to="/login">
             Login
@@ -142,44 +181,74 @@ function Register() {
 
 const styles = {
   container: {
-    minHeight: "90vh",
+    minHeight: "100vh",
     display: "flex",
     justifyContent: "center",
     alignItems: "center",
-    background: "#f1f8e9",
+    padding: "20px",
+    background:
+      "linear-gradient(135deg, #fff3e0, #e8f5e9)",
   },
 
   card: {
-    width: "380px",
-    padding: "35px",
     background: "white",
-    borderRadius: "15px",
-    boxShadow: "0 5px 20px rgba(0,0,0,0.15)",
+    width: "100%",
+    maxWidth: "450px",
+    padding: "40px",
+    borderRadius: "25px",
+    boxShadow:
+      "0 15px 40px rgba(0,0,0,0.15)",
     textAlign: "center",
+  },
+
+  icon: {
+    fontSize: "55px",
+  },
+
+  subtitle: {
+    color: "#777",
+    marginBottom: "25px",
   },
 
   input: {
     width: "100%",
-    padding: "12px",
-    margin: "8px 0",
+    padding: "14px",
+    marginBottom: "15px",
+    borderRadius: "10px",
+    border: "1px solid #ddd",
     boxSizing: "border-box",
-    border: "1px solid #ccc",
-    borderRadius: "7px",
   },
 
   button: {
     width: "100%",
-    padding: "12px",
-    marginTop: "10px",
+    padding: "15px",
     border: "none",
-    borderRadius: "7px",
-    background: "#2e7d32",
+    borderRadius: "10px",
+    background:
+      "linear-gradient(135deg, #ff9800, #f57c00)",
     color: "white",
-    fontSize: "16px",
+    fontWeight: "bold",
+    cursor: "pointer",
   },
 
   error: {
+    padding: "12px",
+    background: "#ffebee",
     color: "#c62828",
+    borderRadius: "8px",
+    marginBottom: "15px",
+  },
+
+  success: {
+    padding: "12px",
+    background: "#e8f5e9",
+    color: "#2e7d32",
+    borderRadius: "8px",
+    marginBottom: "15px",
+  },
+
+  loginText: {
+    marginTop: "20px",
   },
 };
 

@@ -1,20 +1,53 @@
 import React from "react";
-import { Link } from "react-router-dom";
+import {
+  Link,
+  useNavigate,
+} from "react-router-dom";
 
 function AdminDashboard() {
+  const navigate = useNavigate();
+
   const products =
     JSON.parse(localStorage.getItem("products")) || [];
 
   const orders =
     JSON.parse(localStorage.getItem("orders")) || [];
 
+  const user =
+    JSON.parse(localStorage.getItem("user")) || {};
+
+  const totalRevenue = orders.reduce(
+    (total, order) =>
+      total + Number(order.total || 0),
+    0
+  );
+
+  const handleLogout = () => {
+    localStorage.removeItem("token");
+    localStorage.removeItem("user");
+
+    navigate("/login");
+  };
+
   return (
     <div style={styles.container}>
-      <h1 style={styles.title}>Admin Dashboard</h1>
 
-      <p style={styles.subtitle}>
-        Welcome to the Farms Admin Panel
-      </p>
+      <div style={styles.header}>
+        <div>
+          <h1>🥛 Dairy Dashboard</h1>
+
+          <p>
+            Welcome, {user.name || "User"} 👋
+          </p>
+        </div>
+
+        <button
+          onClick={handleLogout}
+          style={styles.logout}
+        >
+          Logout
+        </button>
+      </div>
 
       <div style={styles.cards}>
 
@@ -31,15 +64,15 @@ function AdminDashboard() {
         </div>
 
         <div style={styles.card}>
-          <div style={styles.icon}>👥</div>
-          <h2>Users</h2>
-          <p>Registered Customers</p>
+          <div style={styles.icon}>👤</div>
+          <h2>{user.name || "User"}</h2>
+          <p>Current User</p>
         </div>
 
         <div style={styles.card}>
           <div style={styles.icon}>💰</div>
-          <h2>₹ Revenue</h2>
-          <p>Total Sales</p>
+          <h2>₹{totalRevenue}</h2>
+          <p>Total Revenue</p>
         </div>
 
       </div>
@@ -61,10 +94,17 @@ function AdminDashboard() {
         </Link>
 
         <Link
+          to="/cart"
+          style={styles.cartButton}
+        >
+          🛒 My Cart
+        </Link>
+
+        <Link
           to="/orders"
           style={styles.orderButton}
         >
-          📦 View Orders
+          📦 Orders
         </Link>
 
       </div>
@@ -73,7 +113,7 @@ function AdminDashboard() {
         <h2>Recent Orders</h2>
 
         {orders.length === 0 ? (
-          <p>No orders available.</p>
+          <p>No orders available yet.</p>
         ) : (
           orders
             .slice()
@@ -104,6 +144,7 @@ function AdminDashboard() {
               </div>
             ))
         )}
+
       </div>
 
     </div>
@@ -112,19 +153,26 @@ function AdminDashboard() {
 
 const styles = {
   container: {
+    minHeight: "100vh",
     padding: "40px",
-    backgroundColor: "#f5f7f5",
-    minHeight: "calc(100vh - 65px)",
+    background: "#f4faf5",
+    boxSizing: "border-box",
   },
 
-  title: {
-    color: "#2e7d32",
-    marginBottom: "5px",
+  header: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    flexWrap: "wrap",
   },
 
-  subtitle: {
-    color: "#666",
-    marginBottom: "35px",
+  logout: {
+    padding: "12px 20px",
+    background: "#e53935",
+    color: "white",
+    border: "none",
+    borderRadius: "10px",
+    cursor: "pointer",
   },
 
   cards: {
@@ -132,15 +180,16 @@ const styles = {
     gridTemplateColumns:
       "repeat(auto-fit, minmax(200px, 1fr))",
     gap: "20px",
+    marginTop: "30px",
   },
 
   card: {
-    backgroundColor: "white",
+    background: "white",
     padding: "25px",
-    borderRadius: "12px",
+    borderRadius: "18px",
     textAlign: "center",
     boxShadow:
-      "0 4px 12px rgba(0,0,0,0.08)",
+      "0 5px 20px rgba(0,0,0,0.08)",
   },
 
   icon: {
@@ -149,48 +198,54 @@ const styles = {
 
   actions: {
     display: "flex",
-    gap: "15px",
     flexWrap: "wrap",
+    gap: "15px",
     marginTop: "30px",
   },
 
   addButton: {
-    backgroundColor: "#2e7d32",
+    padding: "13px 20px",
+    background: "#2e7d32",
     color: "white",
-    padding: "12px 20px",
-    borderRadius: "7px",
     textDecoration: "none",
+    borderRadius: "10px",
   },
 
   viewButton: {
-    backgroundColor: "#1565c0",
+    padding: "13px 20px",
+    background: "#1976d2",
     color: "white",
-    padding: "12px 20px",
-    borderRadius: "7px",
     textDecoration: "none",
+    borderRadius: "10px",
+  },
+
+  cartButton: {
+    padding: "13px 20px",
+    background: "#f57c00",
+    color: "white",
+    textDecoration: "none",
+    borderRadius: "10px",
   },
 
   orderButton: {
-    backgroundColor: "#6a1b9a",
+    padding: "13px 20px",
+    background: "#7b1fa2",
     color: "white",
-    padding: "12px 20px",
-    borderRadius: "7px",
     textDecoration: "none",
+    borderRadius: "10px",
   },
 
   section: {
     marginTop: "40px",
-    backgroundColor: "white",
+    background: "white",
     padding: "25px",
-    borderRadius: "12px",
+    borderRadius: "18px",
   },
 
   order: {
     display: "flex",
     justifyContent: "space-between",
-    alignItems: "center",
     padding: "15px",
-    marginTop: "10px",
     borderBottom: "1px solid #eee",
   },
 
