@@ -12,27 +12,6 @@ import Login from "./Pages/Login";
 import AdminDashboard from "./Pages/AdminDashboard";
 
 
-// ======================================================
-// PROTECTED ROUTE
-// ======================================================
-
-{/*function ProtectedRoute({ children }) {
-
-  const token =
-    localStorage.getItem("token");
-
-  if (!token) {
-    return (
-      <Navigate
-        to="/login"
-        replace
-      />
-    );
-  }
-
-  return children;
-}
-*/}
 
 // ======================================================
 // ADMIN ROUTE
