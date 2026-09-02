@@ -3,7 +3,7 @@ const cors = require("cors");
 require("dotenv").config();
 
 const db = require("./db");
-const authRoutes = require("./routes/authRoutes");
+const authRoutes = require("./routes/AuthRoutes");
 
 const app = express();
 
@@ -79,7 +79,7 @@ app.get("/api/test-db", async (req, res) => {
 
 app.use(
   "/api/auth",
-  authRoutes
+  AuthRoutes
 );
 
 
