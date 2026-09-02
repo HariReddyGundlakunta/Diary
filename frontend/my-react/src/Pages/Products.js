@@ -1,3 +1,4 @@
+
 import React, {
   useCallback,
   useEffect,
@@ -43,103 +44,101 @@ function Products() {
   // IMAGE URL FUNCTION
   // ==================================================
 
-  const getImageUrl = (image) => {
+  const getImageUrl = useCallback(
+    (image) => {
 
-    if (!image) {
-      return "/images/default-product.jpg";
-    }
+      // No image
+      if (!image) {
+        return "/images/default-product.jpg";
+      }
 
-    const imageUrl = String(image).trim();
+      const imageUrl = String(image).trim();
 
-    if (!imageUrl) {
-      return "/images/default-product.jpg";
-    }
-
-
-    // ----------------------------------------------
-    // Full URL
-    // Example:
-    // https://example.com/image.jpg
-    // ----------------------------------------------
-
-    if (
-      imageUrl.startsWith("http://") ||
-      imageUrl.startsWith("https://")
-    ) {
-      return imageUrl;
-    }
+      // Empty image
+      if (!imageUrl) {
+        return "/images/default-product.jpg";
+      }
 
 
-    // ----------------------------------------------
-    // Base64 image
-    // ----------------------------------------------
+      // ----------------------------------------------
+      // Full URL
+      // Example:
+      // https://example.com/image.jpg
+      // ----------------------------------------------
 
-    if (imageUrl.startsWith("data:image")) {
-      return imageUrl;
-    }
-
-
-    // ----------------------------------------------
-    // Render backend uploads
-    // Example:
-    // /uploads/milkshake.jpg
-    // ----------------------------------------------
-
-    if (imageUrl.startsWith("/uploads/")) {
-
-      return `${API_URL}${imageUrl}`;
-
-    }
+      if (
+        imageUrl.startsWith("http://") ||
+        imageUrl.startsWith("https://")
+      ) {
+        return imageUrl;
+      }
 
 
-    // ----------------------------------------------
-    // Backend uploads without /
-    // Example:
-    // uploads/milkshake.jpg
-    // ----------------------------------------------
+      // ----------------------------------------------
+      // Base64 image
+      // ----------------------------------------------
 
-    if (imageUrl.startsWith("uploads/")) {
-
-      return `${API_URL}/${imageUrl}`;
-
-    }
+      if (imageUrl.startsWith("data:image")) {
+        return imageUrl;
+      }
 
 
-    // ----------------------------------------------
-    // React public folder
-    // Example:
-    // /images/milkshake.jpg
-    // ----------------------------------------------
+      // ----------------------------------------------
+      // Backend uploads
+      // Example:
+      // /uploads/milkshake.jpg
+      // ----------------------------------------------
 
-    if (imageUrl.startsWith("/images/")) {
-
-      return imageUrl;
-
-    }
+      if (imageUrl.startsWith("/uploads/")) {
+        return `${API_URL}${imageUrl}`;
+      }
 
 
-    // ----------------------------------------------
-    // images/milkshake.jpg
-    // ----------------------------------------------
+      // ----------------------------------------------
+      // Backend uploads without /
+      // Example:
+      // uploads/milkshake.jpg
+      // ----------------------------------------------
 
-    if (imageUrl.startsWith("images/")) {
-
-      return `/${imageUrl}`;
-
-    }
+      if (imageUrl.startsWith("uploads/")) {
+        return `${API_URL}/${imageUrl}`;
+      }
 
 
-    // ----------------------------------------------
-    // Only filename
-    // Example:
-    // milkshake.jpg
-    //
-    // Assumes image is inside:
-    // backend/uploads/
-    // ----------------------------------------------
+      // ----------------------------------------------
+      // React public folder
+      // Example:
+      // /images/milkshake.jpg
+      // ----------------------------------------------
 
-    return `${API_URL}/uploads/${imageUrl}`;
-  };
+      if (imageUrl.startsWith("/images/")) {
+        return imageUrl;
+      }
+
+
+      // ----------------------------------------------
+      // images/milkshake.jpg
+      // ----------------------------------------------
+
+      if (imageUrl.startsWith("images/")) {
+        return `/${imageUrl}`;
+      }
+
+
+      // ----------------------------------------------
+      // Only filename
+      // Example:
+      // milkshake.jpg
+      //
+      // Assumes image is inside:
+      // backend/uploads/
+      // ----------------------------------------------
+
+      return `${API_URL}/uploads/${imageUrl}`;
+
+    },
+    [API_URL]
+  );
 
 
   // ==================================================
@@ -183,9 +182,7 @@ function Products() {
 
 
         if (
-          Array.isArray(
-            response.data
-          )
+          Array.isArray(response.data)
         ) {
 
           response.data.forEach(
@@ -256,7 +253,7 @@ function Products() {
       }
 
     },
-    [API_URL]
+    [API_URL, getImageUrl]
   );
 
 
@@ -304,6 +301,7 @@ function Products() {
           navigate("/login");
 
           return;
+
         }
 
 
@@ -337,6 +335,7 @@ function Products() {
           navigate("/login");
 
           return;
+
         }
 
 
@@ -359,6 +358,7 @@ function Products() {
           navigate("/login");
 
           return;
+
         }
 
 
@@ -440,6 +440,7 @@ function Products() {
           navigate("/login");
 
           return;
+
         }
 
 
@@ -886,9 +887,7 @@ function Products() {
                   ================================= */}
 
                   <h2>
-
                     {product.name}
-
                   </h2>
 
 
@@ -1044,3 +1043,4 @@ function Products() {
 
 
 export default Products;
+
