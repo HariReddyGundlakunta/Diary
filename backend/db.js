@@ -2,7 +2,7 @@ const mysql = require("mysql2/promise");
 require("dotenv").config();
 
 // ==================================================
-// CHECK ENVIRONMENT VARIABLES
+// CHECK REQUIRED ENVIRONMENT VARIABLES
 // ==================================================
 
 const requiredEnv = [
@@ -18,8 +18,13 @@ const missingEnv = requiredEnv.filter(
 
 if (missingEnv.length > 0) {
   console.error("=================================");
-  console.error("❌ MISSING DATABASE ENVIRONMENT VARIABLES");
-  console.error("Missing:", missingEnv.join(", "));
+  console.error(
+    "❌ MISSING DATABASE ENVIRONMENT VARIABLES"
+  );
+  console.error(
+    "Missing:",
+    missingEnv.join(", ")
+  );
   console.error("=================================");
 }
 
@@ -33,21 +38,23 @@ const dbConfig = {
   password: process.env.DB_PASSWORD,
   database: process.env.DB_NAME,
 
-  // TiDB Cloud normally uses port 4000
-  port: Number(process.env.DB_PORT || 4000),
+  // TiDB Cloud
+  port: Number(
+    process.env.DB_PORT || 4000
+  ),
 
   waitForConnections: true,
   connectionLimit: 10,
   queueLimit: 0,
 
-  // TiDB Cloud TLS
+  // TiDB Cloud requires TLS
   ssl: {
     rejectUnauthorized: true,
   },
 };
 
 // ==================================================
-// CREATE CONNECTION POOL
+// CREATE MYSQL CONNECTION POOL
 // ==================================================
 
 const db = mysql.createPool(dbConfig);
@@ -61,9 +68,14 @@ async function testConnection() {
 
   try {
     console.log("=================================");
-    console.log("🔄 TESTING TIDB CLOUD CONNECTION...");
+    console.log(
+      "🔄 TESTING TIDB CLOUD DATABASE..."
+    );
     console.log("Host:", process.env.DB_HOST);
-    console.log("Database:", process.env.DB_NAME);
+    console.log(
+      "Database:",
+      process.env.DB_NAME
+    );
     console.log(
       "User:",
       process.env.DB_USER
@@ -82,14 +94,26 @@ async function testConnection() {
     );
     console.log("=================================");
 
-    connection = await db.getConnection();
+    // ------------------------------------------
+    // GET CONNECTION
+    // ------------------------------------------
 
-    const [rows] = await connection.query(
-      "SELECT 1 AS connected"
-    );
+    connection =
+      await db.getConnection();
+
+    // ------------------------------------------
+    // TEST QUERY
+    // ------------------------------------------
+
+    const [rows] =
+      await connection.query(
+        "SELECT 1 AS connected"
+      );
 
     console.log("=================================");
-    console.log("✅ TIDB CLOUD DATABASE CONNECTED");
+    console.log(
+      "✅ TIDB CLOUD DATABASE CONNECTED"
+    );
     console.log(
       "Test query:",
       rows[0].connected
@@ -97,31 +121,44 @@ async function testConnection() {
     console.log("=================================");
 
     return true;
+
   } catch (error) {
+
     console.error("=================================");
     console.error(
       "❌ TIDB DATABASE CONNECTION FAILED"
     );
-    console.error("Error code:", error.code);
+
+    console.error(
+      "Error code:",
+      error.code
+    );
+
     console.error(
       "Error message:",
       error.message
     );
+
     console.error(
-      "Error errno:",
+      "Error number:",
       error.errno
     );
+
     console.error(
-      "Error sqlState:",
+      "SQL state:",
       error.sqlState
     );
+
     console.error("=================================");
 
     throw error;
+
   } finally {
+
     if (connection) {
       connection.release();
     }
+
   }
 }
 
@@ -129,7 +166,8 @@ async function testConnection() {
 // ATTACH TEST FUNCTION
 // ==================================================
 
-db.testConnection = testConnection;
+db.testConnection =
+  testConnection;
 
 // ==================================================
 // EXPORT
