@@ -3,563 +3,622 @@ const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 
 const router = express.Router();
-
 const db = require("../db");
 
 // ==================================================
 // JWT SECRET
 // ==================================================
 
-const JWT_SECRET =
-  process.env.JWT_SECRET ||
-  "hari_farms_secret_key_2026";
+const JWT_SECRET = process.env.JWT_SECRET;
+
+if (!JWT_SECRET) {
+  console.warn(
+    "⚠️ WARNING: JWT_SECRET is not configured in environment variables."
+  );
+}
 
 // ==================================================
 // REGISTER
 // ==================================================
 
-router.post(
-  "/register",
-  async (req, res) => {
+router.post("/register", async (req, res) => {
+  try {
+    console.log("=================================");
+    console.log("POST /api/auth/register");
+    console.log("=================================");
 
-    try {
+    const {
+      name,
+      email,
+      password,
+      confirmPassword,
+    } = req.body || {};
 
-      console.log(
-        "================================="
-      );
+    // ------------------------------------------
+    // VALIDATION
+    // ------------------------------------------
 
-      console.log(
-        "POST /api/auth/register"
-      );
-
-      console.log(
-        "================================="
-      );
-
-      const {
-        name,
-        email,
-        password,
-        confirmPassword,
-      } = req.body;
-
-      // ------------------------------------------
-      // VALIDATION
-      // ------------------------------------------
-
-      if (
-        !name ||
-        !email ||
-        !password
-      ) {
-
-        return res.status(400).json({
-          success: false,
-          message:
-            "Name, email and password are required",
-        });
-
-      }
-
-      // ------------------------------------------
-      // PASSWORD CONFIRMATION
-      // ------------------------------------------
-
-      if (
-        confirmPassword !== undefined &&
-        password !== confirmPassword
-      ) {
-
-        return res.status(400).json({
-          success: false,
-          message:
-            "Passwords do not match",
-        });
-
-      }
-
-      // ------------------------------------------
-      // CLEAN VALUES
-      // ------------------------------------------
-
-      const cleanName =
-        name.trim();
-
-      const cleanEmail =
-        email.trim().toLowerCase();
-
-      // ------------------------------------------
-      // CHECK EMAIL
-      // ------------------------------------------
-
-      const [existingUsers] =
-        await db.query(
-          `
-          SELECT id
-          FROM users
-          WHERE LOWER(email) = ?
-          LIMIT 1
-          `,
-          [cleanEmail]
-        );
-
-      if (
-        existingUsers.length > 0
-      ) {
-
-        return res.status(409).json({
-          success: false,
-          message:
-            "Email is already registered",
-        });
-
-      }
-
-      // ------------------------------------------
-      // HASH PASSWORD
-      // ------------------------------------------
-
-      const hashedPassword =
-        await bcrypt.hash(
-          password,
-          10
-        );
-
-      // ------------------------------------------
-      // CHECK ROLE COLUMN
-      // ------------------------------------------
-
-      const [userColumns] =
-        await db.query(
-          `
-          SELECT COLUMN_NAME
-          FROM INFORMATION_SCHEMA.COLUMNS
-          WHERE TABLE_SCHEMA = DATABASE()
-            AND TABLE_NAME = 'users'
-          `
-        );
-
-      const columnNames =
-        userColumns.map(
-          (row) =>
-            row.COLUMN_NAME.toLowerCase()
-        );
-
-      // ------------------------------------------
-      // INSERT USER
-      // ------------------------------------------
-
-      let result;
-
-      if (
-        columnNames.includes("role")
-      ) {
-
-        [
-          result
-        ] = await db.query(
-          `
-          INSERT INTO users
-          (
-            name,
-            email,
-            password,
-            role
-          )
-          VALUES (?, ?, ?, ?)
-          `,
-          [
-            cleanName,
-            cleanEmail,
-            hashedPassword,
-            "user",
-          ]
-        );
-
-      } else {
-
-        [
-          result
-        ] = await db.query(
-          `
-          INSERT INTO users
-          (
-            name,
-            email,
-            password
-          )
-          VALUES (?, ?, ?)
-          `,
-          [
-            cleanName,
-            cleanEmail,
-            hashedPassword,
-          ]
-        );
-
-      }
-
-      console.log(
-        "User registered:",
-        result.insertId
-      );
-
-      // ------------------------------------------
-      // RESPONSE
-      // ------------------------------------------
-
-      res.status(201).json({
-
-        success: true,
-
-        message:
-          "Registration successful",
-
-        user: {
-          id:
-            result.insertId,
-
-          name:
-            cleanName,
-
-          email:
-            cleanEmail,
-
-          role:
-            "user",
-        },
-
-      });
-
-    } catch (error) {
-
-      console.error(
-        "REGISTER ERROR:",
-        error
-      );
-
-      res.status(500).json({
-
+    if (!name || !email || !password) {
+      return res.status(400).json({
         success: false,
-
-        message:
-          "Registration failed",
-
-        error:
-          error.message,
-
+        message: "Name, email and password are required",
       });
-
     }
 
+    // ------------------------------------------
+    // PASSWORD CONFIRMATION
+    // ------------------------------------------
+
+    if (
+      confirmPassword !== undefined &&
+      password !== confirmPassword
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: "Passwords do not match",
+      });
+    }
+
+    // ------------------------------------------
+    // CLEAN VALUES
+    // ------------------------------------------
+
+    const cleanName = String(name).trim();
+    const cleanEmail = String(email).trim().toLowerCase();
+
+    if (!cleanName || !cleanEmail || !password) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid registration details",
+      });
+    }
+
+    // ------------------------------------------
+    // CHECK EMAIL
+    // ------------------------------------------
+
+    const [existingUsers] = await db.query(
+      `
+      SELECT id
+      FROM users
+      WHERE LOWER(email) = ?
+      LIMIT 1
+      `,
+      [cleanEmail]
+    );
+
+    if (existingUsers.length > 0) {
+      return res.status(409).json({
+        success: false,
+        message: "Email is already registered",
+      });
+    }
+
+    // ------------------------------------------
+    // HASH PASSWORD
+    // ------------------------------------------
+
+    const hashedPassword = await bcrypt.hash(
+      String(password),
+      10
+    );
+
+    // ------------------------------------------
+    // CHECK USERS TABLE COLUMNS
+    // ------------------------------------------
+
+    const [userColumns] = await db.query(
+      `
+      SELECT COLUMN_NAME
+      FROM INFORMATION_SCHEMA.COLUMNS
+      WHERE TABLE_SCHEMA = DATABASE()
+      AND TABLE_NAME = 'users'
+      `
+    );
+
+    const columnNames = userColumns.map((row) =>
+      String(row.COLUMN_NAME).toLowerCase()
+    );
+
+    // ------------------------------------------
+    // INSERT USER
+    // ------------------------------------------
+
+    let result;
+
+    if (columnNames.includes("role")) {
+      [result] = await db.query(
+        `
+        INSERT INTO users
+        (
+          name,
+          email,
+          password,
+          role
+        )
+        VALUES (?, ?, ?, ?)
+        `,
+        [
+          cleanName,
+          cleanEmail,
+          hashedPassword,
+          "user",
+        ]
+      );
+    } else {
+      [result] = await db.query(
+        `
+        INSERT INTO users
+        (
+          name,
+          email,
+          password
+        )
+        VALUES (?, ?, ?)
+        `,
+        [
+          cleanName,
+          cleanEmail,
+          hashedPassword,
+        ]
+      );
+    }
+
+    console.log(
+      "✅ User registered successfully:",
+      result.insertId
+    );
+
+    // ------------------------------------------
+    // RESPONSE
+    // ------------------------------------------
+
+    return res.status(201).json({
+      success: true,
+      message: "Registration successful",
+
+      user: {
+        id: result.insertId,
+        name: cleanName,
+        email: cleanEmail,
+        role: "user",
+      },
+    });
+  } catch (error) {
+    console.error("=================================");
+    console.error("❌ REGISTER ERROR");
+    console.error(error);
+    console.error("=================================");
+
+    return res.status(500).json({
+      success: false,
+      message: "Registration failed",
+      error:
+        process.env.NODE_ENV === "production"
+          ? "Internal server error"
+          : error.message,
+    });
   }
-);
+});
 
 // ==================================================
 // LOGIN
 // ==================================================
 
-router.post(
-  "/login",
-  async (req, res) => {
+router.post("/login", async (req, res) => {
+  try {
+    console.log("=================================");
+    console.log("POST /api/auth/login");
+    console.log("=================================");
 
-    try {
+    // ------------------------------------------
+    // CHECK REQUEST BODY
+    // ------------------------------------------
 
-      console.log(
-        "================================="
-      );
-
-      console.log(
-        "POST /api/auth/login"
-      );
-
-      console.log(
-        "================================="
-      );
-
-      const {
-        email,
-        password,
-      } = req.body;
-
-      // ------------------------------------------
-      // VALIDATION
-      // ------------------------------------------
-
-      if (
-        !email ||
-        !password
-      ) {
-
-        return res.status(400).json({
-          success: false,
-          message:
-            "Email and password are required",
-        });
-
-      }
-
-      // ------------------------------------------
-      // CLEAN EMAIL
-      // ------------------------------------------
-
-      const cleanEmail =
-        email.trim().toLowerCase();
-
-      // ------------------------------------------
-      // FIND USER
-      // ------------------------------------------
-
-      const [users] =
-        await db.query(
-          `
-          SELECT *
-          FROM users
-          WHERE LOWER(email) = ?
-          LIMIT 1
-          `,
-          [cleanEmail]
-        );
-
-      if (
-        users.length === 0
-      ) {
-
-        return res.status(401).json({
-          success: false,
-          message:
-            "Invalid email or password",
-        });
-
-      }
-
-      const user =
-        users[0];
-
-      // ------------------------------------------
-      // CHECK PASSWORD
-      // ------------------------------------------
-
-      const passwordMatch =
-        await bcrypt.compare(
-          password,
-          user.password
-        );
-
-      if (!passwordMatch) {
-
-        return res.status(401).json({
-          success: false,
-          message:
-            "Invalid email or password",
-        });
-
-      }
-
-      // ------------------------------------------
-      // USER ROLE
-      // ------------------------------------------
-
-      const role =
-        String(
-          user.role || "user"
-        ).toLowerCase();
-
-      // ------------------------------------------
-      // CREATE TOKEN
-      // ------------------------------------------
-
-      const token =
-        jwt.sign(
-          {
-            id:
-              user.id,
-
-            email:
-              user.email,
-
-            role:
-              role,
-          },
-
-          JWT_SECRET,
-
-          {
-            expiresIn:
-              "7d",
-          }
-        );
-
-      // ------------------------------------------
-      // USER RESPONSE
-      // ------------------------------------------
-
-      const userResponse = {
-
-        id:
-          user.id,
-
-        name:
-          user.name,
-
-        email:
-          user.email,
-
-        role:
-          role,
-
-      };
-
-      console.log(
-        "Login successful:",
-        userResponse
-      );
-
-      // ------------------------------------------
-      // RESPONSE
-      // ------------------------------------------
-
-      res.status(200).json({
-
-        success: true,
-
-        message:
-          "Login successful",
-
-        token:
-
-          token,
-
-        user:
-          userResponse,
-
-      });
-
-    } catch (error) {
-
-      console.error(
-        "LOGIN ERROR:",
-        error
-      );
-
-      res.status(500).json({
-
+    if (!req.body) {
+      return res.status(400).json({
         success: false,
-
-        message:
-          "Login failed",
-
-        error:
-          error.message,
-
+        message: "Request body is required",
       });
-
     }
 
+    const {
+      email,
+      password,
+    } = req.body;
+
+    // ------------------------------------------
+    // VALIDATION
+    // ------------------------------------------
+
+    if (!email || !password) {
+      return res.status(400).json({
+        success: false,
+        message: "Email and password are required",
+      });
+    }
+
+    // ------------------------------------------
+    // CLEAN EMAIL
+    // ------------------------------------------
+
+    const cleanEmail = String(email)
+      .trim()
+      .toLowerCase();
+
+    const cleanPassword = String(password);
+
+    if (!cleanEmail || !cleanPassword) {
+      return res.status(400).json({
+        success: false,
+        message: "Email and password are required",
+      });
+    }
+
+    console.log("Login email:", cleanEmail);
+
+    // ------------------------------------------
+    // CHECK USERS TABLE
+    // ------------------------------------------
+
+    const [userColumns] = await db.query(
+      `
+      SELECT COLUMN_NAME
+      FROM INFORMATION_SCHEMA.COLUMNS
+      WHERE TABLE_SCHEMA = DATABASE()
+      AND TABLE_NAME = 'users'
+      `
+    );
+
+    if (!userColumns || userColumns.length === 0) {
+      console.error(
+        "❌ USERS TABLE NOT FOUND OR HAS NO COLUMNS"
+      );
+
+      return res.status(500).json({
+        success: false,
+        message: "Users table is not available",
+      });
+    }
+
+    const columnNames = userColumns.map((row) =>
+      String(row.COLUMN_NAME).toLowerCase()
+    );
+
+    console.log(
+      "Users table columns:",
+      columnNames
+    );
+
+    // ------------------------------------------
+    // CHECK REQUIRED COLUMNS
+    // ------------------------------------------
+
+    if (!columnNames.includes("email")) {
+      console.error(
+        "❌ users table does not contain email column"
+      );
+
+      return res.status(500).json({
+        success: false,
+        message: "Database users table is missing email column",
+      });
+    }
+
+    if (!columnNames.includes("password")) {
+      console.error(
+        "❌ users table does not contain password column"
+      );
+
+      return res.status(500).json({
+        success: false,
+        message:
+          "Database users table is missing password column",
+      });
+    }
+
+    // ------------------------------------------
+    // FIND USER
+    // ------------------------------------------
+
+    const [users] = await db.query(
+      `
+      SELECT *
+      FROM users
+      WHERE LOWER(email) = ?
+      LIMIT 1
+      `,
+      [cleanEmail]
+    );
+
+    console.log(
+      "Matching users:",
+      users.length
+    );
+
+    // ------------------------------------------
+    // USER NOT FOUND
+    // ------------------------------------------
+
+    if (!users || users.length === 0) {
+      console.log(
+        "❌ Login failed: user not found"
+      );
+
+      return res.status(401).json({
+        success: false,
+        message: "Invalid email or password",
+      });
+    }
+
+    const user = users[0];
+
+    // ------------------------------------------
+    // CHECK PASSWORD HASH
+    // ------------------------------------------
+
+    if (!user.password) {
+      console.error(
+        "❌ User exists but password field is empty"
+      );
+
+      return res.status(500).json({
+        success: false,
+        message:
+          "User account has an invalid password configuration",
+      });
+    }
+
+    console.log(
+      "Password hash found:",
+      typeof user.password === "string"
+    );
+
+    // ------------------------------------------
+    // COMPARE PASSWORD
+    // ------------------------------------------
+
+    let passwordMatch = false;
+
+    try {
+      passwordMatch = await bcrypt.compare(
+        cleanPassword,
+        String(user.password)
+      );
+    } catch (passwordError) {
+      console.error(
+        "❌ BCRYPT PASSWORD ERROR:",
+        passwordError
+      );
+
+      return res.status(500).json({
+        success: false,
+        message:
+          "Password verification failed",
+        error:
+          process.env.NODE_ENV === "production"
+            ? "Internal server error"
+            : passwordError.message,
+      });
+    }
+
+    // ------------------------------------------
+    // INVALID PASSWORD
+    // ------------------------------------------
+
+    if (!passwordMatch) {
+      console.log(
+        "❌ Login failed: incorrect password"
+      );
+
+      return res.status(401).json({
+        success: false,
+        message: "Invalid email or password",
+      });
+    }
+
+    // ------------------------------------------
+    // USER ROLE
+    // ------------------------------------------
+
+    let role = "user";
+
+    if (columnNames.includes("role")) {
+      role = String(
+        user.role || "user"
+      ).toLowerCase();
+    }
+
+    console.log(
+      "User role:",
+      role
+    );
+
+    // ------------------------------------------
+    // CHECK USER ID
+    // ------------------------------------------
+
+    if (
+      user.id === undefined ||
+      user.id === null
+    ) {
+      console.error(
+        "❌ User record does not contain id"
+      );
+
+      return res.status(500).json({
+        success: false,
+        message:
+          "User database record is missing id",
+      });
+    }
+
+    // ------------------------------------------
+    // JWT SECRET
+    // ------------------------------------------
+
+    if (!JWT_SECRET) {
+      console.error(
+        "❌ JWT_SECRET is missing from Render environment variables"
+      );
+
+      return res.status(500).json({
+        success: false,
+        message:
+          "Server authentication configuration is missing",
+      });
+    }
+
+    // ------------------------------------------
+    // CREATE TOKEN
+    // ------------------------------------------
+
+    let token;
+
+    try {
+      token = jwt.sign(
+        {
+          id: user.id,
+          email: cleanEmail,
+          role: role,
+        },
+        JWT_SECRET,
+        {
+          expiresIn: "7d",
+        }
+      );
+    } catch (jwtError) {
+      console.error(
+        "❌ JWT ERROR:",
+        jwtError
+      );
+
+      return res.status(500).json({
+        success: false,
+        message:
+          "Failed to create authentication token",
+        error:
+          process.env.NODE_ENV === "production"
+            ? "Internal server error"
+            : jwtError.message,
+      });
+    }
+
+    // ------------------------------------------
+    // USER RESPONSE
+    // ------------------------------------------
+
+    const userResponse = {
+      id: user.id,
+      name: user.name || "",
+      email: user.email || cleanEmail,
+      role: role,
+    };
+
+    console.log(
+      "✅ LOGIN SUCCESSFUL"
+    );
+
+    console.log(
+      "User:",
+      userResponse
+    );
+
+    // ------------------------------------------
+    // RESPONSE
+    // ------------------------------------------
+
+    return res.status(200).json({
+      success: true,
+      message: "Login successful",
+      token: token,
+      user: userResponse,
+    });
+  } catch (error) {
+    console.error("=================================");
+    console.error("❌ LOGIN ERROR");
+    console.error("Error name:", error.name);
+    console.error("Error message:", error.message);
+    console.error("Full error:", error);
+    console.error("=================================");
+
+    return res.status(500).json({
+      success: false,
+      message: "Login failed",
+      error:
+        process.env.NODE_ENV === "production"
+          ? "Internal server error"
+          : error.message,
+    });
   }
-);
+});
 
 // ==================================================
 // ADMIN DASHBOARD STATISTICS
 // ==================================================
 
-router.get(
-  "/admin/stats",
-  async (req, res) => {
+router.get("/admin/stats", async (req, res) => {
+  try {
+    console.log("=================================");
+    console.log("GET /api/auth/admin/stats");
+    console.log("Loading admin statistics...");
+    console.log("=================================");
 
-    try {
+    // ------------------------------------------
+    // TOTAL PRODUCTS
+    // ------------------------------------------
 
-      console.log(
-        "================================="
-      );
+    const [productRows] = await db.query(
+      `
+      SELECT COUNT(*) AS totalProducts
+      FROM products
+      `
+    );
 
-      console.log(
-        "GET /api/auth/admin/stats"
-      );
+    const totalProducts = Number(
+      productRows[0]?.totalProducts || 0
+    );
 
-      console.log(
-        "Loading admin statistics..."
-      );
+    // ------------------------------------------
+    // TOTAL ORDERS
+    // ------------------------------------------
 
-      console.log(
-        "================================="
-      );
+    const [orderRows] = await db.query(
+      `
+      SELECT COUNT(*) AS totalOrders
+      FROM orders
+      `
+    );
 
-      // ==================================================
-      // TOTAL PRODUCTS
-      // ==================================================
+    const totalOrders = Number(
+      orderRows[0]?.totalOrders || 0
+    );
 
-      const [
-        productRows
-      ] = await db.query(
-        `
-        SELECT COUNT(*) AS totalProducts
-        FROM products
-        `
-      );
+    // ------------------------------------------
+    // TOTAL CUSTOMERS
+    // ------------------------------------------
 
-      const totalProducts =
-        Number(
-          productRows[0]
-            ?.totalProducts || 0
-        );
+    let totalCustomers = 0;
 
-      // ==================================================
-      // TOTAL ORDERS
-      // ==================================================
+    const [userColumns] = await db.query(
+      `
+      SELECT COLUMN_NAME
+      FROM INFORMATION_SCHEMA.COLUMNS
+      WHERE TABLE_SCHEMA = DATABASE()
+      AND TABLE_NAME = 'users'
+      `
+    );
 
-      const [
-        orderRows
-      ] = await db.query(
-        `
-        SELECT COUNT(*) AS totalOrders
-        FROM orders
-        `
-      );
+    const usersColumnNames = userColumns.map(
+      (row) =>
+        String(row.COLUMN_NAME).toLowerCase()
+    );
 
-      const totalOrders =
-        Number(
-          orderRows[0]
-            ?.totalOrders || 0
-        );
-
-      // ==================================================
-      // TOTAL CUSTOMERS
-      // ==================================================
-
-      let totalCustomers = 0;
-
-      // Get users table columns
-      const [
-        userColumns
-      ] = await db.query(
-        `
-        SELECT COLUMN_NAME
-        FROM INFORMATION_SCHEMA.COLUMNS
-        WHERE TABLE_SCHEMA = DATABASE()
-          AND TABLE_NAME = 'users'
-        `
-      );
-
-      const usersColumnNames =
-        userColumns.map(
-          (row) =>
-            row.COLUMN_NAME.toLowerCase()
-        );
-
-      // ------------------------------------------
-      // IF ROLE COLUMN EXISTS
-      // ------------------------------------------
-
-      if (
-        usersColumnNames.includes(
-          "role"
-        )
-      ) {
-
-        const [
-          customerRows
-        ] = await db.query(
+    if (
+      usersColumnNames.includes("role")
+    ) {
+      const [customerRows] =
+        await db.query(
           `
           SELECT COUNT(*) AS totalCustomers
           FROM users
@@ -569,101 +628,69 @@ router.get(
           `
         );
 
-        totalCustomers =
-          Number(
-            customerRows[0]
-              ?.totalCustomers || 0
-          );
-
-      } else {
-
-        // ----------------------------------------
-        // NO ROLE COLUMN
-        // ----------------------------------------
-
-        const [
-          customerRows
-        ] = await db.query(
+      totalCustomers = Number(
+        customerRows[0]?.totalCustomers || 0
+      );
+    } else {
+      const [customerRows] =
+        await db.query(
           `
           SELECT COUNT(*) AS totalCustomers
           FROM users
           `
         );
 
-        totalCustomers =
-          Number(
-            customerRows[0]
-              ?.totalCustomers || 0
-          );
+      totalCustomers = Number(
+        customerRows[0]?.totalCustomers || 0
+      );
+    }
 
-      }
+    // ------------------------------------------
+    // REVENUE
+    // ------------------------------------------
 
-      // ==================================================
-      // REVENUE
-      // ==================================================
-
-      // Find which column contains order total
-      const [
-        orderColumns
-      ] = await db.query(
+    const [orderColumns] =
+      await db.query(
         `
         SELECT COLUMN_NAME
         FROM INFORMATION_SCHEMA.COLUMNS
         WHERE TABLE_SCHEMA = DATABASE()
-          AND TABLE_NAME = 'orders'
+        AND TABLE_NAME = 'orders'
         `
       );
 
-      const ordersColumnNames =
-        orderColumns.map(
-          (row) =>
-            row.COLUMN_NAME.toLowerCase()
-        );
+    const ordersColumnNames =
+      orderColumns.map(
+        (row) =>
+          String(row.COLUMN_NAME).toLowerCase()
+      );
 
-      let revenue = 0;
+    const possibleRevenueColumns = [
+      "total",
+      "total_amount",
+      "totalamount",
+      "amount",
+      "order_total",
+    ];
 
-      // Possible total column names
-      const possibleRevenueColumns = [
-        "total",
-        "total_amount",
-        "totalamount",
-        "amount",
-        "order_total",
-      ];
+    let revenueColumn = null;
 
-      let revenueColumn = null;
-
-      for (
-        const column
-        of possibleRevenueColumns
-      ) {
-
-        if (
-          ordersColumnNames.includes(
-            column
-          )
-        ) {
-
-          revenueColumn =
-            column;
-
-          break;
-
-        }
-
-      }
-
-      // ------------------------------------------
-      // CALCULATE REVENUE
-      // ------------------------------------------
-
+    for (
+      const column of possibleRevenueColumns
+    ) {
       if (
-        revenueColumn
+        ordersColumnNames.includes(column)
       ) {
+        revenueColumn = column;
+        break;
+      }
+    }
 
-        const [
-          revenueRows
-        ] = await db.query(
+    let revenue = 0;
+
+    if (revenueColumn) {
+      const [revenueRows] =
+        await db.query(
           `
           SELECT
             COALESCE(
@@ -679,98 +706,52 @@ router.get(
           `
         );
 
-        revenue =
-          Number(
-            revenueRows[0]
-              ?.revenue || 0
-          );
-
-      }
-
-      // ==================================================
-      // FINAL STATS
-      // ==================================================
-
-      const stats = {
-
-        totalProducts:
-          totalProducts,
-
-        totalOrders:
-          totalOrders,
-
-        totalCustomers:
-          totalCustomers,
-
-        revenue:
-          revenue,
-
-      };
-
-      console.log(
-        "================================="
+      revenue = Number(
+        revenueRows[0]?.revenue || 0
       );
-
-      console.log(
-        "ADMIN DASHBOARD STATS:"
-      );
-
-      console.log(
-        stats
-      );
-
-      console.log(
-        "================================="
-      );
-
-      // ==================================================
-      // RESPONSE
-      // ==================================================
-
-      res.status(200).json({
-
-        success: true,
-
-        stats:
-
-          stats,
-
-      });
-
-    } catch (error) {
-
-      console.error(
-        "================================="
-      );
-
-      console.error(
-        "ADMIN STATS ERROR:"
-      );
-
-      console.error(
-        error
-      );
-
-      console.error(
-        "================================="
-      );
-
-      res.status(500).json({
-
-        success: false,
-
-        message:
-          "Failed to load admin statistics",
-
-        error:
-          error.message,
-
-      });
-
     }
 
+    // ------------------------------------------
+    // FINAL STATS
+    // ------------------------------------------
+
+    const stats = {
+      totalProducts,
+      totalOrders,
+      totalCustomers,
+      revenue,
+    };
+
+    console.log(
+      "ADMIN DASHBOARD STATS:",
+      stats
+    );
+
+    // ------------------------------------------
+    // RESPONSE
+    // ------------------------------------------
+
+    return res.status(200).json({
+      success: true,
+      stats,
+    });
+  } catch (error) {
+    console.error("=================================");
+    console.error("❌ ADMIN STATS ERROR");
+    console.error(error);
+    console.error("=================================");
+
+    return res.status(500).json({
+      success: false,
+      message:
+        "Failed to load admin statistics",
+      error:
+        process.env.NODE_ENV === "production"
+          ? "Internal server error"
+          : error.message,
+    });
   }
-);
+});
 
 // ==================================================
 // EXPORT
