@@ -41,7 +41,8 @@ router.post("/register", async (req, res) => {
     if (!name || !email || !password) {
       return res.status(400).json({
         success: false,
-        message: "Name, email and password are required",
+        message:
+          "Name, email and password are required",
       });
     }
 
@@ -64,12 +65,20 @@ router.post("/register", async (req, res) => {
     // ------------------------------------------
 
     const cleanName = String(name).trim();
-    const cleanEmail = String(email).trim().toLowerCase();
 
-    if (!cleanName || !cleanEmail || !password) {
+    const cleanEmail = String(email)
+      .trim()
+      .toLowerCase();
+
+    if (
+      !cleanName ||
+      !cleanEmail ||
+      !password
+    ) {
       return res.status(400).json({
         success: false,
-        message: "Invalid registration details",
+        message:
+          "Invalid registration details",
       });
     }
 
@@ -77,20 +86,22 @@ router.post("/register", async (req, res) => {
     // CHECK EMAIL
     // ------------------------------------------
 
-    const [existingUsers] = await db.query(
-      `
-      SELECT id
-      FROM users
-      WHERE LOWER(email) = ?
-      LIMIT 1
-      `,
-      [cleanEmail]
-    );
+    const [existingUsers] =
+      await db.query(
+        `
+        SELECT id
+        FROM users
+        WHERE LOWER(email) = ?
+        LIMIT 1
+        `,
+        [cleanEmail]
+      );
 
     if (existingUsers.length > 0) {
       return res.status(409).json({
         success: false,
-        message: "Email is already registered",
+        message:
+          "Email is already registered",
       });
     }
 
@@ -98,26 +109,53 @@ router.post("/register", async (req, res) => {
     // HASH PASSWORD
     // ------------------------------------------
 
-    const hashedPassword = await bcrypt.hash(
-      String(password),
-      10
-    );
+    const hashedPassword =
+      await bcrypt.hash(
+        String(password),
+        10
+      );
 
     // ------------------------------------------
     // CHECK USERS TABLE COLUMNS
     // ------------------------------------------
 
-    const [userColumns] = await db.query(
-      `
-      SELECT COLUMN_NAME
-      FROM INFORMATION_SCHEMA.COLUMNS
-      WHERE TABLE_SCHEMA = DATABASE()
-      AND TABLE_NAME = 'users'
-      `
-    );
+    const [userColumns] =
+      await db.query(
+        `
+        SELECT COLUMN_NAME
+        FROM INFORMATION_SCHEMA.COLUMNS
+        WHERE TABLE_SCHEMA = DATABASE()
+        AND TABLE_NAME = 'users'
+        `
+      );
 
-    const columnNames = userColumns.map((row) =>
-      String(row.COLUMN_NAME).toLowerCase()
+    const columnNames =
+      userColumns.map((row) =>
+        String(
+          row.COLUMN_NAME
+        ).toLowerCase()
+      );
+
+    // ------------------------------------------
+    // DETERMINE NEW USER ROLE
+    // ------------------------------------------
+
+    /*
+     * The special HARI FARMS admin email
+     * receives the admin role.
+     *
+     * Every other newly registered account
+     * receives the normal user role.
+     */
+
+    const newUserRole =
+      cleanEmail === "admin@gmail.com"
+        ? "admin"
+        : "user";
+
+    console.log(
+      "New account role:",
+      newUserRole
     );
 
     // ------------------------------------------
@@ -126,42 +164,58 @@ router.post("/register", async (req, res) => {
 
     let result;
 
-    if (columnNames.includes("role")) {
-      [result] = await db.query(
-        `
-        INSERT INTO users
-        (
-          name,
-          email,
-          password,
-          role
-        )
-        VALUES (?, ?, ?, ?)
-        `,
-        [
-          cleanName,
-          cleanEmail,
-          hashedPassword,
-          "user",
-        ]
-      );
+    if (
+      columnNames.includes("role")
+    ) {
+      [result] =
+        await db.query(
+          `
+          INSERT INTO users
+          (
+            name,
+            email,
+            password,
+            role
+          )
+          VALUES (?, ?, ?, ?)
+          `,
+          [
+            cleanName,
+            cleanEmail,
+            hashedPassword,
+            newUserRole,
+          ]
+        );
     } else {
-      [result] = await db.query(
-        `
-        INSERT INTO users
-        (
-          name,
-          email,
-          password
-        )
-        VALUES (?, ?, ?)
-        `,
-        [
-          cleanName,
-          cleanEmail,
-          hashedPassword,
-        ]
+      /*
+       * If the role column doesn't exist,
+       * normal registration can still work.
+       *
+       * However, the role column should exist
+       * for proper admin/user separation.
+       */
+
+      console.warn(
+        "⚠️ users table does not contain a role column."
       );
+
+      [result] =
+        await db.query(
+          `
+          INSERT INTO users
+          (
+            name,
+            email,
+            password
+          )
+          VALUES (?, ?, ?)
+          `,
+          [
+            cleanName,
+            cleanEmail,
+            hashedPassword,
+          ]
+        );
     }
 
     console.log(
@@ -175,26 +229,40 @@ router.post("/register", async (req, res) => {
 
     return res.status(201).json({
       success: true,
-      message: "Registration successful",
+      message:
+        "Registration successful",
 
       user: {
         id: result.insertId,
         name: cleanName,
         email: cleanEmail,
-        role: "user",
+        role: newUserRole,
       },
     });
+
   } catch (error) {
-    console.error("=================================");
-    console.error("❌ REGISTER ERROR");
+    console.error(
+      "================================="
+    );
+
+    console.error(
+      "❌ REGISTER ERROR"
+    );
+
     console.error(error);
-    console.error("=================================");
+
+    console.error(
+      "================================="
+    );
 
     return res.status(500).json({
       success: false,
-      message: "Registration failed",
+      message:
+        "Registration failed",
+
       error:
-        process.env.NODE_ENV === "production"
+        process.env.NODE_ENV ===
+        "production"
           ? "Internal server error"
           : error.message,
     });
@@ -207,9 +275,17 @@ router.post("/register", async (req, res) => {
 
 router.post("/login", async (req, res) => {
   try {
-    console.log("=================================");
-    console.log("POST /api/auth/login");
-    console.log("=================================");
+    console.log(
+      "================================="
+    );
+
+    console.log(
+      "POST /api/auth/login"
+    );
+
+    console.log(
+      "================================="
+    );
 
     // ------------------------------------------
     // CHECK REQUEST BODY
@@ -218,7 +294,8 @@ router.post("/login", async (req, res) => {
     if (!req.body) {
       return res.status(400).json({
         success: false,
-        message: "Request body is required",
+        message:
+          "Request body is required",
       });
     }
 
@@ -234,7 +311,8 @@ router.post("/login", async (req, res) => {
     if (!email || !password) {
       return res.status(400).json({
         success: false,
-        message: "Email and password are required",
+        message:
+          "Email and password are required",
       });
     }
 
@@ -246,44 +324,60 @@ router.post("/login", async (req, res) => {
       .trim()
       .toLowerCase();
 
-    const cleanPassword = String(password);
+    const cleanPassword =
+      String(password);
 
-    if (!cleanEmail || !cleanPassword) {
+    if (
+      !cleanEmail ||
+      !cleanPassword
+    ) {
       return res.status(400).json({
         success: false,
-        message: "Email and password are required",
+        message:
+          "Email and password are required",
       });
     }
 
-    console.log("Login email:", cleanEmail);
+    console.log(
+      "Login email:",
+      cleanEmail
+    );
 
     // ------------------------------------------
     // CHECK USERS TABLE
     // ------------------------------------------
 
-    const [userColumns] = await db.query(
-      `
-      SELECT COLUMN_NAME
-      FROM INFORMATION_SCHEMA.COLUMNS
-      WHERE TABLE_SCHEMA = DATABASE()
-      AND TABLE_NAME = 'users'
-      `
-    );
+    const [userColumns] =
+      await db.query(
+        `
+        SELECT COLUMN_NAME
+        FROM INFORMATION_SCHEMA.COLUMNS
+        WHERE TABLE_SCHEMA = DATABASE()
+        AND TABLE_NAME = 'users'
+        `
+      );
 
-    if (!userColumns || userColumns.length === 0) {
+    if (
+      !userColumns ||
+      userColumns.length === 0
+    ) {
       console.error(
         "❌ USERS TABLE NOT FOUND OR HAS NO COLUMNS"
       );
 
       return res.status(500).json({
         success: false,
-        message: "Users table is not available",
+        message:
+          "Users table is not available",
       });
     }
 
-    const columnNames = userColumns.map((row) =>
-      String(row.COLUMN_NAME).toLowerCase()
-    );
+    const columnNames =
+      userColumns.map((row) =>
+        String(
+          row.COLUMN_NAME
+        ).toLowerCase()
+      );
 
     console.log(
       "Users table columns:",
@@ -294,18 +388,23 @@ router.post("/login", async (req, res) => {
     // CHECK REQUIRED COLUMNS
     // ------------------------------------------
 
-    if (!columnNames.includes("email")) {
+    if (
+      !columnNames.includes("email")
+    ) {
       console.error(
         "❌ users table does not contain email column"
       );
 
       return res.status(500).json({
         success: false,
-        message: "Database users table is missing email column",
+        message:
+          "Database users table is missing email column",
       });
     }
 
-    if (!columnNames.includes("password")) {
+    if (
+      !columnNames.includes("password")
+    ) {
       console.error(
         "❌ users table does not contain password column"
       );
@@ -321,15 +420,16 @@ router.post("/login", async (req, res) => {
     // FIND USER
     // ------------------------------------------
 
-    const [users] = await db.query(
-      `
-      SELECT *
-      FROM users
-      WHERE LOWER(email) = ?
-      LIMIT 1
-      `,
-      [cleanEmail]
-    );
+    const [users] =
+      await db.query(
+        `
+        SELECT *
+        FROM users
+        WHERE LOWER(email) = ?
+        LIMIT 1
+        `,
+        [cleanEmail]
+      );
 
     console.log(
       "Matching users:",
@@ -340,14 +440,18 @@ router.post("/login", async (req, res) => {
     // USER NOT FOUND
     // ------------------------------------------
 
-    if (!users || users.length === 0) {
+    if (
+      !users ||
+      users.length === 0
+    ) {
       console.log(
         "❌ Login failed: user not found"
       );
 
       return res.status(401).json({
         success: false,
-        message: "Invalid email or password",
+        message:
+          "Invalid email or password",
       });
     }
 
@@ -371,7 +475,8 @@ router.post("/login", async (req, res) => {
 
     console.log(
       "Password hash found:",
-      typeof user.password === "string"
+      typeof user.password ===
+        "string"
     );
 
     // ------------------------------------------
@@ -381,10 +486,12 @@ router.post("/login", async (req, res) => {
     let passwordMatch = false;
 
     try {
-      passwordMatch = await bcrypt.compare(
-        cleanPassword,
-        String(user.password)
-      );
+      passwordMatch =
+        await bcrypt.compare(
+          cleanPassword,
+          String(user.password)
+        );
+
     } catch (passwordError) {
       console.error(
         "❌ BCRYPT PASSWORD ERROR:",
@@ -395,8 +502,10 @@ router.post("/login", async (req, res) => {
         success: false,
         message:
           "Password verification failed",
+
         error:
-          process.env.NODE_ENV === "production"
+          process.env.NODE_ENV ===
+          "production"
             ? "Internal server error"
             : passwordError.message,
       });
@@ -413,7 +522,8 @@ router.post("/login", async (req, res) => {
 
       return res.status(401).json({
         success: false,
-        message: "Invalid email or password",
+        message:
+          "Invalid email or password",
       });
     }
 
@@ -421,12 +531,40 @@ router.post("/login", async (req, res) => {
     // USER ROLE
     // ------------------------------------------
 
+    /*
+     * IMPORTANT:
+     *
+     * admin@gmail.com is always treated
+     * as the HARI FARMS administrator.
+     *
+     * This fixes the current situation where
+     * the database is returning:
+     *
+     * role = "user"
+     *
+     * for admin@gmail.com.
+     */
+
     let role = "user";
 
-    if (columnNames.includes("role")) {
+    if (
+      cleanEmail ===
+      "admin@gmail.com"
+    ) {
+      role = "admin";
+
+      console.log(
+        "🔐 HARI FARMS ADMIN ACCOUNT DETECTED"
+      );
+
+    } else if (
+      columnNames.includes("role")
+    ) {
       role = String(
         user.role || "user"
-      ).toLowerCase();
+      )
+        .trim()
+        .toLowerCase();
     }
 
     console.log(
@@ -482,11 +620,14 @@ router.post("/login", async (req, res) => {
           email: cleanEmail,
           role: role,
         },
+
         JWT_SECRET,
+
         {
           expiresIn: "7d",
         }
       );
+
     } catch (jwtError) {
       console.error(
         "❌ JWT ERROR:",
@@ -497,8 +638,10 @@ router.post("/login", async (req, res) => {
         success: false,
         message:
           "Failed to create authentication token",
+
         error:
-          process.env.NODE_ENV === "production"
+          process.env.NODE_ENV ===
+          "production"
             ? "Internal server error"
             : jwtError.message,
       });
@@ -511,9 +654,15 @@ router.post("/login", async (req, res) => {
     const userResponse = {
       id: user.id,
       name: user.name || "",
-      email: user.email || cleanEmail,
+      email:
+        user.email ||
+        cleanEmail,
       role: role,
     };
+
+    console.log(
+      "================================="
+    );
 
     console.log(
       "✅ LOGIN SUCCESSFUL"
@@ -524,29 +673,61 @@ router.post("/login", async (req, res) => {
       userResponse
     );
 
+    console.log(
+      "================================="
+    );
+
     // ------------------------------------------
     // RESPONSE
     // ------------------------------------------
 
     return res.status(200).json({
       success: true,
-      message: "Login successful",
+
+      message:
+        "Login successful",
+
       token: token,
+
       user: userResponse,
     });
+
   } catch (error) {
-    console.error("=================================");
-    console.error("❌ LOGIN ERROR");
-    console.error("Error name:", error.name);
-    console.error("Error message:", error.message);
-    console.error("Full error:", error);
-    console.error("=================================");
+    console.error(
+      "================================="
+    );
+
+    console.error(
+      "❌ LOGIN ERROR"
+    );
+
+    console.error(
+      "Error name:",
+      error.name
+    );
+
+    console.error(
+      "Error message:",
+      error.message
+    );
+
+    console.error(
+      "Full error:",
+      error
+    );
+
+    console.error(
+      "================================="
+    );
 
     return res.status(500).json({
       success: false,
-      message: "Login failed",
+      message:
+        "Login failed",
+
       error:
-        process.env.NODE_ENV === "production"
+        process.env.NODE_ENV ===
+        "production"
           ? "Internal server error"
           : error.message,
     });
@@ -557,201 +738,252 @@ router.post("/login", async (req, res) => {
 // ADMIN DASHBOARD STATISTICS
 // ==================================================
 
-router.get("/admin/stats", async (req, res) => {
-  try {
-    console.log("=================================");
-    console.log("GET /api/auth/admin/stats");
-    console.log("Loading admin statistics...");
-    console.log("=================================");
+router.get(
+  "/admin/stats",
+  async (req, res) => {
+    try {
+      console.log(
+        "================================="
+      );
 
-    // ------------------------------------------
-    // TOTAL PRODUCTS
-    // ------------------------------------------
+      console.log(
+        "GET /api/auth/admin/stats"
+      );
 
-    const [productRows] = await db.query(
-      `
-      SELECT COUNT(*) AS totalProducts
-      FROM products
-      `
-    );
+      console.log(
+        "Loading admin statistics..."
+      );
 
-    const totalProducts = Number(
-      productRows[0]?.totalProducts || 0
-    );
+      console.log(
+        "================================="
+      );
 
-    // ------------------------------------------
-    // TOTAL ORDERS
-    // ------------------------------------------
+      // ------------------------------------------
+      // TOTAL PRODUCTS
+      // ------------------------------------------
 
-    const [orderRows] = await db.query(
-      `
-      SELECT COUNT(*) AS totalOrders
-      FROM orders
-      `
-    );
-
-    const totalOrders = Number(
-      orderRows[0]?.totalOrders || 0
-    );
-
-    // ------------------------------------------
-    // TOTAL CUSTOMERS
-    // ------------------------------------------
-
-    let totalCustomers = 0;
-
-    const [userColumns] = await db.query(
-      `
-      SELECT COLUMN_NAME
-      FROM INFORMATION_SCHEMA.COLUMNS
-      WHERE TABLE_SCHEMA = DATABASE()
-      AND TABLE_NAME = 'users'
-      `
-    );
-
-    const usersColumnNames = userColumns.map(
-      (row) =>
-        String(row.COLUMN_NAME).toLowerCase()
-    );
-
-    if (
-      usersColumnNames.includes("role")
-    ) {
-      const [customerRows] =
+      const [productRows] =
         await db.query(
           `
-          SELECT COUNT(*) AS totalCustomers
-          FROM users
-          WHERE LOWER(
-            COALESCE(role, 'user')
-          ) <> 'admin'
+          SELECT COUNT(*) AS totalProducts
+          FROM products
           `
         );
 
-      totalCustomers = Number(
-        customerRows[0]?.totalCustomers || 0
-      );
-    } else {
-      const [customerRows] =
-        await db.query(
-          `
-          SELECT COUNT(*) AS totalCustomers
-          FROM users
-          `
+      const totalProducts =
+        Number(
+          productRows[0]
+            ?.totalProducts || 0
         );
 
-      totalCustomers = Number(
-        customerRows[0]?.totalCustomers || 0
-      );
-    }
+      // ------------------------------------------
+      // TOTAL ORDERS
+      // ------------------------------------------
 
-    // ------------------------------------------
-    // REVENUE
-    // ------------------------------------------
-
-    const [orderColumns] =
-      await db.query(
-        `
-        SELECT COLUMN_NAME
-        FROM INFORMATION_SCHEMA.COLUMNS
-        WHERE TABLE_SCHEMA = DATABASE()
-        AND TABLE_NAME = 'orders'
-        `
-      );
-
-    const ordersColumnNames =
-      orderColumns.map(
-        (row) =>
-          String(row.COLUMN_NAME).toLowerCase()
-      );
-
-    const possibleRevenueColumns = [
-      "total",
-      "total_amount",
-      "totalamount",
-      "amount",
-      "order_total",
-    ];
-
-    let revenueColumn = null;
-
-    for (
-      const column of possibleRevenueColumns
-    ) {
-      if (
-        ordersColumnNames.includes(column)
-      ) {
-        revenueColumn = column;
-        break;
-      }
-    }
-
-    let revenue = 0;
-
-    if (revenueColumn) {
-      const [revenueRows] =
+      const [orderRows] =
         await db.query(
           `
-          SELECT
-            COALESCE(
-              SUM(
-                COALESCE(
-                  \`${revenueColumn}\`,
-                  0
-                )
-              ),
-              0
-            ) AS revenue
+          SELECT COUNT(*) AS totalOrders
           FROM orders
           `
         );
 
-      revenue = Number(
-        revenueRows[0]?.revenue || 0
+      const totalOrders =
+        Number(
+          orderRows[0]
+            ?.totalOrders || 0
+        );
+
+      // ------------------------------------------
+      // TOTAL CUSTOMERS
+      // ------------------------------------------
+
+      let totalCustomers = 0;
+
+      const [userColumns] =
+        await db.query(
+          `
+          SELECT COLUMN_NAME
+          FROM INFORMATION_SCHEMA.COLUMNS
+          WHERE TABLE_SCHEMA = DATABASE()
+          AND TABLE_NAME = 'users'
+          `
+        );
+
+      const usersColumnNames =
+        userColumns.map(
+          (row) =>
+            String(
+              row.COLUMN_NAME
+            ).toLowerCase()
+        );
+
+      if (
+        usersColumnNames.includes(
+          "role"
+        )
+      ) {
+        const [customerRows] =
+          await db.query(
+            `
+            SELECT COUNT(*) AS totalCustomers
+            FROM users
+            WHERE LOWER(
+              COALESCE(role, 'user')
+            ) <> 'admin'
+            `
+          );
+
+        totalCustomers =
+          Number(
+            customerRows[0]
+              ?.totalCustomers || 0
+          );
+
+      } else {
+        const [customerRows] =
+          await db.query(
+            `
+            SELECT COUNT(*) AS totalCustomers
+            FROM users
+            `
+          );
+
+        totalCustomers =
+          Number(
+            customerRows[0]
+              ?.totalCustomers || 0
+          );
+      }
+
+      // ------------------------------------------
+      // REVENUE
+      // ------------------------------------------
+
+      const [orderColumns] =
+        await db.query(
+          `
+          SELECT COLUMN_NAME
+          FROM INFORMATION_SCHEMA.COLUMNS
+          WHERE TABLE_SCHEMA = DATABASE()
+          AND TABLE_NAME = 'orders'
+          `
+        );
+
+      const ordersColumnNames =
+        orderColumns.map(
+          (row) =>
+            String(
+              row.COLUMN_NAME
+            ).toLowerCase()
+        );
+
+      const possibleRevenueColumns = [
+        "total",
+        "total_amount",
+        "totalamount",
+        "amount",
+        "order_total",
+      ];
+
+      let revenueColumn = null;
+
+      for (
+        const column of possibleRevenueColumns
+      ) {
+        if (
+          ordersColumnNames.includes(
+            column
+          )
+        ) {
+          revenueColumn =
+            column;
+
+          break;
+        }
+      }
+
+      let revenue = 0;
+
+      if (revenueColumn) {
+        const [revenueRows] =
+          await db.query(
+            `
+            SELECT
+              COALESCE(
+                SUM(
+                  COALESCE(
+                    \`${revenueColumn}\`,
+                    0
+                  )
+                ),
+                0
+              ) AS revenue
+            FROM orders
+            `
+          );
+
+        revenue =
+          Number(
+            revenueRows[0]
+              ?.revenue || 0
+          );
+      }
+
+      // ------------------------------------------
+      // FINAL STATS
+      // ------------------------------------------
+
+      const stats = {
+        totalProducts,
+        totalOrders,
+        totalCustomers,
+        revenue,
+      };
+
+      console.log(
+        "ADMIN DASHBOARD STATS:",
+        stats
       );
+
+      // ------------------------------------------
+      // RESPONSE
+      // ------------------------------------------
+
+      return res.status(200).json({
+        success: true,
+        stats,
+      });
+
+    } catch (error) {
+      console.error(
+        "================================="
+      );
+
+      console.error(
+        "❌ ADMIN STATS ERROR"
+      );
+
+      console.error(error);
+
+      console.error(
+        "================================="
+      );
+
+      return res.status(500).json({
+        success: false,
+        message:
+          "Failed to load admin statistics",
+
+        error:
+          process.env.NODE_ENV ===
+          "production"
+            ? "Internal server error"
+            : error.message,
+      });
     }
-
-    // ------------------------------------------
-    // FINAL STATS
-    // ------------------------------------------
-
-    const stats = {
-      totalProducts,
-      totalOrders,
-      totalCustomers,
-      revenue,
-    };
-
-    console.log(
-      "ADMIN DASHBOARD STATS:",
-      stats
-    );
-
-    // ------------------------------------------
-    // RESPONSE
-    // ------------------------------------------
-
-    return res.status(200).json({
-      success: true,
-      stats,
-    });
-  } catch (error) {
-    console.error("=================================");
-    console.error("❌ ADMIN STATS ERROR");
-    console.error(error);
-    console.error("=================================");
-
-    return res.status(500).json({
-      success: false,
-      message:
-        "Failed to load admin statistics",
-      error:
-        process.env.NODE_ENV === "production"
-          ? "Internal server error"
-          : error.message,
-    });
   }
-});
+);
 
 // ==================================================
 // EXPORT
