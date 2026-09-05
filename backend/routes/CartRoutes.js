@@ -8,10 +8,10 @@ const jwt = require("jsonwebtoken");
 
 
 // ==================================================
-// AUTH MIDDLEWARE
+// AUTHENTICATION MIDDLEWARE
 // ==================================================
 
-const authenticateUser = (req, res, next) => {
+const authenticateToken = (req, res, next) => {
 
   try {
 
@@ -31,7 +31,7 @@ const authenticateUser = (req, res, next) => {
 
     const token =
       authHeader.startsWith("Bearer ")
-        ? authHeader.split(" ")[1]
+        ? authHeader.substring(7)
         : authHeader;
 
 
@@ -45,11 +45,10 @@ const authenticateUser = (req, res, next) => {
     }
 
 
-    const decoded =
-      jwt.verify(
-        token,
-        process.env.JWT_SECRET
-      );
+    const decoded = jwt.verify(
+      token,
+      process.env.JWT_SECRET
+    );
 
 
     req.user = decoded;
@@ -60,7 +59,7 @@ const authenticateUser = (req, res, next) => {
   } catch (error) {
 
     console.error(
-      "❌ AUTH ERROR:",
+      "❌ AUTHENTICATION ERROR:",
       error.message
     );
 
@@ -76,15 +75,16 @@ const authenticateUser = (req, res, next) => {
 
 
 // ==================================================
-// GET USER ID
+// GET USER ID SAFELY
 // ==================================================
 
-const getUserId = (user) => {
+const getUserId = (req) => {
 
   return (
-    user.id ||
-    user.userId ||
-    user.user_id
+    req.user?.id ||
+    req.user?.userId ||
+    req.user?.user_id ||
+    null
   );
 
 };
@@ -97,98 +97,101 @@ const getUserId = (user) => {
 
 router.post(
   "/add",
-  authenticateUser,
+  authenticateToken,
 
   async (req, res) => {
 
     try {
 
+      console.log("=================================");
+      console.log("🛒 ADD TO CART REQUEST");
+      console.log("USER:", req.user);
+      console.log("BODY:", req.body);
+      console.log("=================================");
+
+
       const userId =
-        getUserId(req.user);
+        getUserId(req);
 
 
-      const {
-        productId,
-        quantity,
-      } = req.body;
+      // Accept different frontend formats
+
+      const productId =
+        req.body.product_id ||
+        req.body.productId ||
+        req.body.id;
 
 
-      console.log(
-        "================================="
-      );
-
-      console.log(
-        "🛒 ADD TO CART REQUEST"
-      );
-
-      console.log(
-        "User ID:",
-        userId
-      );
-
-      console.log(
-        "Product ID:",
-        productId
-      );
-
-      console.log(
-        "Quantity:",
-        quantity
-      );
-
-      console.log(
-        "================================="
-      );
+      const quantity =
+        Number(req.body.quantity || 1);
 
 
-      // ==============================================
+      // ================================================
       // VALIDATE USER
-      // ==============================================
+      // ================================================
 
       if (!userId) {
 
-        return res.status(401).json({
+        return res.status(400).json({
           success: false,
-          message: "User ID not found in token",
+          message:
+            "User ID was not found in authentication token",
         });
 
       }
 
 
-      // ==============================================
+      // ================================================
       // VALIDATE PRODUCT
-      // ==============================================
+      // ================================================
 
-      if (!productId) {
+      if (
+        !productId ||
+        Number(productId) <= 0
+      ) {
 
         return res.status(400).json({
           success: false,
-          message: "Product ID is required",
+          message: "Valid product ID is required",
         });
 
       }
 
 
-      const cartQuantity =
-        Number(quantity) > 0
-          ? Number(quantity)
-          : 1;
+      // ================================================
+      // VALIDATE QUANTITY
+      // ================================================
+
+      if (
+        !Number.isFinite(quantity) ||
+        quantity <= 0
+      ) {
+
+        return res.status(400).json({
+          success: false,
+          message:
+            "Quantity must be greater than zero",
+        });
+
+      }
 
 
-      // ==============================================
+      // ================================================
       // CHECK PRODUCT EXISTS
-      // ==============================================
+      // ================================================
 
       const [products] =
         await db.query(
 
           `
-          SELECT *
+          SELECT id, name, price
           FROM products
           WHERE id = ?
           `,
 
-          [productId]
+          [
+            Number(productId),
+          ]
 
         );
 
@@ -203,80 +206,41 @@ router.post(
       }
 
 
-      const product =
-        products[0];
+      // ================================================
+      // CHECK EXISTING CART ITEM
+      // ================================================
 
-
-      // ==============================================
-      // CHECK STOCK
-      // ==============================================
-
-      if (
-        product.stock !== undefined &&
-        Number(product.stock) < cartQuantity
-      ) {
-
-        return res.status(400).json({
-          success: false,
-          message: "Insufficient product stock",
-        });
-
-      }
-
-
-      // ==============================================
-      // CHECK IF PRODUCT ALREADY EXISTS IN CART
-      // ==============================================
-
-      const [existingCartItems] =
+      const [existingItems] =
         await db.query(
 
           `
-          SELECT *
+          SELECT id, quantity
           FROM cart
           WHERE user_id = ?
           AND product_id = ?
           `,
 
           [
-            userId,
-            productId,
+            Number(userId),
+            Number(productId),
           ]
 
         );
 
 
-      // ==============================================
-      // PRODUCT ALREADY IN CART
-      // ==============================================
+      // ================================================
+      // UPDATE EXISTING ITEM
+      // ================================================
 
-      if (
-        existingCartItems.length > 0
-      ) {
+      if (existingItems.length > 0) {
 
         const existingItem =
-          existingCartItems[0];
+          existingItems[0];
 
 
         const newQuantity =
           Number(existingItem.quantity) +
-          cartQuantity;
-
-
-        // Check stock again
-
-        if (
-          product.stock !== undefined &&
-          newQuantity > Number(product.stock)
-        ) {
-
-          return res.status(400).json({
-            success: false,
-            message:
-              "Cannot add more than available stock",
-          });
-
-        }
+          quantity;
 
 
         await db.query(
@@ -285,11 +249,13 @@ router.post(
           UPDATE cart
           SET quantity = ?
           WHERE id = ?
+          AND user_id = ?
           `,
 
           [
             newQuantity,
             existingItem.id,
+            Number(userId),
           ]
 
         );
@@ -300,36 +266,37 @@ router.post(
           success: true,
 
           message:
-            "Product quantity updated in cart",
+            "Cart quantity updated successfully",
 
         });
 
       }
 
 
-      // ==============================================
-      // ADD NEW PRODUCT TO CART
-      // ==============================================
+      // ================================================
+      // ADD NEW ITEM
+      // ================================================
 
-      await db.query(
+      const [result] =
+        await db.query(
 
-        `
-        INSERT INTO cart
-        (
-          user_id,
-          product_id,
-          quantity
-        )
-        VALUES (?, ?, ?)
-        `,
+          `
+          INSERT INTO cart
+          (
+            user_id,
+            product_id,
+            quantity
+          )
+          VALUES (?, ?, ?)
+          `,
 
-        [
-          userId,
-          productId,
-          cartQuantity,
-        ]
+          [
+            Number(userId),
+            Number(productId),
+            quantity,
+          ]
 
-      );
+        );
 
 
       return res.status(201).json({
@@ -339,26 +306,20 @@ router.post(
         message:
           "Product added to cart successfully",
 
+        cartId:
+          result.insertId,
+
       });
 
 
     } catch (error) {
 
-      console.error(
-        "================================="
-      );
-
-      console.error(
-        "❌ ADD TO CART ERROR"
-      );
-
-      console.error(
-        error
-      );
-
-      console.error(
-        "================================="
-      );
+      console.error("=================================");
+      console.error("❌ ADD TO CART ERROR");
+      console.error("MESSAGE:", error.message);
+      console.error("CODE:", error.code);
+      console.error("SQL MESSAGE:", error.sqlMessage);
+      console.error("=================================");
 
 
       return res.status(500).json({
@@ -366,12 +327,9 @@ router.post(
         success: false,
 
         message:
+          error.sqlMessage ||
+          error.message ||
           "Failed to add product to cart",
-
-        error:
-          process.env.NODE_ENV === "production"
-            ? undefined
-            : error.message,
 
       });
 
@@ -389,15 +347,43 @@ router.post(
 
 router.get(
   "/",
-  authenticateUser,
+  authenticateToken,
 
   async (req, res) => {
 
     try {
 
-      const userId =
-        getUserId(req.user);
+      console.log("=================================");
+      console.log("🛒 FETCH CART REQUEST");
 
+
+      const userId =
+        getUserId(req);
+
+
+      console.log(
+        "USER ID:",
+        userId
+      );
+
+
+      if (!userId) {
+
+        return res.status(400).json({
+
+          success: false,
+
+          message:
+            "User ID was not found in authentication token",
+
+        });
+
+      }
+
+
+      // ================================================
+      // FETCH CART WITH PRODUCT DETAILS
+      // ================================================
 
       const [cartItems] =
         await db.query(
@@ -407,34 +393,30 @@ router.get(
 
             cart.id AS cart_id,
 
-            cart.quantity,
+            cart.product_id,
 
-            products.id AS product_id,
+            cart.quantity,
 
             products.name,
 
             products.price,
 
-            products.image,
-
-            products.description,
-
-            products.stock,
-
-            products.unit
+            products.image
 
           FROM cart
 
-          INNER JOIN products
+          LEFT JOIN products
 
-          ON cart.product_id = products.id
+            ON cart.product_id = products.id
 
           WHERE cart.user_id = ?
 
           ORDER BY cart.id DESC
           `,
 
-          [userId]
+          [
+            Number(userId),
+          ]
 
         );
 
@@ -451,10 +433,12 @@ router.get(
 
     } catch (error) {
 
-      console.error(
-        "❌ FETCH CART ERROR:",
-        error
-      );
+      console.error("=================================");
+      console.error("❌ FETCH CART ERROR");
+      console.error("MESSAGE:", error.message);
+      console.error("CODE:", error.code);
+      console.error("SQL MESSAGE:", error.sqlMessage);
+      console.error("=================================");
 
 
       return res.status(500).json({
@@ -462,6 +446,8 @@ router.get(
         success: false,
 
         message:
+          error.sqlMessage ||
+          error.message ||
           "Failed to fetch cart",
 
       });
@@ -475,46 +461,61 @@ router.get(
 
 // ==================================================
 // UPDATE CART QUANTITY
-// PUT /api/cart/update/:id
+// PUT /api/cart/:id
 // ==================================================
 
 router.put(
-  "/update/:id",
-  authenticateUser,
+  "/:id",
+  authenticateToken,
 
   async (req, res) => {
 
     try {
 
       const userId =
-        getUserId(req.user);
+        getUserId(req);
 
 
       const cartId =
-        req.params.id;
+        Number(req.params.id);
 
 
-      const {
-        quantity,
-      } = req.body;
+      const quantity =
+        Number(req.body.quantity);
 
 
-      const newQuantity =
-        Number(quantity);
+      if (!userId) {
+
+        return res.status(400).json({
+          success: false,
+          message: "User ID not found",
+        });
+
+      }
 
 
       if (
-        !newQuantity ||
-        newQuantity < 1
+        !cartId ||
+        cartId <= 0
       ) {
 
         return res.status(400).json({
-
           success: false,
+          message: "Invalid cart ID",
+        });
 
+      }
+
+
+      if (
+        !Number.isFinite(quantity) ||
+        quantity < 1
+      ) {
+
+        return res.status(400).json({
+          success: false,
           message:
             "Quantity must be at least 1",
-
         });
 
       }
@@ -525,15 +526,18 @@ router.put(
 
           `
           UPDATE cart
+
           SET quantity = ?
+
           WHERE id = ?
+
           AND user_id = ?
           `,
 
           [
-            newQuantity,
+            quantity,
             cartId,
-            userId,
+            Number(userId),
           ]
 
         );
@@ -569,7 +573,7 @@ router.put(
 
       console.error(
         "❌ UPDATE CART ERROR:",
-        error
+        error.message
       );
 
 
@@ -578,6 +582,8 @@ router.put(
         success: false,
 
         message:
+          error.sqlMessage ||
+          error.message ||
           "Failed to update cart",
 
       });
@@ -591,23 +597,33 @@ router.put(
 
 // ==================================================
 // REMOVE CART ITEM
-// DELETE /api/cart/remove/:id
+// DELETE /api/cart/:id
 // ==================================================
 
 router.delete(
-  "/remove/:id",
-  authenticateUser,
+  "/:id",
+  authenticateToken,
 
   async (req, res) => {
 
     try {
 
       const userId =
-        getUserId(req.user);
+        getUserId(req);
 
 
       const cartId =
-        req.params.id;
+        Number(req.params.id);
+
+
+      if (!userId) {
+
+        return res.status(400).json({
+          success: false,
+          message: "User ID not found",
+        });
+
+      }
 
 
       const [result] =
@@ -615,13 +631,15 @@ router.delete(
 
           `
           DELETE FROM cart
+
           WHERE id = ?
+
           AND user_id = ?
           `,
 
           [
             cartId,
-            userId,
+            Number(userId),
           ]
 
         );
@@ -656,8 +674,8 @@ router.delete(
     } catch (error) {
 
       console.error(
-        "❌ REMOVE CART ERROR:",
-        error
+        "❌ DELETE CART ERROR:",
+        error.message
       );
 
 
@@ -666,6 +684,8 @@ router.delete(
         success: false,
 
         message:
+          error.sqlMessage ||
+          error.message ||
           "Failed to remove cart item",
 
       });
@@ -678,20 +698,30 @@ router.delete(
 
 
 // ==================================================
-// CLEAR CART
-// DELETE /api/cart/clear
+// CLEAR USER CART
+// DELETE /api/cart
 // ==================================================
 
 router.delete(
-  "/clear",
-  authenticateUser,
+  "/",
+  authenticateToken,
 
   async (req, res) => {
 
     try {
 
       const userId =
-        getUserId(req.user);
+        getUserId(req);
+
+
+      if (!userId) {
+
+        return res.status(400).json({
+          success: false,
+          message: "User ID not found",
+        });
+
+      }
 
 
       await db.query(
@@ -701,7 +731,9 @@ router.delete(
         WHERE user_id = ?
         `,
 
-        [userId]
+        [
+          Number(userId),
+        ]
 
       );
 
@@ -720,7 +752,7 @@ router.delete(
 
       console.error(
         "❌ CLEAR CART ERROR:",
-        error
+        error.message
       );
 
 
@@ -729,6 +761,8 @@ router.delete(
         success: false,
 
         message:
+          error.sqlMessage ||
+          error.message ||
           "Failed to clear cart",
 
       });
@@ -741,7 +775,7 @@ router.delete(
 
 
 // ==================================================
-// EXPORT
+// EXPORT ROUTER
 // ==================================================
 
 module.exports = router;
