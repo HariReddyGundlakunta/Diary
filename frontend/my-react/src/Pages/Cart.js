@@ -11,9 +11,11 @@ import {
   useNavigate,
 } from "react-router-dom";
 
+
 function Cart() {
 
   const navigate = useNavigate();
+
 
   // ==================================================
   // API URL
@@ -23,11 +25,12 @@ function Cart() {
     process.env.REACT_APP_API_URL ||
     "http://localhost:5000";
 
+
   // ==================================================
-  // STATE
+  // STATES
   // ==================================================
 
-  const [cart, setCart] =
+  const [cartItems, setCartItems] =
     useState([]);
 
   const [loading, setLoading] =
@@ -36,83 +39,182 @@ function Cart() {
   const [error, setError] =
     useState("");
 
+  const [message, setMessage] =
+    useState("");
+
   const [updatingId, setUpdatingId] =
     useState(null);
 
+
   // ==================================================
-  // LOAD CART
+  // GET TOKEN
   // ==================================================
 
-  const loadCart = useCallback(
-    async () => {
+  const getToken = () => {
+
+    return localStorage.getItem("token");
+
+  };
+
+
+  // ==================================================
+  // FETCH CART
+  // ==================================================
+
+  const fetchCart =
+    useCallback(async () => {
 
       try {
 
         setLoading(true);
+
         setError("");
 
-        const user =
-          JSON.parse(
-            localStorage.getItem("user")
-          );
-
         const token =
-          localStorage.getItem("token");
+          getToken();
 
-        if (!user || !user.id) {
 
-          alert(
+        // ----------------------------------------------
+        // CHECK LOGIN
+        // ----------------------------------------------
+
+        if (!token) {
+
+          setCartItems([]);
+
+          setLoading(false);
+
+          setError(
             "Please login to view your cart."
           );
 
-          navigate("/login");
-
           return;
+
         }
+
+
+        // ----------------------------------------------
+        // GET CART
+        // ----------------------------------------------
 
         const response =
           await axios.get(
-            `${API_URL}/api/cart/${user.id}`,
+
+            `${API_URL}/api/cart`,
+
             {
               headers: {
+
                 Authorization:
                   `Bearer ${token}`,
+
               },
             }
+
           );
+
 
         console.log(
           "CART RESPONSE:",
           response.data
         );
 
-        const cartData =
-          response.data.cart ||
-          response.data.items ||
-          [];
 
-        setCart(
-          Array.isArray(cartData)
-            ? cartData
-            : []
-        );
+        // ----------------------------------------------
+        // HANDLE DIFFERENT RESPONSE FORMATS
+        // ----------------------------------------------
 
-      } catch (err) {
+        let items = [];
+
+
+        if (
+          Array.isArray(response.data)
+        ) {
+
+          items =
+            response.data;
+
+        }
+
+        else if (
+          Array.isArray(
+            response.data.cartItems
+          )
+        ) {
+
+          items =
+            response.data.cartItems;
+
+        }
+
+        else if (
+          Array.isArray(
+            response.data.items
+          )
+        ) {
+
+          items =
+            response.data.items;
+
+        }
+
+        else if (
+          Array.isArray(
+            response.data.cart
+          )
+        ) {
+
+          items =
+            response.data.cart;
+
+        }
+
+
+        setCartItems(items);
+
+
+      } catch (error) {
 
         console.error(
-          "LOAD CART ERROR:",
-          err
+          "FETCH CART ERROR:",
+          error
         );
 
-        console.error(
-          "SERVER RESPONSE:",
-          err.response?.data
-        );
+
+        if (
+          error.response?.status === 401 ||
+          error.response?.status === 403
+        ) {
+
+          localStorage.removeItem(
+            "token"
+          );
+
+          localStorage.removeItem(
+            "user"
+          );
+
+
+          setError(
+            "Your login session expired. Please login again."
+          );
+
+
+          setCartItems([]);
+
+          return;
+
+        }
+
 
         setError(
-          err.response?.data?.message ||
-          "Unable to load cart."
+
+          error.response?.data?.message ||
+
+          "Failed to load cart"
+
         );
+
 
       } finally {
 
@@ -120,258 +222,415 @@ function Cart() {
 
       }
 
-    },
-    [API_URL, navigate]
-  );
+    }, [API_URL]);
+
 
   // ==================================================
-  // LOAD CART ON PAGE LOAD
+  // LOAD CART
   // ==================================================
 
   useEffect(() => {
 
-    loadCart();
+    fetchCart();
 
-  }, [loadCart]);
+  }, [fetchCart]);
 
-  // ==================================================
-  // GET PRICE
-  // ==================================================
-
-  const getPrice = (item) => {
-
-    return Number(
-      item.price ||
-      item.product_price ||
-      0
-    );
-
-  };
-
-  // ==================================================
-  // GET PRODUCT NAME
-  // ==================================================
-
-  const getProductName = (item) => {
-
-    return (
-      item.name ||
-      item.product_name ||
-      "Product"
-    );
-
-  };
-
-  // ==================================================
-  // GET PRODUCT IMAGE
-  // ==================================================
-
-  const getProductImage = (item) => {
-
-    if (item.image) {
-      return item.image;
-    }
-
-    return "https://images.unsplash.com/photo-1550583724-b2692b85b150?auto=format&fit=crop&w=500&q=80";
-
-  };
-
-  // ==================================================
-  // TOTAL
-  // ==================================================
-
-  const total = cart.reduce(
-    (sum, item) => {
-
-      const price =
-        getPrice(item);
-
-      const quantity =
-        Number(
-          item.quantity || 0
-        );
-
-      return (
-        sum +
-        price * quantity
-      );
-
-    },
-    0
-  );
 
   // ==================================================
   // UPDATE QUANTITY
   // ==================================================
 
-  const updateQuantity = async (
-    item,
-    newQuantity
-  ) => {
+  const updateQuantity =
+    async (item, newQuantity) => {
 
-    if (newQuantity < 1) {
-      return;
-    }
+      try {
 
-    try {
+        if (newQuantity < 1) {
 
-      setUpdatingId(
-        item.id ||
-        item.cart_id ||
-        item.product_id
-      );
+          return;
 
-      const user =
-        JSON.parse(
-          localStorage.getItem("user")
+        }
+
+
+        const token =
+          getToken();
+
+
+        if (!token) {
+
+          navigate("/login");
+
+          return;
+
+        }
+
+
+        setUpdatingId(
+          item.id
         );
 
-      const token =
-        localStorage.getItem("token");
 
-      if (!user || !user.id) {
+        await axios.put(
 
-        navigate("/login");
+          `${API_URL}/api/cart/${item.id}`,
 
-        return;
-      }
-
-      const cartItemId =
-        item.id ||
-        item.cart_id;
-
-      await axios.put(
-        `${API_URL}/api/cart/${cartItemId}`,
-        {
-          quantity:
-            newQuantity,
-        },
-        {
-          headers: {
-            Authorization:
-              `Bearer ${token}`,
+          {
+            quantity:
+              newQuantity,
           },
-        }
-      );
 
-      await loadCart();
+          {
+            headers: {
 
-    } catch (err) {
+              Authorization:
+                `Bearer ${token}`,
 
-      console.error(
-        "UPDATE CART ERROR:",
-        err
-      );
+              "Content-Type":
+                "application/json",
 
-      console.error(
-        "SERVER RESPONSE:",
-        err.response?.data
-      );
+            },
+          }
 
-      alert(
-        err.response?.data?.message ||
-        "Unable to update quantity."
-      );
-
-    } finally {
-
-      setUpdatingId(null);
-
-    }
-
-  };
-
-  // ==================================================
-  // REMOVE ITEM
-  // ==================================================
-
-  const removeItem = async (item) => {
-
-    try {
-
-      setUpdatingId(
-        item.id ||
-        item.cart_id ||
-        item.product_id
-      );
-
-      const user =
-        JSON.parse(
-          localStorage.getItem("user")
         );
 
-      const token =
-        localStorage.getItem("token");
 
-      if (!user || !user.id) {
+        await fetchCart();
 
-        navigate("/login");
 
-        return;
+      } catch (error) {
+
+        console.error(
+          "UPDATE CART ERROR:",
+          error
+        );
+
+
+        setError(
+
+          error.response?.data?.message ||
+
+          "Failed to update cart"
+
+        );
+
+      } finally {
+
+        setUpdatingId(
+          null
+        );
+
       }
 
-      const cartItemId =
-        item.id ||
-        item.cart_id;
+    };
 
-      await axios.delete(
-        `${API_URL}/api/cart/${cartItemId}`,
-        {
-          headers: {
-            Authorization:
-              `Bearer ${token}`,
-          },
+
+  // ==================================================
+  // REMOVE FROM CART
+  // ==================================================
+
+  const removeFromCart =
+    async (item) => {
+
+      try {
+
+        const token =
+          getToken();
+
+
+        if (!token) {
+
+          navigate("/login");
+
+          return;
+
         }
-      );
 
-      await loadCart();
 
-    } catch (err) {
+        setUpdatingId(
+          item.id
+        );
 
-      console.error(
-        "REMOVE CART ERROR:",
-        err
-      );
 
-      console.error(
-        "SERVER RESPONSE:",
-        err.response?.data
-      );
+        await axios.delete(
 
-      alert(
-        err.response?.data?.message ||
-        "Unable to remove item."
-      );
+          `${API_URL}/api/cart/${item.id}`,
 
-    } finally {
+          {
+            headers: {
 
-      setUpdatingId(null);
+              Authorization:
+                `Bearer ${token}`,
 
-    }
+            },
+          }
 
-  };
+        );
+
+
+        setMessage(
+          "Product removed from cart."
+        );
+
+
+        await fetchCart();
+
+
+        setTimeout(() => {
+
+          setMessage("");
+
+        }, 2000);
+
+
+      } catch (error) {
+
+        console.error(
+          "REMOVE CART ERROR:",
+          error
+        );
+
+
+        setError(
+
+          error.response?.data?.message ||
+
+          "Failed to remove product"
+
+        );
+
+      } finally {
+
+        setUpdatingId(
+          null
+        );
+
+      }
+
+    };
+
 
   // ==================================================
-  // PROCEED TO CHECKOUT
+  // CHECKOUT
   // ==================================================
 
-  const goToCheckout = () => {
+  const handleCheckout =
+    async () => {
 
-    if (
-      !cart ||
-      cart.length === 0
-    ) {
+      try {
 
-      alert(
-        "Your cart is empty."
+        setError("");
+
+        setMessage("");
+
+
+        const token =
+          getToken();
+
+
+        if (!token) {
+
+          setError(
+            "Please login before checkout."
+          );
+
+
+          setTimeout(() => {
+
+            navigate("/login");
+
+          }, 1000);
+
+
+          return;
+
+        }
+
+
+        if (
+          cartItems.length === 0
+        ) {
+
+          setError(
+            "Your cart is empty."
+          );
+
+          return;
+
+        }
+
+
+        const response =
+          await axios.post(
+
+            `${API_URL}/api/orders/checkout`,
+
+            {},
+
+            {
+              headers: {
+
+                Authorization:
+                  `Bearer ${token}`,
+
+                "Content-Type":
+                  "application/json",
+
+              },
+            }
+
+          );
+
+
+        console.log(
+          "CHECKOUT RESPONSE:",
+          response.data
+        );
+
+
+        setMessage(
+          "🎉 Order placed successfully!"
+        );
+
+
+        setCartItems([]);
+
+
+        setTimeout(() => {
+
+          navigate("/orders");
+
+        }, 1500);
+
+
+      } catch (error) {
+
+        console.error(
+          "CHECKOUT ERROR:",
+          error
+        );
+
+
+        if (
+          error.response?.status === 401 ||
+          error.response?.status === 403
+        ) {
+
+          localStorage.removeItem(
+            "token"
+          );
+
+          localStorage.removeItem(
+            "user"
+          );
+
+
+          setError(
+            "Your login session expired. Please login again."
+          );
+
+
+          setTimeout(() => {
+
+            navigate("/login");
+
+          }, 1500);
+
+
+          return;
+
+        }
+
+
+        setError(
+
+          error.response?.data?.message ||
+
+          "Failed to place order"
+
+        );
+
+      }
+
+    };
+
+
+  // ==================================================
+  // TOTAL
+  // ==================================================
+
+  const getItemPrice =
+    (item) => {
+
+      return Number(
+
+        item.price ||
+
+        item.product_price ||
+
+        0
+
       );
 
-      return;
-    }
+    };
 
-    navigate("/checkout");
 
-  };
+  const total =
+    cartItems.reduce(
+
+      (sum, item) => {
+
+        const price =
+          getItemPrice(item);
+
+        const quantity =
+          Number(item.quantity || 1);
+
+
+        return (
+          sum +
+          price * quantity
+        );
+
+      },
+
+      0
+
+    );
+
+
+  // ==================================================
+  // IMAGE URL
+  // ==================================================
+
+  const getProductImage =
+    (item) => {
+
+      const image =
+        item.image ||
+        item.product_image ||
+        "";
+
+
+      if (!image) {
+
+        return null;
+
+      }
+
+
+      if (
+        image.startsWith("http")
+      ) {
+
+        return image;
+
+      }
+
+
+      return `${API_URL}${image}`;
+
+    };
+
 
   // ==================================================
   // LOADING
@@ -381,19 +640,9 @@ function Cart() {
 
     return (
 
-      <div
-        style={styles.loading}
-      >
+      <div style={styles.loading}>
 
-        <div
-          style={styles.loadingIcon}
-        >
-          🛒
-        </div>
-
-        <h2>
-          Loading your cart...
-        </h2>
+        Loading your cart... 🛒
 
       </div>
 
@@ -401,493 +650,500 @@ function Cart() {
 
   }
 
-  // ==================================================
-  // ERROR
-  // ==================================================
-
-  if (error) {
-
-    return (
-
-      <div
-        style={styles.loading}
-      >
-
-        <div
-          style={styles.errorIcon}
-        >
-          ⚠️
-        </div>
-
-        <h2>
-          {error}
-        </h2>
-
-        <button
-          onClick={loadCart}
-          style={styles.retryButton}
-        >
-          Try Again
-        </button>
-
-      </div>
-
-    );
-
-  }
 
   // ==================================================
-  // EMPTY CART
-  // ==================================================
-
-  if (cart.length === 0) {
-
-    return (
-
-      <div
-        style={styles.page}
-      >
-
-        {/* NAVBAR */}
-
-        <nav
-          style={styles.navbar}
-        >
-
-          <Link
-            to="/home"
-            style={styles.logo}
-          >
-            🥛 HARI FARMS
-          </Link>
-
-          <div
-            style={styles.navLinks}
-          >
-
-            <Link
-              to="/home"
-              style={styles.navLink}
-            >
-              Home
-            </Link>
-
-            <Link
-              to="/products"
-              style={styles.navLink}
-            >
-              Products
-            </Link>
-
-            <span
-              style={styles.cartActive}
-            >
-              🛒 Cart
-            </span>
-
-          </div>
-
-        </nav>
-
-        {/* EMPTY CART */}
-
-        <div
-          style={styles.emptyContainer}
-        >
-
-          <div
-            style={styles.emptyIcon}
-          >
-            🛒
-          </div>
-
-          <h1>
-            Your Cart is Empty
-          </h1>
-
-          <p>
-            Add some fresh dairy products
-            to your cart.
-          </p>
-
-          <button
-            onClick={() =>
-              navigate("/products")
-            }
-            style={styles.shopButton}
-          >
-            Continue Shopping
-          </button>
-
-        </div>
-
-      </div>
-
-    );
-
-  }
-
-  // ==================================================
-  // CART PAGE
+  // UI
   // ==================================================
 
   return (
 
-    <div
-      style={styles.page}
-    >
+    <div style={styles.page}>
 
-      {/* ==================================================
-          NAVBAR
-      ================================================== */}
 
-      <nav
-        style={styles.navbar}
-      >
+      {/* ============================================== */}
+      {/* NAVBAR */}
+      {/* ============================================== */}
+
+      <nav style={styles.navbar}>
+
 
         <Link
           to="/home"
           style={styles.logo}
         >
+
           🥛 HARI FARMS
+
         </Link>
 
-        <div
-          style={styles.navLinks}
-        >
+
+        <div style={styles.navLinks}>
+
 
           <Link
             to="/home"
             style={styles.navLink}
           >
+
             Home
+
           </Link>
+
 
           <Link
             to="/products"
             style={styles.navLink}
           >
+
             Products
+
           </Link>
 
-          <span
-            style={styles.cartActive}
+
+          <Link
+            to="/cart"
+            style={styles.navLink}
           >
+
             🛒 Cart
-          </span>
+
+          </Link>
+
+
+          <Link
+            to="/orders"
+            style={styles.navLink}
+          >
+
+            📦 My Orders
+
+          </Link>
+
 
         </div>
 
       </nav>
 
-      {/* ==================================================
-          MAIN
-      ================================================== */}
 
-      <main
-        style={styles.main}
-      >
+      {/* ============================================== */}
+      {/* MAIN */}
+      {/* ============================================== */}
 
-        <h1
-          style={styles.heading}
-        >
-          Shopping Cart
+      <main style={styles.main}>
+
+
+        <h1 style={styles.title}>
+
+          🛒 My Shopping Cart
+
         </h1>
 
-        <div
-          style={styles.content}
-        >
 
-          {/* ==============================================
-              CART ITEMS
-          =============================================== */}
+        {/* SUCCESS */}
 
-          <div
-            style={styles.itemsSection}
-          >
+        {message && (
 
-            {cart.map(
-              (item, index) => {
+          <div style={styles.success}>
 
-                const price =
-                  getPrice(item);
+            {message}
 
-                const quantity =
-                  Number(
-                    item.quantity || 0
-                  );
+          </div>
 
-                const itemId =
-                  item.id ||
-                  item.cart_id ||
-                  item.product_id ||
-                  index;
+        )}
 
-                const itemTotal =
-                  price * quantity;
 
-                const isUpdating =
-                  updatingId === itemId;
+        {/* ERROR */}
 
-                return (
+        {error && (
 
-                  <div
-                    key={itemId}
-                    style={styles.itemCard}
-                  >
+          <div style={styles.error}>
 
-                    {/* IMAGE */}
+            ❌ {error}
 
-                    <img
-                      src={
-                        getProductImage(
-                          item
-                        )
-                      }
-                      alt={
-                        getProductName(
-                          item
-                        )
-                      }
-                      style={
-                        styles.productImage
-                      }
-                    />
+          </div>
 
-                    {/* DETAILS */}
+        )}
+
+
+        {/* EMPTY CART */}
+
+        {cartItems.length === 0 ? (
+
+          <div style={styles.emptyCart}>
+
+
+            <div style={styles.emptyIcon}>
+
+              🛒
+
+            </div>
+
+
+            <h2>
+
+              Your Cart is Empty
+
+            </h2>
+
+
+            <p>
+
+              Add fresh dairy products
+              from HARI FARMS.
+
+            </p>
+
+
+            <Link
+              to="/products"
+              style={styles.shopButton}
+            >
+
+              🥛 Shop Products
+
+            </Link>
+
+
+          </div>
+
+        ) : (
+
+          <div style={styles.cartLayout}>
+
+
+            {/* ======================================== */}
+            {/* CART ITEMS */}
+            {/* ======================================== */}
+
+            <section style={styles.cartItems}>
+
+
+              {cartItems.map(
+                (item) => {
+
+                  const imageUrl =
+                    getProductImage(item);
+
+
+                  const productName =
+                    item.name ||
+                    item.product_name ||
+                    "Product";
+
+
+                  const price =
+                    getItemPrice(item);
+
+
+                  return (
 
                     <div
-                      style={
-                        styles.itemDetails
-                      }
+                      key={item.id}
+                      style={styles.cartItem}
                     >
 
-                      <h3>
-                        {
-                          getProductName(
-                            item
-                          )
-                        }
-                      </h3>
 
-                      <p
-                        style={
-                          styles.unit
-                        }
-                      >
-                        ₹
-                        {price.toFixed(2)}
-                      </p>
-
-                      {/* QUANTITY */}
+                      {/* IMAGE */}
 
                       <div
-                        style={
-                          styles.quantityBox
-                        }
+                        style={styles.imageBox}
                       >
 
-                        <button
-                          type="button"
-                          disabled={
-                            isUpdating ||
-                            quantity <= 1
-                          }
-                          onClick={() =>
-                            updateQuantity(
-                              item,
-                              quantity - 1
-                            )
-                          }
-                          style={
-                            styles.quantityButton
-                          }
-                        >
-                          −
-                        </button>
+                        {imageUrl ? (
 
-                        <span
-                          style={
-                            styles.quantity
-                          }
-                        >
-                          {quantity}
-                        </span>
+                          <img
 
-                        <button
-                          type="button"
-                          disabled={
-                            isUpdating
-                          }
-                          onClick={() =>
-                            updateQuantity(
-                              item,
-                              quantity + 1
-                            )
-                          }
-                          style={
-                            styles.quantityButton
-                          }
-                        >
-                          +
-                        </button>
+                            src={imageUrl}
+
+                            alt={productName}
+
+                            style={styles.image}
+
+                            onError={(event) => {
+
+                              event.currentTarget.style.display =
+                                "none";
+
+                            }}
+
+                          />
+
+                        ) : (
+
+                          <div
+                            style={styles.emoji}
+                          >
+
+                            {
+                              item.emoji ||
+                              item.product_emoji ||
+                              "🥛"
+                            }
+
+                          </div>
+
+                        )}
 
                       </div>
 
+
+                      {/* DETAILS */}
+
+                      <div
+                        style={styles.itemDetails}
+                      >
+
+
+                        <h3>
+
+                          {productName}
+
+                        </h3>
+
+
+                        <p>
+
+                          ₹{price.toFixed(2)}
+
+                        </p>
+
+
+                        {/* QUANTITY */}
+
+                        <div
+                          style={styles.quantityBox}
+                        >
+
+
+                          <button
+
+                            disabled={
+                              updatingId === item.id
+                            }
+
+                            style={styles.quantityButton}
+
+                            onClick={() =>
+                              updateQuantity(
+                                item,
+                                Number(item.quantity) - 1
+                              )
+                            }
+
+                          >
+
+                            −
+
+                          </button>
+
+
+                          <span
+                            style={styles.quantity}
+                          >
+
+                            {item.quantity}
+
+                          </span>
+
+
+                          <button
+
+                            disabled={
+                              updatingId === item.id
+                            }
+
+                            style={styles.quantityButton}
+
+                            onClick={() =>
+                              updateQuantity(
+                                item,
+                                Number(item.quantity) + 1
+                              )
+                            }
+
+                          >
+
+                            +
+
+                          </button>
+
+
+                        </div>
+
+
+                      </div>
+
+
+                      {/* SUBTOTAL */}
+
+                      <div
+                        style={styles.itemRight}
+                      >
+
+
+                        <strong>
+
+                          ₹
+                          {
+                            (
+                              price *
+                              Number(item.quantity || 1)
+                            ).toFixed(2)
+                          }
+
+                        </strong>
+
+
+                        <button
+
+                          disabled={
+                            updatingId === item.id
+                          }
+
+                          style={styles.removeButton}
+
+                          onClick={() =>
+                            removeFromCart(item)
+                          }
+
+                        >
+
+                          🗑 Remove
+
+                        </button>
+
+
+                      </div>
+
+
                     </div>
 
-                    {/* ITEM TOTAL */}
+                  );
 
-                    <div
-                      style={
-                        styles.itemRight
-                      }
-                    >
+                }
+              )}
 
-                      <strong
-                        style={
-                          styles.itemTotal
-                        }
-                      >
-                        ₹
-                        {itemTotal.toFixed(2)}
-                      </strong>
 
-                      <button
-                        type="button"
-                        disabled={
-                          isUpdating
-                        }
-                        onClick={() =>
-                          removeItem(item)
-                        }
-                        style={
-                          styles.removeButton
-                        }
-                      >
-                        Remove
-                      </button>
+            </section>
 
-                    </div>
 
-                  </div>
+            {/* ======================================== */}
+            {/* ORDER SUMMARY */}
+            {/* ======================================== */}
 
-                );
+            <aside style={styles.summary}>
 
-              }
-            )}
+
+              <h2>
+
+                Order Summary
+
+              </h2>
+
+
+              <div style={styles.summaryRow}>
+
+                <span>
+
+                  Items
+
+                </span>
+
+
+                <span>
+
+                  {cartItems.length}
+
+                </span>
+
+              </div>
+
+
+              <div style={styles.summaryRow}>
+
+                <span>
+
+                  Total
+
+                </span>
+
+
+                <strong
+                  style={styles.total}
+                >
+
+                  ₹{total.toFixed(2)}
+
+                </strong>
+
+              </div>
+
+
+              <button
+
+                style={styles.checkoutButton}
+
+                onClick={handleCheckout}
+
+              >
+
+                Proceed to Checkout →
+
+              </button>
+
+
+              <Link
+                to="/products"
+                style={styles.continueShopping}
+              >
+
+                ← Continue Shopping
+
+              </Link>
+
+
+            </aside>
+
 
           </div>
 
-          {/* ==============================================
-              SUMMARY
-          =============================================== */}
+        )}
 
-          <div
-            style={styles.summary}
-          >
-
-            <h2>
-              Order Summary
-            </h2>
-
-            <div
-              style={styles.summaryRow}
-            >
-
-              <span>
-                Items
-              </span>
-
-              <span>
-                {cart.length}
-              </span>
-
-            </div>
-
-            <div
-              style={styles.summaryRow}
-            >
-
-              <span>
-                Subtotal
-              </span>
-
-              <strong>
-                ₹
-                {total.toFixed(2)}
-              </strong>
-
-            </div>
-
-            <div
-              style={styles.summaryRow}
-            >
-
-              <span>
-                Delivery
-              </span>
-
-              <strong>
-                FREE
-              </strong>
-
-            </div>
-
-            <hr />
-
-            <div
-              style={styles.totalRow}
-            >
-
-              <strong>
-                Total
-              </strong>
-
-              <strong>
-                ₹
-                {total.toFixed(2)}
-              </strong>
-
-            </div>
-
-            {/* IMPORTANT:
-                THIS NOW GOES TO CHECKOUT */}
-
-            <button
-              type="button"
-              onClick={
-                goToCheckout
-              }
-              style={
-                styles.checkoutButton
-              }
-            >
-              Proceed to Checkout
-            </button>
-
-            <button
-              type="button"
-              onClick={() =>
-                navigate("/products")
-              }
-              style={
-                styles.continueButton
-              }
-            >
-              Continue Shopping
-            </button>
-
-          </div>
-
-        </div>
 
       </main>
+
+
+      {/* FOOTER */}
+
+      <footer style={styles.footer}>
+
+        🥛 <strong>
+
+          HARI FARMS
+
+        </strong>
+
+        <p>
+
+          Fresh From Farm • Pure For Family
+
+        </p>
+
+        <small>
+
+          © 2026 HARI FARMS
+
+        </small>
+
+      </footer>
+
 
     </div>
 
   );
+
 }
+
 
 // ==================================================
 // STYLES
@@ -895,246 +1151,279 @@ function Cart() {
 
 const styles = {
 
+
   page: {
     minHeight: "100vh",
-    background: "#f5f8f4",
+    background: "#f5faf5",
+    fontFamily:
+      "'Segoe UI', Arial, sans-serif",
   },
+
 
   navbar: {
+    minHeight: "68px",
+    background: "#2e7d32",
     display: "flex",
-    justifyContent:
-      "space-between",
+    justifyContent: "space-between",
     alignItems: "center",
-    padding:
-      "18px 50px",
-    background: "#ffffff",
-    boxShadow:
-      "0 2px 10px rgba(0,0,0,0.08)",
+    padding: "0 40px",
+    gap: "20px",
+    flexWrap: "wrap",
   },
 
+
   logo: {
+    color: "#ffffff",
     textDecoration: "none",
-    color: "#2e7d32",
     fontSize: "22px",
-    fontWeight: "bold",
+    fontWeight: "800",
   },
+
 
   navLinks: {
     display: "flex",
-    alignItems: "center",
-    gap: "25px",
+    gap: "20px",
+    flexWrap: "wrap",
   },
+
 
   navLink: {
+    color: "#ffffff",
     textDecoration: "none",
-    color: "#333",
-    fontSize: "16px",
+    fontWeight: "600",
   },
 
-  cartActive: {
-    color: "#2e7d32",
-    fontWeight: "bold",
-    fontSize: "16px",
-  },
 
   main: {
-    maxWidth: "1100px",
-    margin: "auto",
-    padding:
-      "40px 20px",
+    maxWidth: "1200px",
+    margin: "0 auto",
+    padding: "40px 25px 70px",
   },
 
-  heading: {
+
+  title: {
+    color: "#205b26",
     marginBottom: "30px",
-    color: "#222",
   },
 
-  content: {
+
+  success: {
+    background: "#dff5e1",
+    color: "#1b5e20",
+    padding: "15px",
+    borderRadius: "10px",
+    marginBottom: "20px",
+    fontWeight: "600",
+  },
+
+
+  error: {
+    background: "#ffebee",
+    color: "#c62828",
+    padding: "15px",
+    borderRadius: "10px",
+    marginBottom: "20px",
+  },
+
+
+  cartLayout: {
     display: "grid",
     gridTemplateColumns:
-      "1fr 350px",
-    gap: "25px",
+      "2fr 1fr",
+    gap: "30px",
     alignItems: "start",
   },
 
-  itemsSection: {
+
+  cartItems: {
     display: "flex",
     flexDirection: "column",
-    gap: "15px",
+    gap: "18px",
   },
 
-  itemCard: {
+
+  cartItem: {
     background: "#ffffff",
-    borderRadius: "12px",
-    padding: "18px",
+    borderRadius: "18px",
+    padding: "20px",
     display: "flex",
     alignItems: "center",
-    gap: "18px",
+    gap: "20px",
     boxShadow:
-      "0 3px 12px rgba(0,0,0,0.08)",
+      "0 7px 25px rgba(0,0,0,0.07)",
   },
 
-  productImage: {
-    width: "110px",
-    height: "110px",
-    objectFit: "cover",
-    borderRadius: "10px",
+
+  imageBox: {
+    width: "100px",
+    height: "100px",
+    borderRadius: "14px",
+    background: "#edf7ee",
+    overflow: "hidden",
+    display: "flex",
+    justifyContent: "center",
+    alignItems: "center",
+    flexShrink: 0,
   },
+
+
+  image: {
+    width: "100%",
+    height: "100%",
+    objectFit: "cover",
+  },
+
+
+  emoji: {
+    fontSize: "50px",
+  },
+
 
   itemDetails: {
     flex: 1,
   },
 
-  unit: {
-    color: "#666",
-    margin:
-      "5px 0 12px",
-  },
 
   quantityBox: {
     display: "flex",
     alignItems: "center",
     gap: "12px",
+    marginTop: "12px",
   },
+
 
   quantityButton: {
     width: "32px",
     height: "32px",
-    border: "1px solid #ccc",
-    background: "#fff",
-    borderRadius: "6px",
+    border: "none",
+    borderRadius: "8px",
+    background: "#2e7d32",
+    color: "#ffffff",
     fontSize: "20px",
     cursor: "pointer",
   },
 
+
   quantity: {
-    minWidth: "25px",
+    fontWeight: "700",
+    minWidth: "20px",
     textAlign: "center",
-    fontWeight: "bold",
   },
+
 
   itemRight: {
-    textAlign: "right",
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "flex-end",
+    gap: "15px",
   },
 
-  itemTotal: {
-    display: "block",
-    marginBottom: "12px",
-    fontSize: "17px",
-  },
 
   removeButton: {
     border: "none",
-    background: "transparent",
-    color: "#d32f2f",
+    background: "#ffebee",
+    color: "#c62828",
+    padding: "8px 12px",
+    borderRadius: "8px",
     cursor: "pointer",
-    fontSize: "14px",
   },
+
 
   summary: {
     background: "#ffffff",
     padding: "25px",
-    borderRadius: "12px",
+    borderRadius: "18px",
     boxShadow:
-      "0 3px 12px rgba(0,0,0,0.08)",
+      "0 7px 25px rgba(0,0,0,0.07)",
     position: "sticky",
     top: "20px",
   },
 
+
   summaryRow: {
     display: "flex",
-    justifyContent:
-      "space-between",
-    margin:
-      "15px 0",
+    justifyContent: "space-between",
+    padding: "15px 0",
+    borderBottom:
+      "1px solid #eeeeee",
   },
 
-  totalRow: {
-    display: "flex",
-    justifyContent:
-      "space-between",
-    margin:
-      "20px 0",
-    fontSize: "20px",
+
+  total: {
+    color: "#2e7d32",
+    fontSize: "22px",
   },
+
 
   checkoutButton: {
     width: "100%",
+    marginTop: "25px",
+    border: "none",
     background: "#2e7d32",
     color: "#ffffff",
-    border: "none",
     padding: "15px",
-    borderRadius: "8px",
+    borderRadius: "10px",
+    fontWeight: "700",
+    cursor: "pointer",
     fontSize: "16px",
-    fontWeight: "bold",
-    cursor: "pointer",
-    marginBottom: "12px",
   },
 
-  continueButton: {
-    width: "100%",
-    background: "#ffffff",
-    color: "#2e7d32",
-    border:
-      "1px solid #2e7d32",
-    padding: "13px",
-    borderRadius: "8px",
-    fontSize: "15px",
-    cursor: "pointer",
-  },
 
-  emptyContainer: {
-    maxWidth: "600px",
-    margin: "100px auto",
+  continueShopping: {
+    display: "block",
     textAlign: "center",
-    padding: "40px 20px",
+    marginTop: "18px",
+    color: "#2e7d32",
+    textDecoration: "none",
+    fontWeight: "600",
   },
+
+
+  emptyCart: {
+    background: "#ffffff",
+    padding: "70px 30px",
+    borderRadius: "20px",
+    textAlign: "center",
+    boxShadow:
+      "0 7px 25px rgba(0,0,0,0.07)",
+  },
+
 
   emptyIcon: {
     fontSize: "70px",
-    marginBottom: "20px",
   },
 
+
   shopButton: {
-    marginTop: "20px",
+    display: "inline-block",
+    marginTop: "15px",
     background: "#2e7d32",
     color: "#ffffff",
-    border: "none",
-    padding:
-      "14px 30px",
-    borderRadius: "8px",
-    fontSize: "16px",
-    cursor: "pointer",
+    padding: "13px 22px",
+    borderRadius: "25px",
+    textDecoration: "none",
+    fontWeight: "700",
   },
+
 
   loading: {
     minHeight: "100vh",
     display: "flex",
-    flexDirection: "column",
     justifyContent: "center",
     alignItems: "center",
-    background: "#f5f8f4",
+    fontSize: "20px",
   },
 
-  loadingIcon: {
-    fontSize: "60px",
-  },
 
-  errorIcon: {
-    fontSize: "50px",
-  },
-
-  retryButton: {
-    marginTop: "15px",
-    padding:
-      "12px 25px",
-    border: "none",
-    borderRadius: "7px",
-    background: "#2e7d32",
-    color: "white",
-    cursor: "pointer",
+  footer: {
+    background: "#173d1b",
+    color: "#ffffff",
+    textAlign: "center",
+    padding: "35px",
+    marginTop: "40px",
   },
 
 };
+
 
 export default Cart;

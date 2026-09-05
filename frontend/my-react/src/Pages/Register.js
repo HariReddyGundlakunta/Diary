@@ -5,14 +5,11 @@ import {
   useNavigate,
 } from "react-router-dom";
 
-
 const API_URL =
   process.env.REACT_APP_API_URL ||
   "https://diary-88q0.onrender.com";
 
-
 function Register() {
-
   const navigate = useNavigate();
 
   const [formData, setFormData] = useState({
@@ -26,145 +23,167 @@ function Register() {
   const [success, setSuccess] = useState("");
   const [loading, setLoading] = useState(false);
 
+  // ==========================================
+  // HANDLE INPUT
+  // ==========================================
 
   const handleChange = (e) => {
+    const { name, value } = e.target;
 
-    setFormData({
-      ...formData,
-      [e.target.name]: e.target.value,
-    });
+    setFormData((previous) => ({
+      ...previous,
+      [name]: value,
+    }));
 
+    setError("");
+    setSuccess("");
   };
 
+  // ==========================================
+  // REGISTER
+  // ==========================================
 
   const handleRegister = async (e) => {
-
     e.preventDefault();
 
     setError("");
     setSuccess("");
 
-
-    if (
-      !formData.name ||
-      !formData.email ||
-      !formData.password ||
-      !formData.confirmPassword
-    ) {
-
-      setError(
-        "Please fill all fields."
-      );
-
+    // Prevent duplicate submission
+    if (loading) {
       return;
     }
 
+    // ========================================
+    // VALIDATION
+    // ========================================
+
+    const name = formData.name.trim();
+    const email = formData.email.trim().toLowerCase();
+    const password = formData.password;
+    const confirmPassword = formData.confirmPassword;
 
     if (
-      formData.password !==
-      formData.confirmPassword
+      !name ||
+      !email ||
+      !password ||
+      !confirmPassword
     ) {
-
-      setError(
-        "Passwords do not match."
-      );
-
+      setError("Please fill all fields.");
       return;
     }
 
+    if (password !== confirmPassword) {
+      setError("Passwords do not match.");
+      return;
+    }
 
-    if (formData.password.length < 6) {
-
+    if (password.length < 6) {
       setError(
         "Password must contain at least 6 characters."
       );
-
       return;
     }
 
-
     try {
-
       setLoading(true);
 
+      // ======================================
+      // SEND REGISTRATION REQUEST
+      // ======================================
 
       const response = await axios.post(
         `${API_URL}/api/auth/register`,
         {
-          name: formData.name.trim(),
-          email: formData.email.trim(),
-          password: formData.password,
+          name,
+          email,
+          password,
+        },
+        {
+          headers: {
+            "Content-Type": "application/json",
+          },
         }
       );
-
 
       console.log(
         "REGISTER RESPONSE:",
         response.data
       );
 
-
       setSuccess(
         "Registration successful! Redirecting to login..."
       );
 
+      // Clear form
+      setFormData({
+        name: "",
+        email: "",
+        password: "",
+        confirmPassword: "",
+      });
 
+      // Redirect to login
       setTimeout(() => {
-
-        navigate("/login");
-
+        navigate("/login", {
+          replace: true,
+        });
       }, 1000);
 
-
     } catch (error) {
-
       console.error(
         "REGISTER ERROR:",
         error
       );
 
-
-      if (
-        error.response?.status === 409
-      ) {
-
+      if (error.response) {
+        if (
+          error.response.status === 409
+        ) {
+          setError(
+            "Email already exists. Please login."
+          );
+        } else {
+          setError(
+            error.response.data?.message ||
+              "Registration failed."
+          );
+        }
+      } else if (error.request) {
         setError(
-          "Email already exists. Please login."
+          "Unable to connect to the server. Please try again."
         );
-
       } else {
-
         setError(
-          error.response?.data?.message ||
-          "Registration failed."
+          "Something went wrong. Please try again."
         );
-
       }
 
     } finally {
-
       setLoading(false);
-
     }
-
   };
 
+  // ==========================================
+  // UI
+  // ==========================================
 
   return (
-
     <div style={styles.page}>
 
       <div style={styles.card}>
+
+        {/* LOGO */}
 
         <div style={styles.logo}>
           🥛
         </div>
 
-        <h1>
+        <h1 style={styles.title}>
           HARI FARMS
         </h1>
 
-        <h2>
+        <h2 style={styles.heading}>
           Create Account
         </h2>
 
@@ -172,97 +191,131 @@ function Register() {
           Join HARI FARMS today
         </p>
 
+        {/* ERROR */}
 
         {error && (
-
           <div style={styles.error}>
-            {error}
+            ⚠️ {error}
           </div>
-
         )}
 
+        {/* SUCCESS */}
 
         {success && (
-
           <div style={styles.success}>
-            {success}
+            ✓ {success}
           </div>
-
         )}
 
+        {/* FORM */}
 
         <form onSubmit={handleRegister}>
 
-          <label style={styles.label}>
+          {/* NAME */}
+
+          <label
+            htmlFor="name"
+            style={styles.label}
+          >
             Full Name
           </label>
 
           <input
+            id="name"
             type="text"
             name="name"
             placeholder="Enter your full name"
             value={formData.name}
             onChange={handleChange}
             style={styles.input}
+            autoComplete="name"
+            required
           />
 
+          {/* EMAIL */}
 
-          <label style={styles.label}>
+          <label
+            htmlFor="email"
+            style={styles.label}
+          >
             Email
           </label>
 
           <input
+            id="email"
             type="email"
             name="email"
             placeholder="Enter your email"
             value={formData.email}
             onChange={handleChange}
             style={styles.input}
+            autoComplete="email"
+            required
           />
 
+          {/* PASSWORD */}
 
-          <label style={styles.label}>
+          <label
+            htmlFor="password"
+            style={styles.label}
+          >
             Password
           </label>
 
           <input
+            id="password"
             type="password"
             name="password"
             placeholder="Create password"
             value={formData.password}
             onChange={handleChange}
             style={styles.input}
+            autoComplete="new-password"
+            required
           />
 
+          {/* CONFIRM PASSWORD */}
 
-          <label style={styles.label}>
+          <label
+            htmlFor="confirmPassword"
+            style={styles.label}
+          >
             Confirm Password
           </label>
 
           <input
+            id="confirmPassword"
             type="password"
             name="confirmPassword"
             placeholder="Confirm password"
             value={formData.confirmPassword}
             onChange={handleChange}
             style={styles.input}
+            autoComplete="new-password"
+            required
           />
 
+          {/* REGISTER BUTTON */}
 
           <button
             type="submit"
             disabled={loading}
-            style={styles.button}
+            style={{
+              ...styles.button,
+              opacity: loading ? 0.7 : 1,
+              cursor: loading
+                ? "not-allowed"
+                : "pointer",
+            }}
           >
-
             {loading
               ? "Creating Account..."
               : "Create Account →"}
-
           </button>
 
         </form>
 
+        {/* LOGIN LINK */}
 
         <p style={styles.bottom}>
 
@@ -285,9 +338,11 @@ function Register() {
   );
 }
 
+// ==========================================
+// STYLES
+// ==========================================
 
 const styles = {
-
   page: {
     minHeight: "100vh",
     background:
@@ -309,6 +364,7 @@ const styles = {
     borderRadius: "25px",
     boxShadow:
       "0 15px 45px rgba(0,0,0,0.10)",
+    boxSizing: "border-box",
   },
 
   logo: {
@@ -316,14 +372,18 @@ const styles = {
     fontSize: "50px",
   },
 
-  h1: {
+  title: {
     textAlign: "center",
+    color: "#2e7d32",
+    margin: "5px 0",
+    fontSize: "30px",
+    fontWeight: "800",
   },
 
-  h2: {
+  heading: {
     textAlign: "center",
     color: "#245b29",
-    margin: "5px 0",
+    margin: "10px 0 5px",
   },
 
   subtitle: {
@@ -349,6 +409,7 @@ const styles = {
       "1px solid #d7e4d9",
     borderRadius: "10px",
     fontSize: "14px",
+    outline: "none",
   },
 
   button: {
@@ -362,7 +423,6 @@ const styles = {
     color: "#ffffff",
     fontSize: "16px",
     fontWeight: "700",
-    cursor: "pointer",
   },
 
   error: {
@@ -372,6 +432,7 @@ const styles = {
     borderRadius: "8px",
     textAlign: "center",
     fontSize: "13px",
+    marginBottom: "15px",
   },
 
   success: {
@@ -381,6 +442,7 @@ const styles = {
     borderRadius: "8px",
     textAlign: "center",
     fontSize: "13px",
+    marginBottom: "15px",
   },
 
   bottom: {
@@ -395,7 +457,6 @@ const styles = {
     fontWeight: "700",
     textDecoration: "none",
   },
-
 };
 
 export default Register;

@@ -1,21 +1,13 @@
 import React, { useState } from "react";
 import axios from "axios";
-import { Link, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 
 function Login() {
   const navigate = useNavigate();
 
-  // ==================================================
-  // API URL
-  // ==================================================
-
   const API_URL =
     process.env.REACT_APP_API_URL ||
     "https://diary-88q0.onrender.com";
-
-  // ==================================================
-  // FORM STATE
-  // ==================================================
 
   const [formData, setFormData] = useState({
     email: "",
@@ -25,55 +17,60 @@ function Login() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
-  // ==================================================
+  // ==========================================
   // HANDLE INPUT
-  // ==================================================
+  // ==========================================
 
   const handleChange = (e) => {
     const { name, value } = e.target;
 
-    setFormData({
-      ...formData,
+    setFormData((prev) => ({
+      ...prev,
       [name]: value,
-    });
+    }));
+
+    setError("");
   };
 
-  // ==================================================
+  // ==========================================
   // LOGIN
-  // ==================================================
+  // ==========================================
 
   const handleSubmit = async (e) => {
     e.preventDefault();
 
     setError("");
 
-    const email = formData.email.trim();
-    const password = formData.password;
-
-    // Validation
-    if (!email) {
-      setError("Please enter your email.");
+    if (loading) {
       return;
     }
 
-    if (!password) {
-      setError("Please enter your password.");
+    const email =
+      formData.email.trim().toLowerCase();
+
+    const password =
+      formData.password;
+
+    if (!email || !password) {
+      setError(
+        "Please enter your email and password."
+      );
       return;
     }
-
-    setLoading(true);
-
-    console.log("=================================");
-    console.log("LOGIN REQUEST");
-    console.log("Email:", email);
-    console.log("API:", `${API_URL}/api/auth/login`);
 
     try {
+      setLoading(true);
+
       const response = await axios.post(
         `${API_URL}/api/auth/login`,
         {
           email,
           password,
+        },
+        {
+          headers: {
+            "Content-Type": "application/json",
+          },
         }
       );
 
@@ -82,17 +79,43 @@ function Login() {
         response.data
       );
 
-      const token = response.data?.token;
-      const user = response.data?.user;
+      const token =
+        response.data?.token;
+
+      const user =
+        response.data?.user;
 
       if (!token || !user) {
         setError(
-          "Login failed. Please try again."
+          "Invalid login response from server."
         );
         return;
       }
 
-      // Save login information
+      // ========================================
+      // GET USER ROLE
+      // ========================================
+
+      const role = String(
+        user?.role || "user"
+      )
+        .trim()
+        .toLowerCase();
+
+      console.log(
+        "Logged-in user:",
+        user
+      );
+
+      console.log(
+        "User role:",
+        role
+      );
+
+      // ========================================
+      // SAVE LOGIN DATA
+      // ========================================
+
       localStorage.setItem(
         "token",
         token
@@ -100,21 +123,24 @@ function Login() {
 
       localStorage.setItem(
         "user",
-        JSON.stringify(user)
+        JSON.stringify({
+          ...user,
+          role,
+        })
       );
 
-      console.log("LOGIN SUCCESS");
-      console.log("USER:", user);
+      // ========================================
+      // ADMIN
+      // ========================================
 
-      // Get role
-      const role = String(
-        user?.role || "user"
-      ).toLowerCase();
+      if (
+        email === "admin@gmail.com" &&
+        role === "admin"
+      ) {
+        console.log(
+          "ADMIN LOGIN → ADMIN DASHBOARD"
+        );
 
-      console.log("ROLE:", role);
-
-      // Admin
-      if (role === "admin") {
         navigate(
           "/admin-dashboard",
           {
@@ -125,9 +151,16 @@ function Login() {
         return;
       }
 
-      // Normal user
+      // ========================================
+      // NORMAL USER
+      // ========================================
+
+      console.log(
+        "USER LOGIN → USER DASHBOARD"
+      );
+
       navigate(
-        "/home",
+        "/user-dashboard",
         {
           replace: true,
         }
@@ -139,119 +172,110 @@ function Login() {
         error
       );
 
-      // 401
-      if (
-        error.response?.status === 401
-      ) {
+      if (error.response) {
         setError(
-          error.response?.data?.message ||
-          "Invalid email or password."
+          error.response.data?.message ||
+            "Invalid email or password."
         );
-
-        return;
-      }
-
-      // 500+
-      if (
-        error.response?.status >= 500
-      ) {
-        setError(
-          "Server error. Please try again."
-        );
-
-        return;
-      }
-
-      // Network
-      if (!error.response) {
+      } else if (error.request) {
         setError(
           "Unable to connect to the server. Please try again."
         );
-
-        return;
+      } else {
+        setError(
+          "Something went wrong. Please try again."
+        );
       }
-
-      // Other
-      setError(
-        error.response?.data?.message ||
-        "Login failed. Please try again."
-      );
-
     } finally {
       setLoading(false);
     }
   };
 
-  // ==================================================
+  // ==========================================
   // UI
-  // ==================================================
+  // ==========================================
 
   return (
     <div style={styles.page}>
 
-      {/* ==================================================
-          LEFT HARI FARMS OVERVIEW
-      ================================================== */}
+      {/* ======================================
+          LEFT BRANDING SECTION
+      ====================================== */}
 
-      <section style={styles.hero}>
+      <div style={styles.brandSection}>
 
-        <div style={styles.heroGlowOne}></div>
-        <div style={styles.heroGlowTwo}></div>
+        <div style={styles.brandOverlay}></div>
 
-        <div style={styles.heroContent}>
+        <div style={styles.brandContent}>
 
-          {/* Logo */}
+          {/* BRAND LOGO */}
 
-          <div style={styles.logoCircle}>
-            🐄
+          <div style={styles.logoContainer}>
+
+            <div style={styles.logoCircle}>
+              🥛
+            </div>
+
+            <div>
+              <h1 style={styles.brandName}>
+                HARI FARMS
+              </h1>
+
+              <p style={styles.brandTagline}>
+                Pure • Fresh • Natural
+              </p>
+            </div>
+
           </div>
 
-          <h1 style={styles.brandTitle}>
-            HARI FARMS
-          </h1>
+          {/* MAIN BRANDING */}
 
-          <p style={styles.brandTagline}>
-            Freshness You Can Trust
-          </p>
+          <div style={styles.brandMain}>
 
-          <div style={styles.line}></div>
+            <p style={styles.smallTitle}>
+              WELCOME TO
+            </p>
 
-          <h2 style={styles.heroHeading}>
-            From Our Farm
-            <br />
-            To Your Family
-          </h2>
+            <h2 style={styles.brandHeading}>
+              Freshness
+              <br />
+              Straight From
+              <br />
+              <span style={styles.greenText}>
+                Our Farm
+              </span>
+            </h2>
 
-          <p style={styles.heroDescription}>
-            Welcome to HARI FARMS, your trusted
-            destination for fresh and quality dairy
-            products. We bring the goodness of the
-            farm directly to your home.
-          </p>
+            <p style={styles.brandDescription}>
+              Experience the goodness of
+              fresh and quality dairy products
+              delivered with care from HARI FARMS
+              to your home.
+            </p>
 
-          {/* Features */}
+          </div>
+
+          {/* FEATURES */}
 
           <div style={styles.features}>
 
             <div style={styles.feature}>
 
               <div style={styles.featureIcon}>
-                🥛
+                🐄
               </div>
 
               <div>
                 <h3 style={styles.featureTitle}>
-                  Fresh Dairy
+                  Farm Fresh
                 </h3>
 
                 <p style={styles.featureText}>
-                  Quality dairy products
-                  every day
+                  Quality products
                 </p>
               </div>
 
             </div>
-
 
             <div style={styles.feature}>
 
@@ -261,32 +285,29 @@ function Login() {
 
               <div>
                 <h3 style={styles.featureTitle}>
-                  Farm Fresh
+                  Natural
                 </h3>
 
                 <p style={styles.featureText}>
-                  Naturally sourced
-                  ingredients
+                  Pure & healthy
                 </p>
               </div>
 
             </div>
-
 
             <div style={styles.feature}>
 
               <div style={styles.featureIcon}>
-                🚚
+                ❤️
               </div>
 
               <div>
                 <h3 style={styles.featureTitle}>
-                  Easy Ordering
+                  Trusted
                 </h3>
 
                 <p style={styles.featureText}>
-                  Simple and convenient
-                  shopping
+                  Made with care
                 </p>
               </div>
 
@@ -294,110 +315,75 @@ function Login() {
 
           </div>
 
-          <p style={styles.bottomMessage}>
-            ♥ Goodness in every drop
-          </p>
-
         </div>
 
-      </section>
+      </div>
 
-
-      {/* ==================================================
+      {/* ======================================
           RIGHT LOGIN SECTION
-      ================================================== */}
+      ====================================== */}
 
-      <section style={styles.loginSection}>
+      <div style={styles.loginSection}>
 
         <div style={styles.loginCard}>
 
-          {/* Mobile Logo */}
+          {/* MOBILE LOGO */}
 
-          <div style={styles.mobileBrand}>
-
-            <div style={styles.mobileLogo}>
-              🐄
-            </div>
-
-            <div>
-              <h1 style={styles.mobileTitle}>
-                HARI FARMS
-              </h1>
-
-              <p style={styles.mobileSubtitle}>
-                Freshness You Can Trust
-              </p>
-            </div>
-
+          <div style={styles.mobileLogo}>
+            🥛
           </div>
 
+          <h2 style={styles.loginHeading}>
+            Welcome Back!
+          </h2>
 
-          {/* Welcome */}
+          <p style={styles.loginSubtitle}>
+            Login to continue to HARI FARMS
+          </p>
 
-          <div style={styles.welcomeArea}>
-
-            <div style={styles.welcomeEmoji}>
-              👋
-            </div>
-
-            <div>
-
-              <h2 style={styles.loginTitle}>
-                Welcome Back!
-              </h2>
-
-              <p style={styles.loginSubtitle}>
-                Login to continue to HARI FARMS
-              </p>
-
-            </div>
-
-          </div>
-
-
-          {/* Error */}
+          {/* ERROR */}
 
           {error && (
-            <div style={styles.errorBox}>
-
-              <span>
+            <div style={styles.error}>
+              <span style={styles.errorIcon}>
                 ⚠️
               </span>
 
               <span>
                 {error}
               </span>
-
             </div>
           )}
 
-
-          {/* Form */}
+          {/* FORM */}
 
           <form onSubmit={handleSubmit}>
 
-            {/* Email */}
+            {/* EMAIL */}
 
             <div style={styles.inputGroup}>
 
-              <label style={styles.label}>
+              <label
+                htmlFor="email"
+                style={styles.label}
+              >
                 Email Address
               </label>
 
-              <div style={styles.inputContainer}>
+              <div style={styles.inputWrapper}>
 
                 <span style={styles.inputIcon}>
                   ✉
                 </span>
 
                 <input
+                  id="email"
                   type="email"
                   name="email"
                   value={formData.email}
                   onChange={handleChange}
                   placeholder="Enter your email"
                   autoComplete="email"
-                  disabled={loading}
                   required
                   style={styles.input}
                 />
@@ -406,29 +392,31 @@ function Login() {
 
             </div>
 
-
-            {/* Password */}
+            {/* PASSWORD */}
 
             <div style={styles.inputGroup}>
 
-              <label style={styles.label}>
+              <label
+                htmlFor="password"
+                style={styles.label}
+              >
                 Password
               </label>
 
-              <div style={styles.inputContainer}>
+              <div style={styles.inputWrapper}>
 
                 <span style={styles.inputIcon}>
                   🔒
                 </span>
 
                 <input
+                  id="password"
                   type="password"
                   name="password"
                   value={formData.password}
                   onChange={handleChange}
                   placeholder="Enter your password"
                   autoComplete="current-password"
-                  disabled={loading}
                   required
                   style={styles.input}
                 />
@@ -437,28 +425,31 @@ function Login() {
 
             </div>
 
-
-            {/* Login Button */}
+            {/* LOGIN BUTTON */}
 
             <button
               type="submit"
               disabled={loading}
               style={{
                 ...styles.loginButton,
-                ...(loading
-                  ? styles.loginButtonDisabled
-                  : {}),
+                opacity: loading ? 0.7 : 1,
+                cursor: loading
+                  ? "not-allowed"
+                  : "pointer",
               }}
             >
 
               {loading ? (
                 <>
-                  <span style={styles.spinner}></span>
+                  <span style={styles.spinner}>
+                    ⟳
+                  </span>
+
                   Logging in...
                 </>
               ) : (
                 <>
-                  Login
+                  Login to Account
                   <span style={styles.arrow}>
                     →
                   </span>
@@ -469,449 +460,311 @@ function Login() {
 
           </form>
 
+          {/* DIVIDER */}
 
-          {/* Register */}
+          <div style={styles.divider}>
+            <span style={styles.dividerLine}></span>
 
-          <div style={styles.registerArea}>
+            <span style={styles.dividerText}>
+              OR
+            </span>
 
-            <span>
+            <span style={styles.dividerLine}></span>
+          </div>
+
+          {/* REGISTER */}
+
+          <div style={styles.registerBox}>
+
+            <p style={styles.registerText}>
               Don't have an account?
-            </span>
+            </p>
 
-            <Link
-              to="/register"
-              style={styles.registerLink}
+            <button
+              type="button"
+              onClick={() =>
+                navigate("/register")
+              }
+              style={styles.registerButton}
             >
-              Create Account
-            </Link>
+              Create New Account
+            </button>
 
           </div>
 
+          {/* FOOTER */}
 
-          {/* Footer */}
-
-          <div style={styles.footer}>
-
-            <span>
-              🔒 Secure Login
-            </span>
-
-            <span>
-              |
-            </span>
-
-            <span>
-              HARI FARMS
-            </span>
-
-          </div>
+          <p style={styles.footerText}>
+            🥛 Freshness you can trust
+          </p>
 
         </div>
 
-      </section>
-
-
-      {/* ==================================================
-          RESPONSIVE STYLE
-      ================================================== */}
-
-      <style>
-        {`
-          @keyframes spin {
-            from {
-              transform: rotate(0deg);
-            }
-
-            to {
-              transform: rotate(360deg);
-            }
-          }
-
-          * {
-            box-sizing: border-box;
-          }
-
-          @media (max-width: 850px) {
-
-            .hari-farms-page {
-              flex-direction: column !important;
-            }
-
-          }
-
-          @media (max-width: 850px) {
-
-            .hari-farms-hero {
-              min-height: auto !important;
-              padding: 40px 20px !important;
-            }
-
-          }
-
-          @media (max-width: 850px) {
-
-            .hari-farms-login {
-              min-height: auto !important;
-              padding: 40px 20px !important;
-            }
-
-          }
-
-          @media (max-width: 500px) {
-
-            .hari-farms-login-card {
-              padding: 10px !important;
-            }
-
-          }
-
-          @media (max-width: 850px) {
-
-            .hari-farms-mobile-brand {
-              display: flex !important;
-            }
-
-          }
-
-        `}
-      </style>
+      </div>
 
     </div>
   );
 }
 
-
-// ======================================================
+// ==========================================
 // STYLES
-// ======================================================
+// ==========================================
 
 const styles = {
 
-  // ================================================
-  // PAGE
-  // ================================================
-
   page: {
     minHeight: "100vh",
+    width: "100%",
     display: "flex",
     fontFamily:
-      "'Segoe UI', Arial, sans-serif",
-    background: "#ffffff",
+      "'Segoe UI', Arial, Helvetica, sans-serif",
+    background: "#f5f8f4",
   },
 
+  // ========================================
+  // LEFT BRAND SECTION
+  // ========================================
 
-  // ================================================
-  // HERO
-  // ================================================
-
-  hero: {
-    flex: 1.15,
+  brandSection: {
+    width: "52%",
     minHeight: "100vh",
     position: "relative",
     overflow: "hidden",
+    background:
+      "linear-gradient(145deg, #123b1a 0%, #1b5e20 45%, #2e7d32 100%)",
     display: "flex",
     alignItems: "center",
-    justifyContent: "center",
-    background:
-      "linear-gradient(135deg, #0b542c 0%, #1b6f35 45%, #43a047 100%)",
-    color: "#ffffff",
-    padding: "50px",
   },
 
-
-  heroGlowOne: {
+  brandOverlay: {
     position: "absolute",
-    width: "350px",
-    height: "350px",
+    width: "550px",
+    height: "550px",
     borderRadius: "50%",
     background:
-      "rgba(255,255,255,0.07)",
-    top: "-130px",
-    left: "-120px",
-  },
-
-
-  heroGlowTwo: {
-    position: "absolute",
-    width: "450px",
-    height: "450px",
-    borderRadius: "50%",
-    background:
-      "rgba(255,255,255,0.05)",
-    bottom: "-220px",
+      "rgba(255,255,255,0.04)",
+    top: "-200px",
     right: "-180px",
   },
 
-
-  heroContent: {
+  brandContent: {
     position: "relative",
     zIndex: 2,
     width: "100%",
-    maxWidth: "570px",
+    maxWidth: "620px",
+    padding: "55px 8%",
+    boxSizing: "border-box",
+    color: "#ffffff",
   },
 
+  logoContainer: {
+    display: "flex",
+    alignItems: "center",
+    gap: "16px",
+    marginBottom: "70px",
+  },
 
   logoCircle: {
-    width: "80px",
-    height: "80px",
-    borderRadius: "24px",
+    width: "65px",
+    height: "65px",
+    borderRadius: "50%",
+    background:
+      "rgba(255,255,255,0.15)",
+    border:
+      "1px solid rgba(255,255,255,0.25)",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
-    background:
-      "rgba(255,255,255,0.16)",
-    border:
-      "1px solid rgba(255,255,255,0.25)",
-    fontSize: "42px",
-    marginBottom: "20px",
-    boxShadow:
-      "0 15px 35px rgba(0,0,0,0.18)",
+    fontSize: "34px",
   },
 
-
-  brandTitle: {
+  brandName: {
     margin: 0,
-    fontSize: "48px",
+    fontSize: "28px",
     fontWeight: "800",
-    letterSpacing: "4px",
+    letterSpacing: "2px",
   },
-
 
   brandTagline: {
-    margin:
-      "8px 0 0",
-    fontSize: "18px",
-    letterSpacing: "1px",
-    opacity: 0.9,
+    margin: "5px 0 0",
+    fontSize: "12px",
+    letterSpacing: "3px",
+    opacity: 0.75,
   },
 
-
-  line: {
-    width: "70px",
-    height: "4px",
-    borderRadius: "10px",
-    background: "#ffffff",
-    margin:
-      "28px 0",
+  brandMain: {
+    maxWidth: "500px",
   },
 
-
-  heroHeading: {
-    fontSize: "38px",
-    lineHeight: 1.2,
-    margin:
-      "0 0 18px",
+  smallTitle: {
+    fontSize: "13px",
+    letterSpacing: "4px",
     fontWeight: "700",
+    opacity: 0.75,
+    marginBottom: "18px",
   },
 
+  brandHeading: {
+    fontSize: "52px",
+    lineHeight: "1.12",
+    margin: 0,
+    fontWeight: "800",
+    letterSpacing: "-1px",
+  },
 
-  heroDescription: {
+  greenText: {
+    color: "#b9e5a8",
+  },
+
+  brandDescription: {
     fontSize: "16px",
-    lineHeight: 1.8,
-    maxWidth: "520px",
-    opacity: 0.9,
-    marginBottom: "32px",
+    lineHeight: "1.8",
+    maxWidth: "470px",
+    marginTop: "25px",
+    opacity: 0.82,
   },
 
-
-  // ================================================
+  // ========================================
   // FEATURES
-  // ================================================
+  // ========================================
 
   features: {
     display: "flex",
-    flexDirection: "column",
-    gap: "18px",
+    gap: "35px",
+    marginTop: "55px",
+    flexWrap: "wrap",
   },
-
 
   feature: {
     display: "flex",
     alignItems: "center",
-    gap: "15px",
+    gap: "10px",
   },
 
-
   featureIcon: {
-    minWidth: "50px",
-    height: "50px",
-    borderRadius: "15px",
+    width: "42px",
+    height: "42px",
+    borderRadius: "10px",
     background:
-      "rgba(255,255,255,0.16)",
+      "rgba(255,255,255,0.12)",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
-    fontSize: "23px",
+    fontSize: "20px",
   },
-
 
   featureTitle: {
     margin: 0,
-    fontSize: "16px",
+    fontSize: "13px",
+    fontWeight: "700",
   },
-
 
   featureText: {
-    margin:
-      "4px 0 0",
-    fontSize: "13px",
-    opacity: 0.75,
+    margin: "3px 0 0",
+    fontSize: "11px",
+    opacity: 0.65,
   },
 
-
-  bottomMessage: {
-    marginTop: "35px",
-    fontSize: "14px",
-    opacity: 0.8,
-  },
-
-
-  // ================================================
+  // ========================================
   // LOGIN SECTION
-  // ================================================
+  // ========================================
 
   loginSection: {
-    flex: 0.85,
+    width: "48%",
     minHeight: "100vh",
     display: "flex",
-    alignItems: "center",
     justifyContent: "center",
-    padding: "50px",
-    background: "#ffffff",
+    alignItems: "center",
+    padding: "40px",
+    boxSizing: "border-box",
+    background: "#f8faf7",
   },
-
 
   loginCard: {
     width: "100%",
-    maxWidth: "440px",
+    maxWidth: "450px",
+    background: "#ffffff",
+    padding: "48px",
+    borderRadius: "22px",
+    boxSizing: "border-box",
+    boxShadow:
+      "0 15px 50px rgba(0,0,0,0.08)",
+    border:
+      "1px solid #edf2ed",
   },
-
-
-  // ================================================
-  // MOBILE BRAND
-  // ================================================
-
-  mobileBrand: {
-    display: "none",
-    alignItems: "center",
-    gap: "12px",
-    marginBottom: "35px",
-  },
-
 
   mobileLogo: {
-    width: "55px",
-    height: "55px",
-    borderRadius: "16px",
-    background: "#e8f5e9",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    fontSize: "30px",
+    display: "none",
   },
 
-
-  mobileTitle: {
+  loginHeading: {
     margin: 0,
-    color: "#2e7d32",
-    fontSize: "24px",
+    fontSize: "32px",
+    fontWeight: "800",
+    color: "#183b20",
   },
 
-
-  mobileSubtitle: {
-    margin: "3px 0 0",
-    color: "#777",
-    fontSize: "12px",
-  },
-
-
-  // ================================================
-  // WELCOME
-  // ================================================
-
-  welcomeArea: {
-    display: "flex",
-    alignItems: "center",
-    gap: "14px",
+  loginSubtitle: {
+    color: "#7b867e",
+    fontSize: "14px",
+    marginTop: "8px",
     marginBottom: "32px",
   },
 
-
-  welcomeEmoji: {
-    fontSize: "34px",
-  },
-
-
-  loginTitle: {
-    margin: 0,
-    color: "#222",
-    fontSize: "30px",
-  },
-
-
-  loginSubtitle: {
-    margin:
-      "7px 0 0",
-    color: "#777",
-    fontSize: "14px",
-  },
-
-
-  // ================================================
+  // ========================================
   // ERROR
-  // ================================================
+  // ========================================
 
-  errorBox: {
+  error: {
     display: "flex",
     alignItems: "center",
-    gap: "9px",
-    background: "#fff3f3",
-    color: "#c62828",
+    gap: "8px",
+    background: "#fff1f1",
     border:
-      "1px solid #ffcdd2",
-    borderRadius: "10px",
-    padding: "13px 15px",
-    marginBottom: "20px",
-    fontSize: "14px",
+      "1px solid #ffd4d4",
+    color: "#c62828",
+    padding: "12px 14px",
+    borderRadius: "9px",
+    fontSize: "13px",
+    marginBottom: "22px",
   },
 
+  errorIcon: {
+    fontSize: "16px",
+  },
 
-  // ================================================
+  // ========================================
   // INPUTS
-  // ================================================
+  // ========================================
 
   inputGroup: {
     marginBottom: "22px",
   },
 
-
   label: {
     display: "block",
-    color: "#333",
-    fontWeight: "600",
-    fontSize: "14px",
+    color: "#304936",
+    fontSize: "13px",
+    fontWeight: "700",
     marginBottom: "8px",
   },
 
-
-  inputContainer: {
+  inputWrapper: {
     display: "flex",
     alignItems: "center",
-    width: "100%",
     border:
-      "1px solid #dce2dd",
-    borderRadius: "12px",
-    background: "#fafcfb",
-    overflow: "hidden",
+      "1px solid #dce5dd",
+    borderRadius: "10px",
+    background: "#fbfdfb",
+    transition: "all 0.2s ease",
   },
-
 
   inputIcon: {
-    paddingLeft: "15px",
-    fontSize: "18px",
-    color: "#2e7d32",
+    width: "45px",
+    textAlign: "center",
+    fontSize: "17px",
+    opacity: 0.55,
   },
-
 
   input: {
     flex: 1,
@@ -919,100 +772,143 @@ const styles = {
     border: "none",
     outline: "none",
     background: "transparent",
-    padding: "14px",
-    fontSize: "15px",
-    color: "#222",
+    padding: "14px 12px 14px 0",
+    fontSize: "14px",
+    color: "#222222",
+    boxSizing: "border-box",
   },
 
-
-  // ================================================
-  // BUTTON
-  // ================================================
+  // ========================================
+  // LOGIN BUTTON
+  // ========================================
 
   loginButton: {
     width: "100%",
+    height: "52px",
     border: "none",
-    borderRadius: "12px",
-    padding: "15px",
+    borderRadius: "10px",
     background:
-      "linear-gradient(135deg, #2e7d32, #43a047)",
+      "linear-gradient(135deg, #246b2a, #43a047)",
     color: "#ffffff",
-    fontSize: "17px",
+    fontSize: "15px",
     fontWeight: "700",
-    cursor: "pointer",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
     gap: "10px",
     boxShadow:
-      "0 8px 20px rgba(46,125,50,0.25)",
-    transition:
-      "transform 0.2s",
+      "0 8px 20px rgba(46,125,50,0.20)",
   },
-
-
-  loginButtonDisabled: {
-    opacity: 0.7,
-    cursor: "not-allowed",
-  },
-
-
-  spinner: {
-    width: "17px",
-    height: "17px",
-    border:
-      "2px solid rgba(255,255,255,0.4)",
-    borderTop:
-      "2px solid #ffffff",
-    borderRadius: "50%",
-    display: "inline-block",
-    animation:
-      "spin 0.7s linear infinite",
-  },
-
 
   arrow: {
-    fontSize: "22px",
+    fontSize: "20px",
+    lineHeight: 1,
   },
 
-
-  // ================================================
-  // REGISTER
-  // ================================================
-
-  registerArea: {
-    textAlign: "center",
-    marginTop: "28px",
-    color: "#777",
-    fontSize: "14px",
+  spinner: {
+    fontSize: "20px",
+    display: "inline-block",
   },
 
+  // ========================================
+  // DIVIDER
+  // ========================================
 
-  registerLink: {
-    marginLeft: "6px",
-    color: "#2e7d32",
-    fontWeight: "700",
-    textDecoration: "none",
-  },
-
-
-  // ================================================
-  // FOOTER
-  // ================================================
-
-  footer: {
-    marginTop: "35px",
-    paddingTop: "20px",
-    borderTop:
-      "1px solid #eeeeee",
+  divider: {
     display: "flex",
-    justifyContent: "center",
-    gap: "10px",
-    color: "#999",
-    fontSize: "12px",
+    alignItems: "center",
+    gap: "12px",
+    margin: "30px 0",
   },
 
+  dividerLine: {
+    flex: 1,
+    height: "1px",
+    background: "#e8ede9",
+  },
+
+  dividerText: {
+    color: "#a0aaa3",
+    fontSize: "11px",
+    fontWeight: "700",
+  },
+
+  // ========================================
+  // REGISTER
+  // ========================================
+
+  registerBox: {
+    textAlign: "center",
+  },
+
+  registerText: {
+    color: "#707b73",
+    fontSize: "13px",
+    margin: "0 0 12px",
+  },
+
+  registerButton: {
+    width: "100%",
+    height: "48px",
+    border:
+      "1px solid #2e7d32",
+    borderRadius: "10px",
+    background: "#ffffff",
+    color: "#2e7d32",
+    fontSize: "14px",
+    fontWeight: "700",
+    cursor: "pointer",
+  },
+
+  // ========================================
+  // FOOTER
+  // ========================================
+
+  footerText: {
+    textAlign: "center",
+    color: "#a0aaa3",
+    fontSize: "11px",
+    marginTop: "28px",
+    marginBottom: 0,
+  },
 };
 
+// ==========================================
+// RESPONSIVE CSS
+// ==========================================
+
+const responsiveStyle = document.createElement("style");
+
+responsiveStyle.innerHTML = `
+  @media (max-width: 900px) {
+
+    .hari-farms-login-page {
+      flex-direction: column;
+    }
+
+  }
+
+  @media (max-width: 900px) {
+
+    body {
+      margin: 0;
+    }
+
+  }
+`;
+
+if (
+  typeof document !== "undefined" &&
+  !document.getElementById(
+    "hari-farms-login-responsive"
+  )
+) {
+  responsiveStyle.id =
+    "hari-farms-login-responsive";
+
+  document.head.appendChild(
+    responsiveStyle
+  );
+}
 
 export default Login;

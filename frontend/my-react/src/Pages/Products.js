@@ -1,4 +1,3 @@
-
 import React, {
   useCallback,
   useEffect,
@@ -13,6 +12,73 @@ import {
 } from "react-router-dom";
 
 
+// ==================================================
+// PRODUCT FALLBACK IMAGES
+// ==================================================
+
+const productImages = {
+
+  "fresh cow milk":
+    "https://images.unsplash.com/photo-1550583724-b2692b85b150?auto=format&fit=crop&w=800&q=80",
+
+  "buffalo milk":
+    "https://images.unsplash.com/photo-1550583724-b2692b85b150?auto=format&fit=crop&w=800&q=80",
+
+  "a2 cow milk":
+    "https://images.unsplash.com/photo-1550583724-b2692b85b150?auto=format&fit=crop&w=800&q=80",
+
+  "fresh curd":
+    "https://images.unsplash.com/photo-1571212515416-fca3251f4f2d?auto=format&fit=crop&w=800&q=80",
+
+  "buttermilk":
+    "https://images.unsplash.com/photo-1628088062854-d1870b4553da?auto=format&fit=crop&w=800&q=80",
+
+  "paneer":
+    "https://images.unsplash.com/photo-1625944525533-473f1a3d54e7?auto=format&fit=crop&w=800&q=80",
+
+  "fresh cheese":
+    "https://images.unsplash.com/photo-1486297678162-eb2a19b0a32d?auto=format&fit=crop&w=800&q=80",
+
+  "butter":
+    "https://images.unsplash.com/photo-1589985270826-4b7bb135bc9d?auto=format&fit=crop&w=800&q=80",
+
+  "pure cow ghee":
+    "https://images.unsplash.com/photo-1601050690597-df0568f70950?auto=format&fit=crop&w=800&q=80",
+
+  "buffalo ghee":
+    "https://images.unsplash.com/photo-1601050690597-df0568f70950?auto=format&fit=crop&w=800&q=80",
+
+  "fresh cream":
+    "https://images.unsplash.com/photo-1563636619-e9143da7973b?auto=format&fit=crop&w=800&q=80",
+
+  "flavored milk":
+    "https://images.unsplash.com/photo-1550583724-b2692b85b150?auto=format&fit=crop&w=800&q=80",
+
+  "mango lassi":
+    "https://images.unsplash.com/photo-1621506289937-a8e4df240d0b?auto=format&fit=crop&w=800&q=80",
+
+  "sweet lassi":
+    "https://images.unsplash.com/photo-1621506289937-a8e4df240d0b?auto=format&fit=crop&w=800&q=80",
+
+  "khoa":
+    "https://images.unsplash.com/photo-1571115764595-644a1f56a55c?auto=format&fit=crop&w=800&q=80",
+
+  "kulfi":
+    "https://images.unsplash.com/photo-1563805042-7684c019e1cb?auto=format&fit=crop&w=800&q=80",
+
+  "rabri":
+    "https://images.unsplash.com/photo-1551024506-0bccd828d307?auto=format&fit=crop&w=800&q=80",
+
+  "milkshake":
+    "https://images.unsplash.com/photo-1572490122747-3968b75cc699?auto=format&fit=crop&w=800&q=80",
+
+};
+
+
+// ==================================================
+// COMPONENT
+// ==================================================
+
 function Products() {
 
   const navigate = useNavigate();
@@ -24,129 +90,77 @@ function Products() {
 
   const API_URL =
     process.env.REACT_APP_API_URL ||
-    "https://diary-88q0.onrender.com";
+    "http://localhost:5000";
 
 
   // ==================================================
-  // STATE
+  // STATES
   // ==================================================
 
-  const [products, setProducts] = useState([]);
+  const [products, setProducts] =
+    useState([]);
 
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] =
+    useState(true);
 
-  const [error, setError] = useState("");
+  const [message, setMessage] =
+    useState("");
 
-  const [cartLoading, setCartLoading] = useState(null);
+  const [error, setError] =
+    useState("");
 
-
-  // ==================================================
-  // IMAGE URL FUNCTION
-  // ==================================================
-
-  const getImageUrl = useCallback(
-    (image) => {
-
-      // No image
-      if (!image) {
-        return "/images/default-product.jpg";
-      }
-
-      const imageUrl = String(image).trim();
-
-      // Empty image
-      if (!imageUrl) {
-        return "/images/default-product.jpg";
-      }
-
-
-      // ----------------------------------------------
-      // Full URL
-      // Example:
-      // https://example.com/image.jpg
-      // ----------------------------------------------
-
-      if (
-        imageUrl.startsWith("http://") ||
-        imageUrl.startsWith("https://")
-      ) {
-        return imageUrl;
-      }
-
-
-      // ----------------------------------------------
-      // Base64 image
-      // ----------------------------------------------
-
-      if (imageUrl.startsWith("data:image")) {
-        return imageUrl;
-      }
-
-
-      // ----------------------------------------------
-      // Backend uploads
-      // Example:
-      // /uploads/milkshake.jpg
-      // ----------------------------------------------
-
-      if (imageUrl.startsWith("/uploads/")) {
-        return `${API_URL}${imageUrl}`;
-      }
-
-
-      // ----------------------------------------------
-      // Backend uploads without /
-      // Example:
-      // uploads/milkshake.jpg
-      // ----------------------------------------------
-
-      if (imageUrl.startsWith("uploads/")) {
-        return `${API_URL}/${imageUrl}`;
-      }
-
-
-      // ----------------------------------------------
-      // React public folder
-      // Example:
-      // /images/milkshake.jpg
-      // ----------------------------------------------
-
-      if (imageUrl.startsWith("/images/")) {
-        return imageUrl;
-      }
-
-
-      // ----------------------------------------------
-      // images/milkshake.jpg
-      // ----------------------------------------------
-
-      if (imageUrl.startsWith("images/")) {
-        return `/${imageUrl}`;
-      }
-
-
-      // ----------------------------------------------
-      // Only filename
-      // Example:
-      // milkshake.jpg
-      //
-      // Assumes image is inside:
-      // backend/uploads/
-      // ----------------------------------------------
-
-      return `${API_URL}/uploads/${imageUrl}`;
-
-    },
-    [API_URL]
-  );
+  const [addingProductId, setAddingProductId] =
+    useState(null);
 
 
   // ==================================================
-  // GET PRODUCTS
+  // GET LOGGED-IN USER
   // ==================================================
 
-  const fetchProducts = useCallback(
-    async () => {
+  const getLoggedInUser = () => {
+
+    try {
+
+      const user =
+        localStorage.getItem("user");
+
+      if (!user) {
+        return null;
+      }
+
+      return JSON.parse(user);
+
+    } catch (error) {
+
+      console.error(
+        "User parsing error:",
+        error
+      );
+
+      return null;
+
+    }
+
+  };
+
+
+  // ==================================================
+  // GET TOKEN
+  // ==================================================
+
+  const getToken = () => {
+
+    return localStorage.getItem("token");
+
+  };
+
+
+  // ==================================================
+  // FETCH PRODUCTS
+  // ==================================================
+
+  const fetchProducts =
+    useCallback(async () => {
 
       try {
 
@@ -154,71 +168,19 @@ function Products() {
 
         setError("");
 
-
-        console.log(
-          "================================="
-        );
-
-        console.log(
-          "FETCHING PRODUCTS"
-        );
-
-        console.log(
-          "API:",
-          `${API_URL}/api/products`
-        );
-
-
         const response =
           await axios.get(
             `${API_URL}/api/products`
           );
 
 
-        console.log(
-          "PRODUCTS RESPONSE:",
-          response.data
-        );
+        setProducts(
 
-
-        if (
           Array.isArray(response.data)
-        ) {
+            ? response.data
+            : []
 
-          response.data.forEach(
-            (product) => {
-
-              console.log(
-                "PRODUCT:",
-                product.name
-              );
-
-              console.log(
-                "DATABASE IMAGE:",
-                product.image
-              );
-
-              console.log(
-                "FINAL IMAGE URL:",
-                getImageUrl(
-                  product.image
-                )
-              );
-
-            }
-          );
-
-
-          setProducts(
-            response.data
-          );
-
-        } else {
-
-          setProducts([]);
-
-        }
-
+        );
 
       } catch (error) {
 
@@ -227,24 +189,12 @@ function Products() {
           error
         );
 
-
-        console.error(
-          "STATUS:",
-          error.response?.status
-        );
-
-
-        console.error(
-          "RESPONSE:",
-          error.response?.data
-        );
-
-
         setError(
+
           error.response?.data?.message ||
           "Failed to load products"
-        );
 
+        );
 
       } finally {
 
@@ -252,9 +202,7 @@ function Products() {
 
       }
 
-    },
-    [API_URL, getImageUrl]
-  );
+    }, [API_URL]);
 
 
   // ==================================================
@@ -269,103 +217,137 @@ function Products() {
 
 
   // ==================================================
+  // GET PRODUCT IMAGE
+  // ==================================================
+
+  const getProductImage =
+    (product) => {
+
+      // ----------------------------------------------
+      // 1. DATABASE IMAGE
+      // ----------------------------------------------
+
+      if (
+        product.image &&
+        String(product.image).trim() !== ""
+      ) {
+
+        const image =
+          String(product.image).trim();
+
+
+        // Full external URL
+
+        if (
+          image.startsWith("http://") ||
+          image.startsWith("https://")
+        ) {
+
+          return image;
+
+        }
+
+
+        // Uploaded backend image
+
+        if (
+          image.startsWith("/")
+        ) {
+
+          return `${API_URL}${image}`;
+
+        }
+
+
+        return `${API_URL}/uploads/${image}`;
+
+      }
+
+
+      // ----------------------------------------------
+      // 2. FALLBACK IMAGE BY PRODUCT NAME
+      // ----------------------------------------------
+
+      const productName =
+        String(product.name || "")
+          .toLowerCase()
+          .trim();
+
+
+      if (
+        productImages[productName]
+      ) {
+
+        return productImages[productName];
+
+      }
+
+
+      // ----------------------------------------------
+      // 3. GENERIC DAIRY IMAGE
+      // ----------------------------------------------
+
+      return "https://images.unsplash.com/photo-1550583724-b2692b85b150?auto=format&fit=crop&w=800&q=80";
+
+    };
+
+
+  // ==================================================
   // ADD TO CART
   // ==================================================
 
-  const addToCart =
-    async (productId) => {
+  const handleAddToCart =
+    async (product) => {
 
       try {
 
+        setMessage("");
+
+        setError("");
+
+
+        // ----------------------------------------------
+        // CHECK LOGIN
+        // ----------------------------------------------
+
         const token =
-          localStorage.getItem(
-            "token"
+          getToken();
+
+        const user =
+          getLoggedInUser();
+
+
+        if (!token || !user) {
+
+          setError(
+            "Please login to add products to your cart."
           );
 
 
-        const userData =
-          localStorage.getItem(
-            "user"
-          );
+          setTimeout(() => {
 
+            navigate("/login");
 
-        if (
-          !token ||
-          !userData
-        ) {
+          }, 1200);
 
-          alert(
-            "Please login to add products to cart."
-          );
-
-          navigate("/login");
 
           return;
 
         }
 
 
-        let user;
+        // ----------------------------------------------
+        // LOADING BUTTON
+        // ----------------------------------------------
 
-
-        try {
-
-          user =
-            JSON.parse(
-              userData
-            );
-
-        } catch (parseError) {
-
-          console.error(
-            "USER DATA ERROR:",
-            parseError
-          );
-
-
-          localStorage.removeItem(
-            "token"
-          );
-
-          localStorage.removeItem(
-            "user"
-          );
-
-
-          navigate("/login");
-
-          return;
-
-        }
-
-
-        if (!user?.id) {
-
-          alert(
-            "User information is missing. Please login again."
-          );
-
-
-          localStorage.removeItem(
-            "token"
-          );
-
-          localStorage.removeItem(
-            "user"
-          );
-
-
-          navigate("/login");
-
-          return;
-
-        }
-
-
-        setCartLoading(
-          productId
+        setAddingProductId(
+          product.id
         );
 
+
+        // ----------------------------------------------
+        // ADD PRODUCT TO CART
+        // ----------------------------------------------
 
         const response =
           await axios.post(
@@ -373,11 +355,8 @@ function Products() {
             `${API_URL}/api/cart`,
 
             {
-              userId:
-                user.id,
-
-              productId:
-                productId,
+              product_id:
+                product.id,
 
               quantity:
                 1,
@@ -393,21 +372,27 @@ function Products() {
                   "application/json",
 
               },
-
             }
 
           );
 
 
         console.log(
-          "CART RESPONSE:",
+          "ADD TO CART RESPONSE:",
           response.data
         );
 
 
-        alert(
-          "Product added to cart successfully!"
+        setMessage(
+          `${product.name} added to cart successfully! 🛒`
         );
+
+
+        setTimeout(() => {
+
+          setMessage("");
+
+        }, 2500);
 
 
       } catch (error) {
@@ -419,14 +404,9 @@ function Products() {
 
 
         if (
-          error.response?.status ===
-          401
+          error.response?.status === 401 ||
+          error.response?.status === 403
         ) {
-
-          alert(
-            "Session expired. Please login again."
-          );
-
 
           localStorage.removeItem(
             "token"
@@ -437,22 +417,63 @@ function Products() {
           );
 
 
-          navigate("/login");
+          setError(
+            "Your login session expired. Please login again."
+          );
+
+
+          setTimeout(() => {
+
+            navigate("/login");
+
+          }, 1500);
+
 
           return;
 
         }
 
 
-        alert(
+        setError(
+
           error.response?.data?.message ||
-          "Failed to add product to cart"
+
+          "Unable to add product to cart"
+
         );
 
 
       } finally {
 
-        setCartLoading(null);
+        setAddingProductId(
+          null
+        );
+
+      }
+
+    };
+
+
+  // ==================================================
+  // IMAGE ERROR HANDLER
+  // ==================================================
+
+  const handleImageError =
+    (event, product) => {
+
+      const fallbackImage =
+        "https://images.unsplash.com/photo-1550583724-b2692b85b150?auto=format&fit=crop&w=800&q=80";
+
+
+      // Prevent infinite image error loop
+
+      if (
+        event.currentTarget.src !==
+        fallbackImage
+      ) {
+
+        event.currentTarget.src =
+          fallbackImage;
 
       }
 
@@ -467,26 +488,9 @@ function Products() {
 
     return (
 
-      <div
-        style={{
-          minHeight:
-            "100vh",
+      <div style={styles.loading}>
 
-          display:
-            "flex",
-
-          justifyContent:
-            "center",
-
-          alignItems:
-            "center",
-
-          fontSize:
-            "22px",
-        }}
-      >
-
-        Loading products...
+        Loading products... 🥛
 
       </div>
 
@@ -496,544 +500,340 @@ function Products() {
 
 
   // ==================================================
-  // ERROR
-  // ==================================================
-
-  if (error) {
-
-    return (
-
-      <div
-        style={{
-          minHeight:
-            "100vh",
-
-          padding:
-            "40px",
-
-          textAlign:
-            "center",
-        }}
-      >
-
-        <h2>
-          Unable to load products
-        </h2>
-
-
-        <p>
-          {error}
-        </p>
-
-
-        <button
-          onClick={
-            fetchProducts
-          }
-
-          style={{
-            padding:
-              "10px 20px",
-
-            cursor:
-              "pointer",
-          }}
-        >
-
-          Try Again
-
-        </button>
-
-      </div>
-
-    );
-
-  }
-
-
-  // ==================================================
-  // UI
+  // PAGE
   // ==================================================
 
   return (
 
-    <div
-      style={{
-        minHeight:
-          "100vh",
-
-        background:
-          "#f5f7f5",
-      }}
-    >
+    <div style={styles.page}>
 
 
-      {/* ============================================
-          NAVBAR
-      ============================================ */}
+      {/* NAVBAR */}
 
-      <nav
-        style={{
-          background:
-            "#ffffff",
+      <nav style={styles.navbar}>
 
-          padding:
-            "18px 40px",
-
-          display:
-            "flex",
-
-          justifyContent:
-            "space-between",
-
-          alignItems:
-            "center",
-
-          boxShadow:
-            "0 2px 10px rgba(0,0,0,0.08)",
-        }}
-      >
 
         <Link
           to="/home"
-
-          style={{
-            textDecoration:
-              "none",
-
-            fontSize:
-              "24px",
-
-            fontWeight:
-              "bold",
-
-            color:
-              "#2e7d32",
-          }}
+          style={styles.logo}
         >
 
-          HARI FARMS
+          🥛 HARI FARMS
 
         </Link>
 
 
-        <div
-          style={{
-            display:
-              "flex",
+        <div style={styles.navLinks}>
 
-            gap:
-              "20px",
-          }}
-        >
 
           <Link
             to="/home"
-
-            style={{
-              textDecoration:
-                "none",
-
-              color:
-                "#333",
-            }}
+            style={styles.navLink}
           >
-
             Home
+          </Link>
 
+
+          <Link
+            to="/products"
+            style={styles.navLink}
+          >
+            Products
           </Link>
 
 
           <Link
             to="/cart"
-
-            style={{
-              textDecoration:
-                "none",
-
-              color:
-                "#333",
-            }}
+            style={styles.navLink}
           >
-
-            Cart 🛒
-
+            🛒 Cart
           </Link>
 
 
           <Link
             to="/orders"
-
-            style={{
-              textDecoration:
-                "none",
-
-              color:
-                "#333",
-            }}
+            style={styles.navLink}
           >
-
-            My Orders
-
+            📦 My Orders
           </Link>
+
 
         </div>
 
       </nav>
 
 
-      {/* ============================================
-          HEADER
-      ============================================ */}
+      {/* MAIN */}
 
-      <div
-        style={{
-          textAlign:
-            "center",
-
-          padding:
-            "45px 20px 25px",
-        }}
-      >
-
-        <h1>
-          Our Products
-        </h1>
+      <main style={styles.main}>
 
 
-        <p>
-          Fresh dairy products
-          from HARI FARMS
-        </p>
+        {/* HEADER */}
 
-      </div>
+        <div style={styles.header}>
 
 
-      {/* ============================================
-          PRODUCTS
-      ============================================ */}
+          <div>
 
-      <div
-        style={{
-          maxWidth:
-            "1200px",
+            <p style={styles.subtitle}>
+              Fresh From Our Farm
+            </p>
 
-          margin:
-            "0 auto",
 
-          padding:
-            "20px",
+            <h1 style={styles.title}>
+              Our Dairy Products 🥛
+            </h1>
 
-          display:
-            "grid",
 
-          gridTemplateColumns:
-            "repeat(auto-fit, minmax(250px, 1fr))",
+            <p style={styles.description}>
 
-          gap:
-            "25px",
-        }}
-      >
+              Fresh, healthy and high-quality
+              dairy products directly from
+              HARI FARMS.
+
+            </p>
+
+          </div>
+
+
+          <Link
+            to="/cart"
+            style={styles.cartButton}
+          >
+
+            🛒 View Cart
+
+          </Link>
+
+
+        </div>
+
+
+        {/* SUCCESS */}
+
+        {message && (
+
+          <div style={styles.success}>
+
+            ✅ {message}
+
+          </div>
+
+        )}
+
+
+        {/* ERROR */}
+
+        {error && (
+
+          <div style={styles.error}>
+
+            ❌ {error}
+
+          </div>
+
+        )}
+
+
+        {/* PRODUCTS */}
 
         {products.length === 0 ? (
 
-          <div
-            style={{
-              gridColumn:
-                "1 / -1",
-
-              textAlign:
-                "center",
-
-              padding:
-                "50px",
-            }}
-          >
+          <div style={styles.empty}>
 
             <h2>
-              No products available
+              No Products Available
             </h2>
 
-
             <p>
-              Add products from
-              the admin dashboard.
+              Products will appear here soon.
             </p>
 
           </div>
 
         ) : (
 
-          products.map(
-            (product) => {
+          <div style={styles.productsGrid}>
+
+
+            {products.map((product) => {
 
               const imageUrl =
-                getImageUrl(
-                  product.image
-                );
+                getProductImage(product);
 
 
               return (
 
                 <div
-                  key={
-                    product.id
-                  }
-
-                  style={{
-                    background:
-                      "#ffffff",
-
-                    borderRadius:
-                      "12px",
-
-                    padding:
-                      "20px",
-
-                    boxShadow:
-                      "0 3px 12px rgba(0,0,0,0.1)",
-                  }}
+                  key={product.id}
+                  style={styles.productCard}
                 >
 
 
-                  {/* =================================
-                      IMAGE
-                  ================================= */}
+                  {/* PRODUCT IMAGE */}
 
                   <div
-                    style={{
-                      width:
-                        "100%",
-
-                      height:
-                        "200px",
-
-                      borderRadius:
-                        "10px",
-
-                      overflow:
-                        "hidden",
-
-                      background:
-                        "#f0f0f0",
-
-                      display:
-                        "flex",
-
-                      justifyContent:
-                        "center",
-
-                      alignItems:
-                        "center",
-                    }}
+                    style={styles.imageContainer}
                   >
 
                     <img
-                      src={
-                        imageUrl
+
+                      src={imageUrl}
+
+                      alt={product.name}
+
+                      style={styles.productImage}
+
+                      onError={(event) =>
+                        handleImageError(
+                          event,
+                          product
+                        )
                       }
-
-                      alt={
-                        product.name
-                      }
-
-                      style={{
-                        width:
-                          "100%",
-
-                        height:
-                          "100%",
-
-                        objectFit:
-                          "cover",
-
-                        display:
-                          "block",
-                      }}
-
-                      onLoad={() => {
-
-                        console.log(
-                          "IMAGE LOADED:",
-                          imageUrl
-                        );
-
-                      }}
-
-                      onError={(e) => {
-
-                        console.error(
-                          "IMAGE FAILED:",
-                          imageUrl
-                        );
-
-
-                        e.currentTarget.onerror =
-                          null;
-
-
-                        e.currentTarget.src =
-                          "/images/default-product.jpg";
-
-                      }}
 
                     />
 
                   </div>
 
 
-                  {/* =================================
-                      NAME
-                  ================================= */}
+                  {/* PRODUCT DETAILS */}
 
-                  <h2>
-                    {product.name}
-                  </h2>
+                  <div style={styles.cardContent}>
 
 
-                  {/* =================================
-                      DESCRIPTION
-                  ================================= */}
+                    <h2
+                      style={styles.productName}
+                    >
 
-                  <p>
+                      {product.name}
 
-                    {
-                      product.description ||
-                      "Fresh dairy product"
-                    }
-
-                  </p>
+                    </h2>
 
 
-                  {/* =================================
-                      UNIT
-                  ================================= */}
+                    <p
+                      style={
+                        styles.productDescription
+                      }
+                    >
 
-                  <p>
+                      {
+                        product.description ||
+                        "Fresh dairy product from HARI FARMS."
+                      }
 
-                    Unit:{" "}
-
-                    {
-                      product.unit ||
-                      "N/A"
-                    }
-
-                  </p>
+                    </p>
 
 
-                  {/* =================================
-                      PRICE
-                  ================================= */}
-
-                  <h3>
-
-                    ₹
-                    {
-                      Number(
-                        product.price
-                      ).toFixed(2)
-                    }
-
-                  </h3>
+                    <div style={styles.productInfo}>
 
 
-                  {/* =================================
-                      STOCK
-                  ================================= */}
+                      <span
+                        style={styles.price}
+                      >
 
-                  <p>
+                        ₹{
+                          Number(
+                            product.price
+                          ).toFixed(2)
+                        }
 
-                    Stock:{" "}
-
-                    {
-                      product.stock
-                    }
-
-                  </p>
+                      </span>
 
 
-                  {/* =================================
-                      BUTTON
-                  ================================= */}
+                      <span
+                        style={styles.unit}
+                      >
 
-                  <button
-                    onClick={() =>
-                      addToCart(
-                        product.id
-                      )
-                    }
+                        {product.unit || "Fresh"}
 
-                    disabled={
-                      Number(
-                        product.stock
-                      ) <= 0 ||
-                      cartLoading ===
-                        product.id
-                    }
+                      </span>
 
-                    style={{
-                      width:
-                        "100%",
 
-                      padding:
-                        "12px",
+                    </div>
 
-                      border:
-                        "none",
 
-                      borderRadius:
-                        "8px",
+                    <p style={styles.stock}>
 
-                      background:
-                        Number(
-                          product.stock
-                        ) <= 0
-                          ? "#aaa"
-                          : "#2e7d32",
+                      📦 Stock:{" "}
 
-                      color:
-                        "#ffffff",
+                      {product.stock ?? 0}
 
-                      cursor:
-                        Number(
-                          product.stock
-                        ) <= 0
-                          ? "not-allowed"
-                          : "pointer",
+                    </p>
 
-                      fontSize:
-                        "16px",
-                    }}
-                  >
 
-                    {
-                      cartLoading ===
-                      product.id
+                    <button
 
-                        ? "Adding..."
+                      style={
 
-                        : Number(
-                            product.stock
-                          ) <= 0
+                        addingProductId === product.id
 
-                        ? "Out of Stock"
+                          ? {
+                              ...styles.addButton,
+                              ...styles.disabledButton,
+                            }
 
-                        : "Add to Cart 🛒"
-                    }
+                          : styles.addButton
 
-                  </button>
+                      }
+
+                      disabled={
+                        addingProductId === product.id
+                      }
+
+                      onClick={() =>
+                        handleAddToCart(product)
+                      }
+
+                    >
+
+                      {
+
+                        addingProductId === product.id
+
+                          ? "Adding..."
+
+                          : "🛒 Add to Cart"
+
+                      }
+
+                    </button>
+
+
+                  </div>
 
                 </div>
 
               );
 
-            }
+            })}
 
-          )
+
+          </div>
 
         )}
 
-      </div>
+
+      </main>
+
+
+      {/* FOOTER */}
+
+      <footer style={styles.footer}>
+
+        <h3>
+          🥛 HARI FARMS
+        </h3>
+
+        <p>
+          Fresh From Farm • Pure For Family
+        </p>
+
+        <small>
+          © 2026 HARI FARMS
+        </small>
+
+      </footer>
+
 
     </div>
 
@@ -1042,5 +842,247 @@ function Products() {
 }
 
 
-export default Products;
+// ==================================================
+// STYLES
+// ==================================================
 
+const styles = {
+
+
+  page: {
+    minHeight: "100vh",
+    background: "#f5faf5",
+    fontFamily:
+      "'Segoe UI', Arial, sans-serif",
+  },
+
+
+  navbar: {
+    minHeight: "68px",
+    background: "#2e7d32",
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    padding: "0 40px",
+    gap: "20px",
+    flexWrap: "wrap",
+  },
+
+
+  logo: {
+    color: "#ffffff",
+    textDecoration: "none",
+    fontSize: "22px",
+    fontWeight: "800",
+  },
+
+
+  navLinks: {
+    display: "flex",
+    alignItems: "center",
+    gap: "20px",
+    flexWrap: "wrap",
+  },
+
+
+  navLink: {
+    color: "#ffffff",
+    textDecoration: "none",
+    fontWeight: "600",
+  },
+
+
+  main: {
+    maxWidth: "1200px",
+    margin: "0 auto",
+    padding: "40px 25px 70px",
+  },
+
+
+  header: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    gap: "20px",
+    marginBottom: "30px",
+    flexWrap: "wrap",
+  },
+
+
+  subtitle: {
+    color: "#43a047",
+    fontWeight: "700",
+    marginBottom: "5px",
+  },
+
+
+  title: {
+    fontSize: "38px",
+    color: "#205b26",
+    margin: "5px 0",
+  },
+
+
+  description: {
+    color: "#607066",
+    fontSize: "16px",
+  },
+
+
+  cartButton: {
+    background: "#2e7d32",
+    color: "#ffffff",
+    padding: "14px 22px",
+    borderRadius: "25px",
+    textDecoration: "none",
+    fontWeight: "700",
+  },
+
+
+  success: {
+    background: "#dff5e1",
+    color: "#1b5e20",
+    padding: "15px 20px",
+    borderRadius: "12px",
+    marginBottom: "25px",
+    fontWeight: "600",
+  },
+
+
+  error: {
+    background: "#ffebee",
+    color: "#c62828",
+    padding: "15px 20px",
+    borderRadius: "12px",
+    marginBottom: "25px",
+    fontWeight: "600",
+  },
+
+
+  productsGrid: {
+    display: "grid",
+    gridTemplateColumns:
+      "repeat(auto-fit, minmax(260px, 1fr))",
+    gap: "25px",
+  },
+
+
+  productCard: {
+    background: "#ffffff",
+    borderRadius: "20px",
+    overflow: "hidden",
+    boxShadow:
+      "0 8px 25px rgba(0,0,0,0.08)",
+  },
+
+
+  imageContainer: {
+    height: "200px",
+    background: "#edf7ee",
+    overflow: "hidden",
+  },
+
+
+  productImage: {
+    width: "100%",
+    height: "100%",
+    objectFit: "cover",
+    display: "block",
+  },
+
+
+  cardContent: {
+    padding: "20px",
+  },
+
+
+  productName: {
+    color: "#205b26",
+    margin: "0 0 10px",
+    fontSize: "21px",
+  },
+
+
+  productDescription: {
+    color: "#68756d",
+    minHeight: "45px",
+    lineHeight: "1.5",
+  },
+
+
+  productInfo: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginTop: "15px",
+  },
+
+
+  price: {
+    color: "#2e7d32",
+    fontSize: "22px",
+    fontWeight: "800",
+  },
+
+
+  unit: {
+    background: "#edf7ee",
+    color: "#2e7d32",
+    padding: "5px 10px",
+    borderRadius: "12px",
+    fontSize: "13px",
+  },
+
+
+  stock: {
+    color: "#68756d",
+  },
+
+
+  addButton: {
+    width: "100%",
+    border: "none",
+    background: "#2e7d32",
+    color: "#ffffff",
+    padding: "13px",
+    borderRadius: "10px",
+    fontSize: "15px",
+    fontWeight: "700",
+    cursor: "pointer",
+  },
+
+
+  disabledButton: {
+    opacity: 0.6,
+    cursor: "not-allowed",
+  },
+
+
+  empty: {
+    background: "#ffffff",
+    textAlign: "center",
+    padding: "60px",
+    borderRadius: "20px",
+  },
+
+
+  loading: {
+    minHeight: "100vh",
+    display: "flex",
+    justifyContent: "center",
+    alignItems: "center",
+    fontSize: "20px",
+  },
+
+
+  footer: {
+    background: "#173d1b",
+    color: "#ffffff",
+    textAlign: "center",
+    padding: "35px",
+  },
+
+};
+
+
+export default Products;

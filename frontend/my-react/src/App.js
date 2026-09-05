@@ -7,38 +7,22 @@ import {
   Navigate,
 } from "react-router-dom";
 
-// ==================================================
-// PAGES
-// ==================================================
-
 import Register from "./Pages/Register";
 import Login from "./Pages/Login";
-import Home from "./Pages/Home";
+import UserDashboardPage from "./Pages/UserDashboardPage";
+import AdminDashboard from "./Pages/AdminDashboard";
 import Products from "./Pages/Products";
 import Cart from "./Pages/Cart";
-import Checkout from "./Pages/Checkout";
-import Orders from "./Pages/Orders";
-import OrderConfirmation from "./Pages/OrderConfirmation";
 
-import AdminDashboard from "./Pages/AdminDashboard";
-import AddProduct from "./Pages/AddProduct";
-
-// ==================================================
-// APP
-// ==================================================
+import ProtectedRoute from "./ProtectedRoute";
 
 function App() {
-
   return (
-
     <BrowserRouter>
 
       <Routes>
 
-        {/* ==========================================
-            DEFAULT PAGE
-        ========================================== */}
-
+        {/* Website opens with Register */}
         <Route
           path="/"
           element={
@@ -49,116 +33,59 @@ function App() {
           }
         />
 
-        {/* ==========================================
-            AUTH
-        ========================================== */}
-
+        {/* Register */}
         <Route
           path="/register"
-          element={
-            <Register />
-          }
+          element={<Register />}
         />
 
+        {/* Login */}
         <Route
           path="/login"
-          element={
-            <Login />
-          }
+          element={<Login />}
         />
 
-        {/* ==========================================
-            USER HOME
-        ========================================== */}
-
+        {/* User Dashboard */}
         <Route
-          path="/home"
+          path="/user-dashboard"
           element={
-            <Home />
+            <ProtectedRoute>
+              <UserDashboardPage />
+            </ProtectedRoute>
           }
         />
 
-        {/* ==========================================
-            PRODUCTS
-        ========================================== */}
-
+        {/* Products */}
         <Route
           path="/products"
           element={
-            <Products />
+            <ProtectedRoute>
+              <Products />
+            </ProtectedRoute>
           }
         />
 
-        {/* ==========================================
-            CART
-        ========================================== */}
-
+        {/* Cart */}
         <Route
           path="/cart"
           element={
-            <Cart />
+            <ProtectedRoute>
+              <Cart />
+            </ProtectedRoute>
           }
         />
 
-        {/* ==========================================
-            CHECKOUT
-        ========================================== */}
-
-        <Route
-          path="/checkout"
-          element={
-            <Checkout />
-          }
-        />
-
-        {/* ==========================================
-            ORDERS
-        ========================================== */}
-
-        <Route
-          path="/orders"
-          element={
-            <Orders />
-          }
-        />
-
-        {/* ==========================================
-            ORDER CONFIRMATION
-        ========================================== */}
-
-        <Route
-          path="/order-confirmation"
-          element={
-            <OrderConfirmation />
-          }
-        />
-
-        {/* ==========================================
-            ADMIN DASHBOARD
-        ========================================== */}
-
+        {/* Admin Dashboard */}
         <Route
           path="/admin-dashboard"
           element={
-            <AdminDashboard />
+            <ProtectedRoute adminOnly={true}>
+              <AdminDashboard />
+            </ProtectedRoute>
           }
         />
 
-        {/* ==========================================
-            ADMIN ADD PRODUCT
-        ========================================== */}
-
-        <Route
-          path="/admin/products/add"
-          element={
-            <AddProduct />
-          }
-        />
-
-        {/* ==========================================
-            UNKNOWN ROUTES
-        ========================================== */}
-
+        {/* Unknown URL */}
         <Route
           path="*"
           element={
@@ -172,9 +99,7 @@ function App() {
       </Routes>
 
     </BrowserRouter>
-
   );
-
 }
 
 export default App;

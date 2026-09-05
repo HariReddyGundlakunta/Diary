@@ -1,471 +1,1114 @@
-const db = require("./db");
+import React, {
+  useCallback,
+  useEffect,
+  useState,
+} from "react";
 
-async function createTables() {
-  let connection;
+import axios from "axios";
 
-  try {
-    console.log("=================================");
-    console.log("CREATING / CHECKING DATABASE");
-    console.log("=================================");
-
-    connection = await db.getConnection();
-
-    // ==========================================
-    // USERS
-    // ==========================================
-
-    await connection.query(`
-      CREATE TABLE IF NOT EXISTS users (
-        id INT AUTO_INCREMENT PRIMARY KEY,
-
-        name VARCHAR(100) NOT NULL,
-
-        email VARCHAR(150) NOT NULL UNIQUE,
-
-        password VARCHAR(255) NOT NULL,
-
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-      )
-    `);
-
-    console.log("✅ users table ready");
+import {
+  Link,
+  useNavigate,
+} from "react-router-dom";
 
 
-    // ==========================================
-    // PRODUCTS
-    // ==========================================
+function Products() {
 
-    await connection.query(`
-      CREATE TABLE IF NOT EXISTS products (
-        id INT AUTO_INCREMENT PRIMARY KEY,
-
-        name VARCHAR(150) NOT NULL,
-
-        price DECIMAL(10,2) NOT NULL,
-
-        unit VARCHAR(100) DEFAULT '',
-
-        description TEXT,
-
-        emoji VARCHAR(20) DEFAULT '🥛',
-
-        image TEXT,
-
-        stock INT DEFAULT 0,
-
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-      )
-    `);
-
-    console.log("✅ products table ready");
+  const navigate = useNavigate();
 
 
-    // ==========================================
-    // CHECK PRODUCTS COLUMNS
-    // ==========================================
+  // ==========================================
+  // API URL
+  // ==========================================
 
-    const [columns] = await connection.query(`
-      SHOW COLUMNS FROM products
-    `);
+  const API_URL =
+    process.env.REACT_APP_API_URL ||
+    "http://localhost:5000";
 
-    let columnNames = columns.map(
-      (column) => column.Field
+
+  // ==========================================
+  // STATES
+  // ==========================================
+
+  const [products, setProducts] =
+    useState([]);
+
+  const [loading, setLoading] =
+    useState(true);
+
+  const [error, setError] =
+    useState("");
+
+  const [cartLoading, setCartLoading] =
+    useState(null);
+
+  const [user, setUser] =
+    useState(null);
+
+
+  // ==========================================
+  // GET LOGGED-IN USER
+  // ==========================================
+
+  useEffect(() => {
+
+    const userData =
+      localStorage.getItem("user");
+
+
+    if (userData) {
+
+      try {
+
+        const parsedUser =
+          JSON.parse(userData);
+
+        setUser(parsedUser);
+
+      } catch (error) {
+
+        console.error(
+          "USER PARSE ERROR:",
+          error
+        );
+
+      }
+
+    }
+
+  }, []);
+
+
+  // ==========================================
+  // CHECK ADMIN
+  // ==========================================
+
+  const isAdmin =
+    user?.role === "admin";
+
+
+  // ==========================================
+  // FIX PRODUCT IMAGE URL
+  // ==========================================
+
+  const getImageUrl = useCallback(
+    (image) => {
+
+      // No image available
+
+      if (!image) {
+
+        return null;
+
+      }
+
+
+      const imageUrl =
+        String(image).trim();
+
+
+      // Empty image
+
+      if (!imageUrl) {
+
+        return null;
+
+      }
+
+
+      // Base64 image
+
+      if (
+        imageUrl.startsWith("data:image/")
+      ) {
+
+        return imageUrl;
+
+      }
+
+
+      // Full URL
+
+      if (
+        imageUrl.startsWith("http://") ||
+        imageUrl.startsWith("https://")
+      ) {
+
+        return imageUrl;
+
+      }
+
+
+      // /uploads/image.jpg
+
+      if (
+        imageUrl.startsWith("/uploads/")
+      ) {
+
+        return `${API_URL}${imageUrl}`;
+
+      }
+
+
+      // uploads/image.jpg
+
+      if (
+        imageUrl.startsWith("uploads/")
+      ) {
+
+        return `${API_URL}/${imageUrl}`;
+
+      }
+
+
+      // /images/image.jpg
+
+      if (
+        imageUrl.startsWith("/images/")
+      ) {
+
+        return imageUrl;
+
+      }
+
+
+      // images/image.jpg
+
+      if (
+        imageUrl.startsWith("images/")
+      ) {
+
+        return `/${imageUrl}`;
+
+      }
+
+
+      // Only filename
+      // Example: milk.jpg
+
+      return `${API_URL}/uploads/${imageUrl}`;
+
+    },
+    [API_URL]
+  );
+
+
+  // ==========================================
+  // FETCH PRODUCTS
+  // ==========================================
+
+  const fetchProducts = useCallback(
+    async () => {
+
+      try {
+
+        setLoading(true);
+
+        setError("");
+
+
+        console.log(
+          "Fetching products from:",
+          `${API_URL}/api/products`
+        );
+
+
+        const response =
+          await axios.get(
+            `${API_URL}/api/products`
+          );
+
+
+        console.log(
+          "PRODUCTS:",
+          response.data
+        );
+
+
+        if (
+          Array.isArray(response.data)
+        ) {
+
+          setProducts(
+            response.data
+          );
+
+        } else {
+
+          setProducts([]);
+
+        }
+
+
+      } catch (error) {
+
+        console.error(
+          "PRODUCT ERROR:",
+          error
+        );
+
+
+        setError(
+          error.response?.data?.message ||
+          "Failed to load products"
+        );
+
+
+      } finally {
+
+        setLoading(false);
+
+      }
+
+    },
+    [API_URL]
+  );
+
+
+  // ==========================================
+  // LOAD PRODUCTS
+  // ==========================================
+
+  useEffect(() => {
+
+    fetchProducts();
+
+  }, [fetchProducts]);
+
+
+  // ==========================================
+  // ADD TO CART
+  // ==========================================
+
+  const addToCart =
+    async (productId) => {
+
+      try {
+
+        const token =
+          localStorage.getItem("token");
+
+        const userData =
+          localStorage.getItem("user");
+
+
+        if (!token || !userData) {
+
+          alert(
+            "Please login first."
+          );
+
+          navigate("/login");
+
+          return;
+
+        }
+
+
+        const currentUser =
+          JSON.parse(userData);
+
+
+        setCartLoading(productId);
+
+
+        await axios.post(
+
+          `${API_URL}/api/cart`,
+
+          {
+            userId: currentUser.id,
+            productId: productId,
+            quantity: 1,
+          },
+
+          {
+            headers: {
+
+              Authorization:
+                `Bearer ${token}`,
+
+            },
+          }
+
+        );
+
+
+        alert(
+          "Product added to cart successfully!"
+        );
+
+
+      } catch (error) {
+
+        console.error(
+          "CART ERROR:",
+          error
+        );
+
+
+        alert(
+          error.response?.data?.message ||
+          "Failed to add product"
+        );
+
+
+      } finally {
+
+        setCartLoading(null);
+
+      }
+
+    };
+
+
+  // ==========================================
+  // LOADING SCREEN
+  // ==========================================
+
+  if (loading) {
+
+    return (
+
+      <div style={styles.loading}>
+
+        Loading products...
+
+      </div>
+
     );
 
-
-    // UNIT
-    if (!columnNames.includes("unit")) {
-      await connection.query(`
-        ALTER TABLE products
-        ADD COLUMN unit VARCHAR(100) DEFAULT ''
-      `);
-
-      console.log("✅ Added products.unit");
-    }
-
-
-    // DESCRIPTION
-    if (!columnNames.includes("description")) {
-      await connection.query(`
-        ALTER TABLE products
-        ADD COLUMN description TEXT
-      `);
-
-      console.log("✅ Added products.description");
-    }
-
-
-    // EMOJI
-    if (!columnNames.includes("emoji")) {
-      await connection.query(`
-        ALTER TABLE products
-        ADD COLUMN emoji VARCHAR(20) DEFAULT '🥛'
-      `);
-
-      console.log("✅ Added products.emoji");
-    }
-
-
-    // IMAGE
-    if (!columnNames.includes("image")) {
-      await connection.query(`
-        ALTER TABLE products
-        ADD COLUMN image TEXT
-      `);
-
-      console.log("✅ Added products.image");
-    }
-
-
-    // STOCK
-    if (!columnNames.includes("stock")) {
-      await connection.query(`
-        ALTER TABLE products
-        ADD COLUMN stock INT DEFAULT 0
-      `);
-
-      console.log("✅ Added products.stock");
-    }
-
-
-    // ==========================================
-    // INSERT DEFAULT PRODUCTS
-    // ==========================================
-
-    const [existingProducts] = await connection.query(`
-      SELECT id
-      FROM products
-      LIMIT 1
-    `);
-
-    if (existingProducts.length === 0) {
-
-      console.log("=================================");
-      console.log("ADDING DEFAULT DAIRY PRODUCTS");
-      console.log("=================================");
-
-      const defaultProducts = [
-        [
-          "Fresh Cow Milk",
-          60,
-          "1 Liter",
-          "Fresh farm cow milk delivered directly to your doorstep.",
-          "🥛",
-          "",
-          50
-        ],
-
-        [
-          "Buffalo Milk",
-          70,
-          "1 Liter",
-          "Rich and creamy fresh buffalo milk.",
-          "🥛",
-          "",
-          40
-        ],
-
-        [
-          "A2 Cow Milk",
-          80,
-          "1 Liter",
-          "Fresh A2 cow milk from healthy dairy cows.",
-          "🥛",
-          "",
-          30
-        ],
-
-        [
-          "Fresh Curd",
-          50,
-          "500g",
-          "Fresh creamy homemade-style curd.",
-          "🥣",
-          "",
-          35
-        ],
-
-        [
-          "Buttermilk",
-          30,
-          "500ml",
-          "Refreshing traditional dairy buttermilk.",
-          "🥛",
-          "",
-          45
-        ],
-
-        [
-          "Paneer",
-          120,
-          "250g",
-          "Soft and fresh paneer made from quality milk.",
-          "🧀",
-          "",
-          25
-        ],
-
-        [
-          "Fresh Cheese",
-          150,
-          "250g",
-          "Fresh and delicious dairy cheese.",
-          "🧀",
-          "",
-          20
-        ],
-
-        [
-          "Butter",
-          90,
-          "200g",
-          "Smooth and creamy fresh dairy butter.",
-          "🧈",
-          "",
-          30
-        ],
-
-        [
-          "Pure Cow Ghee",
-          250,
-          "500ml",
-          "Pure aromatic cow ghee.",
-          "🫙",
-          "",
-          20
-        ],
-
-        [
-          "Buffalo Ghee",
-          300,
-          "500ml",
-          "Traditional buffalo milk ghee.",
-          "🫙",
-          "",
-          15
-        ],
-
-        [
-          "Fresh Cream",
-          100,
-          "200ml",
-          "Rich and fresh dairy cream.",
-          "🥛",
-          "",
-          25
-        ],
-
-        [
-          "Flavored Milk",
-          45,
-          "250ml",
-          "Refreshing flavored dairy milk.",
-          "🥤",
-          "",
-          40
-        ],
-
-        [
-          "Mango Lassi",
-          50,
-          "300ml",
-          "Sweet and refreshing mango lassi.",
-          "🥤",
-          "",
-          30
-        ],
-
-        [
-          "Sweet Lassi",
-          45,
-          "300ml",
-          "Traditional sweet and creamy lassi.",
-          "🥤",
-          "",
-          30
-        ],
-
-        [
-          "Khoa",
-          180,
-          "250g",
-          "Traditional milk-based khoa.",
-          "🥛",
-          "",
-          15
-        ],
-
-        [
-          "Kulfi",
-          60,
-          "100ml",
-          "Traditional creamy dairy kulfi.",
-          "🍦",
-          "",
-          25
-        ],
-
-        [
-          "Rabri",
-          100,
-          "200g",
-          "Traditional thickened milk dessert.",
-          "🍮",
-          "",
-          20
-        ],
-
-        [
-          "Milkshake",
-          80,
-          "300ml",
-          "Fresh creamy dairy milkshake.",
-          "🥤",
-          "",
-          25
-        ]
-      ];
-
-      await connection.query(
-        `
-        INSERT INTO products
-        (
-          name,
-          price,
-          unit,
-          description,
-          emoji,
-          image,
-          stock
-        )
-        VALUES ?
-        `,
-        [defaultProducts]
-      );
-
-      console.log(
-        `✅ ${defaultProducts.length} default products added`
-      );
-
-    } else {
-
-      console.log(
-        "✅ Products already exist - no duplicate products added"
-      );
-    }
-
-
-    // ==========================================
-    // CART ITEMS
-    // ==========================================
-
-    await connection.query(`
-      CREATE TABLE IF NOT EXISTS cart_items (
-        id INT AUTO_INCREMENT PRIMARY KEY,
-
-        user_id INT NOT NULL,
-
-        product_id INT NOT NULL,
-
-        quantity INT NOT NULL DEFAULT 1,
-
-        UNIQUE KEY unique_user_product
-        (user_id, product_id),
-
-        FOREIGN KEY (user_id)
-        REFERENCES users(id)
-        ON DELETE CASCADE,
-
-        FOREIGN KEY (product_id)
-        REFERENCES products(id)
-        ON DELETE CASCADE
-      )
-    `);
-
-    console.log("✅ cart_items table ready");
-
-
-    // ==========================================
-    // ORDERS
-    // ==========================================
-
-    await connection.query(`
-      CREATE TABLE IF NOT EXISTS orders (
-        id INT AUTO_INCREMENT PRIMARY KEY,
-
-        user_id INT NOT NULL,
-
-        total DECIMAL(10,2) NOT NULL,
-
-        status VARCHAR(50)
-        DEFAULT 'Pending',
-
-        created_at TIMESTAMP
-        DEFAULT CURRENT_TIMESTAMP,
-
-        FOREIGN KEY (user_id)
-        REFERENCES users(id)
-        ON DELETE CASCADE
-      )
-    `);
-
-    console.log("✅ orders table ready");
-
-
-    // ==========================================
-    // ORDER ITEMS
-    // ==========================================
-
-    await connection.query(`
-      CREATE TABLE IF NOT EXISTS order_items (
-        id INT AUTO_INCREMENT PRIMARY KEY,
-
-        order_id INT NOT NULL,
-
-        product_id INT NOT NULL,
-
-        product_name VARCHAR(150) NOT NULL,
-
-        price DECIMAL(10,2) NOT NULL,
-
-        quantity INT NOT NULL,
-
-        emoji VARCHAR(20)
-        DEFAULT '🥛',
-
-        FOREIGN KEY (order_id)
-        REFERENCES orders(id)
-        ON DELETE CASCADE
-      )
-    `);
-
-    console.log("✅ order_items table ready");
-
-
-    // ==========================================
-    // COMPLETE
-    // ==========================================
-
-    console.log("=================================");
-    console.log("✅ ALL DATABASE TABLES READY");
-    console.log("✅ DEFAULT PRODUCTS READY");
-    console.log("=================================");
-
-  } catch (error) {
-
-    console.error("=================================");
-    console.error("❌ TABLE CREATION ERROR");
-    console.error(error.message);
-    console.error("=================================");
-
-    throw error;
-
-  } finally {
-
-    if (connection) {
-      connection.release();
-    }
   }
+
+
+  // ==========================================
+  // ERROR SCREEN
+  // ==========================================
+
+  if (error) {
+
+    return (
+
+      <div style={styles.loading}>
+
+        <div>
+
+          <h2>
+            Unable to load products
+          </h2>
+
+          <p>
+            {error}
+          </p>
+
+          <button
+            onClick={fetchProducts}
+          >
+
+            Try Again
+
+          </button>
+
+        </div>
+
+      </div>
+
+    );
+
+  }
+
+
+  // ==========================================
+  // MAIN UI
+  // ==========================================
+
+  return (
+
+    <div style={styles.page}>
+
+
+      {/* NAVBAR */}
+
+      <nav style={styles.navbar}>
+
+
+        <Link
+          to="/home"
+          style={styles.logo}
+        >
+
+          🥛 HARI FARMS
+
+        </Link>
+
+
+        <div style={styles.navLinks}>
+
+
+          <Link
+            to="/home"
+            style={styles.navLink}
+          >
+
+            Home
+
+          </Link>
+
+
+          {!isAdmin && (
+
+            <Link
+              to="/cart"
+              style={styles.navLink}
+            >
+
+              Cart 🛒
+
+            </Link>
+
+          )}
+
+
+          {isAdmin && (
+
+            <Link
+              to="/admin/dashboard"
+              style={styles.adminLink}
+            >
+
+              👑 Admin Dashboard
+
+            </Link>
+
+          )}
+
+
+        </div>
+
+      </nav>
+
+
+      {/* HEADER */}
+
+      <section style={styles.header}>
+
+        <h1>
+          🥛 Our Dairy Products
+        </h1>
+
+        <p>
+          Fresh and healthy products
+          directly from HARI FARMS
+        </p>
+
+
+        {isAdmin && (
+
+          <p style={styles.adminMode}>
+
+            👑 Admin Mode –
+            You can edit products
+
+          </p>
+
+        )}
+
+      </section>
+
+
+      {/* PRODUCTS */}
+
+      <div style={styles.productsGrid}>
+
+
+        {products.length === 0 ? (
+
+          <div style={styles.noProducts}>
+
+            <h2>
+              No Products Available
+            </h2>
+
+          </div>
+
+        ) : (
+
+          products.map(
+            (product) => {
+
+              const imageUrl =
+                getImageUrl(
+                  product.image
+                );
+
+
+              return (
+
+                <div
+                  key={product.id}
+                  style={styles.productCard}
+                >
+
+
+                  {/* =============================
+                      PRODUCT IMAGE
+                  ============================== */}
+
+                  <div style={styles.imageContainer}>
+
+
+                    {imageUrl ? (
+
+                      <img
+
+                        src={imageUrl}
+
+                        alt={product.name}
+
+                        style={styles.productImage}
+
+                        onError={(event) => {
+
+                          console.error(
+                            "IMAGE FAILED:",
+                            imageUrl
+                          );
+
+
+                          event.currentTarget.style.display =
+                            "none";
+
+
+                          const fallback =
+                            event.currentTarget
+                              .parentElement
+                              .querySelector(
+                                ".emoji-fallback"
+                              );
+
+
+                          if (fallback) {
+
+                            fallback.style.display =
+                              "flex";
+
+                          }
+
+                        }}
+
+                      />
+
+                    ) : null}
+
+
+                    {/* EMOJI FALLBACK */}
+
+                    <div
+
+                      className="emoji-fallback"
+
+                      style={{
+
+                        ...styles.emojiFallback,
+
+                        display:
+                          imageUrl
+                            ? "none"
+                            : "flex",
+
+                      }}
+
+                    >
+
+                      {
+                        product.emoji ||
+                        "🥛"
+                      }
+
+                    </div>
+
+
+                  </div>
+
+
+                  {/* PRODUCT DETAILS */}
+
+                  <div style={styles.productContent}>
+
+
+                    <h2 style={styles.productName}>
+
+                      {product.name}
+
+                    </h2>
+
+
+                    <p style={styles.description}>
+
+                      {
+                        product.description ||
+                        "Fresh dairy product"
+                      }
+
+                    </p>
+
+
+                    <p style={styles.unit}>
+
+                      📦 {product.unit}
+
+                    </p>
+
+
+                    <h3 style={styles.price}>
+
+                      ₹{
+                        Number(
+                          product.price || 0
+                        ).toFixed(2)
+                      }
+
+                    </h3>
+
+
+                    <p style={styles.stock}>
+
+                      Stock:
+
+                      <strong>
+
+                        {" "}
+                        {product.stock || 0}
+
+                      </strong>
+
+                    </p>
+
+
+                    {/* ADMIN */}
+
+                    {isAdmin ? (
+
+                      <button
+
+                        onClick={() =>
+                          navigate(
+                            `/admin/products/edit/${product.id}`
+                          )
+                        }
+
+                        style={styles.editButton}
+
+                      >
+
+                        ✏️ Edit Product
+
+                      </button>
+
+                    ) : (
+
+                      /* CUSTOMER */
+
+                      <button
+
+                        onClick={() =>
+                          addToCart(
+                            product.id
+                          )
+                        }
+
+                        disabled={
+                          Number(
+                            product.stock
+                          ) <= 0 ||
+
+                          cartLoading ===
+                            product.id
+                        }
+
+                        style={{
+
+                          ...styles.cartButton,
+
+                          background:
+
+                            Number(
+                              product.stock
+                            ) <= 0
+
+                              ? "#9e9e9e"
+
+                              : "#2e7d32",
+
+                          cursor:
+
+                            Number(
+                              product.stock
+                            ) <= 0
+
+                              ? "not-allowed"
+
+                              : "pointer",
+
+                        }}
+
+                      >
+
+                        {
+                          cartLoading ===
+                          product.id
+
+                            ? "Adding..."
+
+                            : Number(
+                                product.stock
+                              ) <= 0
+
+                            ? "Out of Stock"
+
+                            : "Add to Cart 🛒"
+                        }
+
+                      </button>
+
+                    )}
+
+
+                  </div>
+
+                </div>
+
+              );
+
+            }
+
+          )
+
+        )}
+
+
+      </div>
+
+    </div>
+
+  );
+
 }
 
-module.exports = createTables;
+
+const styles = {
+
+
+  page: {
+
+    minHeight: "100vh",
+
+    background: "#f5f8f5",
+
+    fontFamily:
+      "'Segoe UI', Arial, sans-serif",
+
+  },
+
+
+  loading: {
+
+    minHeight: "100vh",
+
+    display: "flex",
+
+    justifyContent: "center",
+
+    alignItems: "center",
+
+    textAlign: "center",
+
+    fontSize: "20px",
+
+  },
+
+
+  navbar: {
+
+    background: "#2e7d32",
+
+    padding: "18px 45px",
+
+    display: "flex",
+
+    justifyContent: "space-between",
+
+    alignItems: "center",
+
+  },
+
+
+  logo: {
+
+    color: "#ffffff",
+
+    fontSize: "24px",
+
+    fontWeight: "bold",
+
+    textDecoration: "none",
+
+  },
+
+
+  navLinks: {
+
+    display: "flex",
+
+    alignItems: "center",
+
+    gap: "25px",
+
+  },
+
+
+  navLink: {
+
+    color: "#ffffff",
+
+    textDecoration: "none",
+
+    fontWeight: "600",
+
+  },
+
+
+  adminLink: {
+
+    color: "#ffffff",
+
+    textDecoration: "none",
+
+    fontWeight: "bold",
+
+    background: "#1b5e20",
+
+    padding: "10px 16px",
+
+    borderRadius: "20px",
+
+  },
+
+
+  header: {
+
+    textAlign: "center",
+
+    padding: "50px 20px 30px",
+
+  },
+
+
+  adminMode: {
+
+    color: "#2e7d32",
+
+    fontWeight: "bold",
+
+  },
+
+
+  productsGrid: {
+
+    maxWidth: "1200px",
+
+    margin: "0 auto",
+
+    padding: "20px 25px 60px",
+
+    display: "grid",
+
+    gridTemplateColumns:
+      "repeat(auto-fit, minmax(260px, 1fr))",
+
+    gap: "25px",
+
+  },
+
+
+  productCard: {
+
+    background: "#ffffff",
+
+    borderRadius: "18px",
+
+    overflow: "hidden",
+
+    boxShadow:
+      "0 6px 20px rgba(0,0,0,0.10)",
+
+    display: "flex",
+
+    flexDirection: "column",
+
+  },
+
+
+  imageContainer: {
+
+    height: "220px",
+
+    width: "100%",
+
+    background: "#eaf5ea",
+
+    position: "relative",
+
+    display: "flex",
+
+    justifyContent: "center",
+
+    alignItems: "center",
+
+    overflow: "hidden",
+
+  },
+
+
+  productImage: {
+
+    width: "100%",
+
+    height: "100%",
+
+    objectFit: "cover",
+
+  },
+
+
+  emojiFallback: {
+
+    width: "100%",
+
+    height: "100%",
+
+    justifyContent: "center",
+
+    alignItems: "center",
+
+    fontSize: "90px",
+
+  },
+
+
+  productContent: {
+
+    padding: "20px",
+
+    display: "flex",
+
+    flexDirection: "column",
+
+    flexGrow: 1,
+
+  },
+
+
+  productName: {
+
+    color: "#1b5e20",
+
+    marginTop: "0",
+
+  },
+
+
+  description: {
+
+    color: "#666",
+
+    lineHeight: "1.6",
+
+    minHeight: "50px",
+
+  },
+
+
+  unit: {
+
+    color: "#555",
+
+  },
+
+
+  price: {
+
+    color: "#2e7d32",
+
+    fontSize: "22px",
+
+  },
+
+
+  stock: {
+
+    color: "#444",
+
+  },
+
+
+  editButton: {
+
+    width: "100%",
+
+    padding: "13px",
+
+    border: "none",
+
+    borderRadius: "8px",
+
+    background: "#1565c0",
+
+    color: "#ffffff",
+
+    fontSize: "16px",
+
+    fontWeight: "bold",
+
+    cursor: "pointer",
+
+    marginTop: "auto",
+
+  },
+
+
+  cartButton: {
+
+    width: "100%",
+
+    padding: "13px",
+
+    border: "none",
+
+    borderRadius: "8px",
+
+    color: "#ffffff",
+
+    fontSize: "16px",
+
+    fontWeight: "bold",
+
+    marginTop: "auto",
+
+  },
+
+
+  noProducts: {
+
+    gridColumn: "1 / -1",
+
+    textAlign: "center",
+
+    padding: "50px",
+
+  },
+
+};
+
+
+export default Products;
