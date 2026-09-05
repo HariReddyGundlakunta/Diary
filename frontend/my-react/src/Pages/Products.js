@@ -1,7 +1,8 @@
 import React, {
-  useEffect,
-  useState,
   useCallback,
+  useEffect,
+  useMemo,
+  useState,
 } from "react";
 
 import axios from "axios";
@@ -11,463 +12,358 @@ import {
 } from "react-router-dom";
 
 
-// =====================================================
-// PRODUCT IMAGE URLS
-// =====================================================
-
-const productImages = {
-
-  // ===================================================
-  // MILK
-  // ===================================================
-
-  milk:
-    "https://images.unsplash.com/photo-1550583724-b2692b85b150?auto=format&fit=crop&w=900&q=80",
-
-  cowmilk:
-    "https://images.unsplash.com/photo-1550583724-b2692b85b150?auto=format&fit=crop&w=900&q=80",
-
-  buffalomilk:
-    "https://images.unsplash.com/photo-1550583724-b2692b85b150?auto=format&fit=crop&w=900&q=80",
-
-  tonedmilk:
-    "https://images.unsplash.com/photo-1550583724-b2692b85b150?auto=format&fit=crop&w=900&q=80",
-
-  fullcreammilk:
-    "https://images.unsplash.com/photo-1550583724-b2692b85b150?auto=format&fit=crop&w=900&q=80",
-
-
-  // ===================================================
-  // PANEER
-  // ===================================================
-
-  paneer:
-    "https://images.unsplash.com/photo-1631452180519-c014fe946bc7?auto=format&fit=crop&w=900&q=80",
-
-  malaipaneer:
-    "https://images.unsplash.com/photo-1631452180519-c014fe946bc7?auto=format&fit=crop&w=900&q=80",
-
-  freshpaneer:
-    "https://images.unsplash.com/photo-1631452180519-c014fe946bc7?auto=format&fit=crop&w=900&q=80",
-
-
-  // ===================================================
-  // CURD / DAHI / YOGURT
-  // ===================================================
-
-  curd:
-    "https://images.unsplash.com/photo-1571212515416-fef01fc43637?auto=format&fit=crop&w=900&q=80",
-
-  dahi:
-    "https://images.unsplash.com/photo-1571212515416-fef01fc43637?auto=format&fit=crop&w=900&q=80",
-
-  yogurt:
-    "https://images.unsplash.com/photo-1488477181946-6428a0291777?auto=format&fit=crop&w=900&q=80",
-
-  greekyogurt:
-    "https://images.unsplash.com/photo-1488477181946-6428a0291777?auto=format&fit=crop&w=900&q=80",
-
-
-  // ===================================================
-  // GHEE
-  // ===================================================
-
-  ghee:
-    "https://images.unsplash.com/photo-1589985270826-4b7bb135bc9d?auto=format&fit=crop&w=900&q=80",
-
-  desighee:
-    "https://images.unsplash.com/photo-1589985270826-4b7bb135bc9d?auto=format&fit=crop&w=900&q=80",
-
-  cowghee:
-    "https://images.unsplash.com/photo-1589985270826-4b7bb135bc9d?auto=format&fit=crop&w=900&q=80",
-
-
-  // ===================================================
-  // BUTTER
-  // ===================================================
-
-  butter:
-    "https://images.unsplash.com/photo-1589985270826-4b7bb135bc9d?auto=format&fit=crop&w=900&q=80",
-
-  whitebutter:
-    "https://images.unsplash.com/photo-1589985270826-4b7bb135bc9d?auto=format&fit=crop&w=900&q=80",
-
-  saltedbutter:
-    "https://images.unsplash.com/photo-1589985270826-4b7bb135bc9d?auto=format&fit=crop&w=900&q=80",
-
-
-  // ===================================================
-  // CHEESE
-  // ===================================================
-
-  cheese:
-    "https://images.unsplash.com/photo-1486297678162-eb2a19b0a32d?auto=format&fit=crop&w=900&q=80",
-
-  mozzarella:
-    "https://images.unsplash.com/photo-1486297678162-eb2a19b0a32d?auto=format&fit=crop&w=900&q=80",
-
-  cheddar:
-    "https://images.unsplash.com/photo-1486297678162-eb2a19b0a32d?auto=format&fit=crop&w=900&q=80",
-
-
-  // ===================================================
-  // MILKSHAKE
-  // ===================================================
-
-  milkshake:
-    "https://images.unsplash.com/photo-1577805947697-89e18249d767?auto=format&fit=crop&w=900&q=80",
-
-  strawberrymilkshake:
-    "https://images.unsplash.com/photo-1577805947697-89e18249d767?auto=format&fit=crop&w=900&q=80",
-
-  chocolatemilkshake:
-    "https://images.unsplash.com/photo-1577805947697-89e18249d767?auto=format&fit=crop&w=900&q=80",
-
-  badammilkshake:
-    "https://images.unsplash.com/photo-1577805947697-89e18249d767?auto=format&fit=crop&w=900&q=80",
-
-
-  // ===================================================
-  // LASSI
-  // ===================================================
-
-  lassi:
-    "https://images.unsplash.com/photo-1551024506-0bccd828d307?auto=format&fit=crop&w=900&q=80",
-
-  sweetlassi:
-    "https://images.unsplash.com/photo-1551024506-0bccd828d307?auto=format&fit=crop&w=900&q=80",
-
-  mangolassi:
-    "https://images.unsplash.com/photo-1551024506-0bccd828d307?auto=format&fit=crop&w=900&q=80",
-
-  kesarlassi:
-    "https://images.unsplash.com/photo-1551024506-0bccd828d307?auto=format&fit=crop&w=900&q=80",
-
-
-  // ===================================================
-  // BUTTERMILK
-  // ===================================================
-
-  buttermilk:
-    "https://images.unsplash.com/photo-1551024506-0bccd828d307?auto=format&fit=crop&w=900&q=80",
-
-  chaas:
-    "https://images.unsplash.com/photo-1551024506-0bccd828d307?auto=format&fit=crop&w=900&q=80",
-
-  masalabuttermilk:
-    "https://images.unsplash.com/photo-1551024506-0bccd828d307?auto=format&fit=crop&w=900&q=80",
-
-
-  // ===================================================
-  // RABRI
-  // ===================================================
-
-  rabri:
-    "https://images.unsplash.com/photo-1605196560547-1f5d1e3f4e08?auto=format&fit=crop&w=900&q=80",
-
-  rabdi:
-    "https://images.unsplash.com/photo-1605196560547-1f5d1e3f4e08?auto=format&fit=crop&w=900&q=80",
-
-
-  // ===================================================
-  // KULFI
-  // ===================================================
-
-  kulfi:
-    "https://images.unsplash.com/photo-1563805042-7684c019e1cb?auto=format&fit=crop&w=900&q=80",
-
-  malaiKulfi:
-    "https://images.unsplash.com/photo-1563805042-7684c019e1cb?auto=format&fit=crop&w=900&q=80",
-
-
-  // ===================================================
-  // KHOA / MAWA
-  // ===================================================
-
-  khoa:
-    "https://images.unsplash.com/photo-1601050690597-df0568f70950?auto=format&fit=crop&w=900&q=80",
-
-  mawa:
-    "https://images.unsplash.com/photo-1601050690597-df0568f70950?auto=format&fit=crop&w=900&q=80",
-
-  khoya:
-    "https://images.unsplash.com/photo-1601050690597-df0568f70950?auto=format&fit=crop&w=900&q=80",
-
-
-  // ===================================================
-  // CREAM
-  // ===================================================
-
-  cream:
-    "https://images.unsplash.com/photo-1571115177098-24ec42ed204d?auto=format&fit=crop&w=900&q=80",
-
-  freshcream:
-    "https://images.unsplash.com/photo-1571115177098-24ec42ed204d?auto=format&fit=crop&w=900&q=80",
-
-
-  // ===================================================
-  // ICE CREAM
-  // ===================================================
-
-  icecream:
-    "https://images.unsplash.com/photo-1563805042-7684c019e1cb?auto=format&fit=crop&w=900&q=80",
-
-
-  // ===================================================
-  // KHEER
-  // ===================================================
-
-  kheer:
-    "https://images.unsplash.com/photo-1601050690597-df0568f70950?auto=format&fit=crop&w=900&q=80",
-
-
-  // ===================================================
-  // BASUNDI
-  // ===================================================
-
-  basundi:
-    "https://images.unsplash.com/photo-1605196560547-1f5d1e3f4e08?auto=format&fit=crop&w=900&q=80",
-
-
-  // ===================================================
-  // DEFAULT
-  // ===================================================
-
-  default:
-    "https://images.unsplash.com/photo-1550583724-b2692b85b150?auto=format&fit=crop&w=900&q=80",
-};
-
-
-// =====================================================
-// NORMALIZE PRODUCT NAME
-// =====================================================
-
-const normalizeProductName = (name = "") => {
-
-  return String(name)
-    .toLowerCase()
-    .replace(/[^a-z0-9]/g, "");
-
-};
-
-
-// =====================================================
-// GET CORRECT IMAGE FOR PRODUCT
-// =====================================================
-
-const getProductImage = (product, API_URL) => {
-
-  const databaseImage =
-    product?.image;
-
-
-  // ===================================================
-  // USE DATABASE IMAGE FIRST
-  // ===================================================
-
-  if (
-    databaseImage &&
-    String(databaseImage).trim() !== "" &&
-    String(databaseImage).trim() !== "null" &&
-    String(databaseImage).trim() !== "undefined"
-  ) {
-
-    const image =
-      String(databaseImage).trim();
-
-
-    // Already a complete URL
-
-    if (
-      image.startsWith("http://") ||
-      image.startsWith("https://")
-    ) {
-      return image;
-    }
-
-
-    // Backend upload path
-
-    if (
-      image.startsWith("/uploads/")
-    ) {
-      return `${API_URL}${image}`;
-    }
-
-
-    // uploads/image.jpg
-
-    if (
-      image.startsWith("uploads/")
-    ) {
-      return `${API_URL}/${image}`;
-    }
-
-
-    // Just filename
-
-    return `${API_URL}/uploads/${image}`;
-  }
-
-
-  // ===================================================
-  // PRODUCT NAME IMAGE MATCHING
-  // ===================================================
-
-  const productName =
-    normalizeProductName(
-      product?.name || ""
-    );
-
-
-  // Exact match
-
-  if (
-    productImages[productName]
-  ) {
-    return productImages[productName];
-  }
-
-
-  // ===================================================
-  // KEYWORD MATCHING
-  // ===================================================
-
-  if (productName.includes("paneer")) {
-    return productImages.paneer;
-  }
-
-  if (
-    productName.includes("milkshake") ||
-    productName.includes("shake")
-  ) {
-    return productImages.milkshake;
-  }
-
-  if (
-    productName.includes("sweetlassi") ||
-    productName.includes("lassi")
-  ) {
-    return productImages.lassi;
-  }
-
-  if (
-    productName.includes("buttermilk") ||
-    productName.includes("chaas")
-  ) {
-    return productImages.buttermilk;
-  }
-
-  if (
-    productName.includes("rabri") ||
-    productName.includes("rabdi")
-  ) {
-    return productImages.rabri;
-  }
-
-  if (productName.includes("kulfi")) {
-    return productImages.kulfi;
-  }
-
-  if (
-    productName.includes("khoa") ||
-    productName.includes("khoya") ||
-    productName.includes("mawa")
-  ) {
-    return productImages.khoa;
-  }
-
-  if (productName.includes("ghee")) {
-    return productImages.ghee;
-  }
-
-  if (productName.includes("butter")) {
-    return productImages.butter;
-  }
-
-  if (
-    productName.includes("curd") ||
-    productName.includes("dahi")
-  ) {
-    return productImages.curd;
-  }
-
-  if (productName.includes("yogurt")) {
-    return productImages.yogurt;
-  }
-
-  if (
-    productName.includes("cheese") ||
-    productName.includes("mozzarella") ||
-    productName.includes("cheddar")
-  ) {
-    return productImages.cheese;
-  }
-
-  if (productName.includes("cream")) {
-    return productImages.cream;
-  }
-
-  if (productName.includes("icecream")) {
-    return productImages.icecream;
-  }
-
-  if (productName.includes("kheer")) {
-    return productImages.kheer;
-  }
-
-  if (productName.includes("basundi")) {
-    return productImages.basundi;
-  }
-
-  if (productName.includes("milk")) {
-    return productImages.milk;
-  }
-
-
-  return productImages.default;
-};
-
-
-// =====================================================
-// PRODUCTS COMPONENT
-// =====================================================
-
 function Products() {
 
+  // ================================================
+  // NAVIGATION
+  // ================================================
 
   const navigate =
     useNavigate();
 
 
+  // ================================================
+  // API URL
+  // ================================================
+
   const API_URL =
     process.env.REACT_APP_API_URL ||
-    "https://diary-88q0.onrender.com";
+    "http://localhost:5000";
 
 
-  // ===================================================
-  // STATES
-  // ===================================================
+  // ================================================
+  // STATE
+  // ================================================
 
   const [products, setProducts] =
     useState([]);
 
-
   const [loading, setLoading] =
     useState(true);
-
 
   const [error, setError] =
     useState("");
 
+  const [message, setMessage] =
+    useState("");
 
-  const [addingProductId, setAddingProductId] =
+  const [search, setSearch] =
+    useState("");
+
+  const [user, setUser] =
     useState(null);
 
+  const [showForm, setShowForm] =
+    useState(false);
 
-  // ===================================================
+  const [editingProduct, setEditingProduct] =
+    useState(null);
+
+  const [formLoading, setFormLoading] =
+    useState(false);
+
+
+  // ================================================
+  // PRODUCT FORM
+  // ================================================
+
+  const [formData, setFormData] =
+    useState({
+
+      name: "",
+
+      description: "",
+
+      price: "",
+
+      quantity: "",
+
+      stock: "",
+
+      image_url: "",
+
+    });
+
+
+  // ================================================
+  // GET LOGGED IN USER
+  // ================================================
+
+  useEffect(() => {
+
+    try {
+
+      const storedUser =
+        localStorage.getItem("user");
+
+
+      if (storedUser) {
+
+        setUser(
+          JSON.parse(storedUser)
+        );
+
+      }
+
+    } catch (error) {
+
+      console.error(
+        "USER PARSE ERROR:",
+        error
+      );
+
+    }
+
+  }, []);
+
+
+  // ================================================
+  // CHECK ADMIN
+  // ================================================
+
+  const isAdmin =
+    user?.role?.toLowerCase() === "admin";
+
+
+  // ================================================
+  // PRODUCT FALLBACK IMAGES
+  // ================================================
+
+  const productImages =
+    useMemo(() => ({
+
+      milk:
+        "https://images.unsplash.com/photo-1563636619-e9143da7973b?auto=format&fit=crop&w=800&q=80",
+
+      paneer:
+        "https://images.unsplash.com/photo-1631452180519-c014fe946bc7?auto=format&fit=crop&w=800&q=80",
+
+      cheese:
+        "https://images.unsplash.com/photo-1486297678162-eb2a19b0a32d?auto=format&fit=crop&w=800&q=80",
+
+      butter:
+        "https://images.unsplash.com/photo-1589985270826-4b7bb135bc9d?auto=format&fit=crop&w=800&q=80",
+
+      curd:
+        "https://images.unsplash.com/photo-1571212515416-fca88f6b4a49?auto=format&fit=crop&w=800&q=80",
+
+      yogurt:
+        "https://images.unsplash.com/photo-1488477181946-6428a0291777?auto=format&fit=crop&w=800&q=80",
+
+      ghee:
+        "https://images.unsplash.com/photo-1601050690597-df0568f70950?auto=format&fit=crop&w=800&q=80",
+
+      lassi:
+        "https://images.unsplash.com/photo-1577805947697-89e18249d767?auto=format&fit=crop&w=800&q=80",
+
+      milkshake:
+        "https://images.unsplash.com/photo-1572490122747-3968b75cc699?auto=format&fit=crop&w=800&q=80",
+
+      kulfi:
+        "https://images.unsplash.com/photo-1570197788417-0e82375c9371?auto=format&fit=crop&w=800&q=80",
+
+      rabri:
+        "https://images.unsplash.com/photo-1571115177098-24ec42ed204d?auto=format&fit=crop&w=800&q=80",
+
+      khoa:
+        "https://images.unsplash.com/photo-1582058091505-f87a2e55a40f?auto=format&fit=crop&w=800&q=80",
+
+      default:
+        "https://images.unsplash.com/photo-1550583724-b2692b85b150?auto=format&fit=crop&w=800&q=80",
+
+    }), []);
+
+
+  // ================================================
+  // GET PRODUCT IMAGE
+  // ================================================
+
+  const getProductImage =
+    useCallback((product) => {
+
+      // --------------------------------------------
+      // DATABASE IMAGE URL
+      // --------------------------------------------
+
+      if (
+        product.image_url &&
+        product.image_url.trim() !== ""
+      ) {
+
+        const image =
+          product.image_url.trim();
+
+
+        // Full URL
+
+        if (
+          image.startsWith("http://") ||
+          image.startsWith("https://")
+        ) {
+
+          return image;
+
+        }
+
+
+        // Uploaded image
+
+        if (
+          image.startsWith("/uploads/")
+        ) {
+
+          return `${API_URL}${image}`;
+
+        }
+
+
+        // Upload filename
+
+        if (
+          !image.includes("/")
+        ) {
+
+          return `${API_URL}/uploads/${image}`;
+
+        }
+
+
+        return image;
+
+      }
+
+
+      // --------------------------------------------
+      // FIND IMAGE USING PRODUCT NAME
+      // --------------------------------------------
+
+      const productName =
+        String(
+          product.name || ""
+        ).toLowerCase();
+
+
+      if (
+        productName.includes("milkshake")
+      ) {
+
+        return productImages.milkshake;
+
+      }
+
+
+      if (
+        productName.includes("milk")
+      ) {
+
+        return productImages.milk;
+
+      }
+
+
+      if (
+        productName.includes("paneer")
+      ) {
+
+        return productImages.paneer;
+
+      }
+
+
+      if (
+        productName.includes("cheese")
+      ) {
+
+        return productImages.cheese;
+
+      }
+
+
+      if (
+        productName.includes("butter")
+      ) {
+
+        return productImages.butter;
+
+      }
+
+
+      if (
+        productName.includes("curd")
+      ) {
+
+        return productImages.curd;
+
+      }
+
+
+      if (
+        productName.includes("yogurt") ||
+        productName.includes("yoghurt")
+      ) {
+
+        return productImages.yogurt;
+
+      }
+
+
+      if (
+        productName.includes("ghee")
+      ) {
+
+        return productImages.ghee;
+
+      }
+
+
+      if (
+        productName.includes("lassi")
+      ) {
+
+        return productImages.lassi;
+
+      }
+
+
+      if (
+        productName.includes("kulfi")
+      ) {
+
+        return productImages.kulfi;
+
+      }
+
+
+      if (
+        productName.includes("rabri")
+      ) {
+
+        return productImages.rabri;
+
+      }
+
+
+      if (
+        productName.includes("khoa") ||
+        productName.includes("khoya")
+      ) {
+
+        return productImages.khoa;
+
+      }
+
+
+      return productImages.default;
+
+    }, [
+      API_URL,
+      productImages,
+    ]);
+
+
+  // ================================================
   // FETCH PRODUCTS
-  // ===================================================
+  // ================================================
 
   const fetchProducts =
     useCallback(async () => {
@@ -491,30 +387,46 @@ function Products() {
         );
 
 
-        let productList = [];
+        let productData = [];
 
 
         if (
-          Array.isArray(response.data)
-        ) {
-
-          productList =
-            response.data;
-
-        } else if (
           Array.isArray(
-            response.data?.products
+            response.data
           )
         ) {
 
-          productList =
+          productData =
+            response.data;
+
+        }
+
+        else if (
+          Array.isArray(
+            response.data.products
+          )
+        ) {
+
+          productData =
             response.data.products;
+
+        }
+
+        else if (
+          response.data.success &&
+          Array.isArray(
+            response.data.data
+          )
+        ) {
+
+          productData =
+            response.data.data;
 
         }
 
 
         setProducts(
-          productList
+          productData
         );
 
 
@@ -530,7 +442,7 @@ function Products() {
 
           error.response?.data?.message ||
 
-          "Failed to load products"
+          "Failed to fetch products"
 
         );
 
@@ -546,9 +458,9 @@ function Products() {
     ]);
 
 
-  // ===================================================
+  // ================================================
   // LOAD PRODUCTS
-  // ===================================================
+  // ================================================
 
   useEffect(() => {
 
@@ -559,35 +471,35 @@ function Products() {
   ]);
 
 
-  // ===================================================
+  // ================================================
   // ADD TO CART
-  // ===================================================
+  // ================================================
 
   const handleAddToCart =
     async (productId) => {
 
       try {
 
+        setError("");
+
+        setMessage("");
+
+
         const token =
-          localStorage.getItem("token");
+          localStorage.getItem(
+            "token"
+          );
 
 
         if (!token) {
 
-          alert(
-            "Please login first"
+          navigate(
+            "/login"
           );
-
-          navigate("/login");
 
           return;
 
         }
-
-
-        setAddingProductId(
-          productId
-        );
 
 
         console.log(
@@ -599,10 +511,10 @@ function Products() {
         const response =
           await axios.post(
 
-            `${API_URL}/api/cart`,
+            `${API_URL}/api/cart/add`,
 
             {
-              productId:
+              product_id:
                 productId,
 
               quantity:
@@ -611,13 +523,8 @@ function Products() {
 
             {
               headers: {
-
                 Authorization:
                   `Bearer ${token}`,
-
-                "Content-Type":
-                  "application/json",
-
               },
             }
 
@@ -631,18 +538,20 @@ function Products() {
 
 
         if (
-          response.data?.success
+          response.data.success
         ) {
 
-          alert(
+          setMessage(
             "Product added to cart successfully!"
           );
 
-        } else {
+        }
 
-          alert(
+        else {
 
-            response.data?.message ||
+          setError(
+
+            response.data.message ||
 
             "Failed to add product to cart"
 
@@ -659,39 +568,29 @@ function Products() {
         );
 
 
-        console.log(
-          "SERVER RESPONSE:",
-          error.response?.data
-        );
-
-
         if (
           error.response?.status === 401
         ) {
 
-          alert(
-            "Your login session has expired. Please login again."
-          );
-
-
           localStorage.removeItem(
             "token"
           );
-
 
           localStorage.removeItem(
             "user"
           );
 
 
-          navigate("/login");
+          navigate(
+            "/login"
+          );
 
           return;
 
         }
 
 
-        alert(
+        setError(
 
           error.response?.data?.message ||
 
@@ -699,85 +598,462 @@ function Products() {
 
         );
 
+      }
+
+    };
+
+
+  // ================================================
+  // OPEN ADD PRODUCT
+  // ================================================
+
+  const handleAddProduct =
+    () => {
+
+      if (!isAdmin) {
+
+        setError(
+          "Only admin can add products"
+        );
+
+        return;
+
+      }
+
+
+      setEditingProduct(
+        null
+      );
+
+
+      setFormData({
+
+        name: "",
+
+        description: "",
+
+        price: "",
+
+        quantity: "",
+
+        stock: "",
+
+        image_url: "",
+
+      });
+
+
+      setShowForm(
+        true
+      );
+
+    };
+
+
+  // ================================================
+  // OPEN EDIT PRODUCT
+  // ================================================
+
+  const handleEditProduct =
+    (product) => {
+
+      if (!isAdmin) {
+
+        setError(
+          "Only admin can edit products"
+        );
+
+        return;
+
+      }
+
+
+      setEditingProduct(
+        product
+      );
+
+
+      setFormData({
+
+        name:
+          product.name || "",
+
+        description:
+          product.description || "",
+
+        price:
+          product.price || "",
+
+        quantity:
+          product.quantity || "",
+
+        stock:
+          product.stock ?? "",
+
+        image_url:
+          product.image_url || "",
+
+      });
+
+
+      setShowForm(
+        true
+      );
+
+    };
+
+
+  // ================================================
+  // INPUT CHANGE
+  // ================================================
+
+  const handleChange =
+    (event) => {
+
+      const {
+        name,
+        value,
+      } = event.target;
+
+
+      setFormData(
+        (previous) => ({
+
+          ...previous,
+
+          [name]: value,
+
+        })
+      );
+
+    };
+
+
+  // ================================================
+  // SAVE PRODUCT
+  // ================================================
+
+  const handleSubmit =
+    async (event) => {
+
+      event.preventDefault();
+
+
+      if (!isAdmin) {
+
+        setError(
+          "Only admin can manage products"
+        );
+
+        return;
+
+      }
+
+
+      try {
+
+        setFormLoading(
+          true
+        );
+
+        setError("");
+
+        setMessage("");
+
+
+        const token =
+          localStorage.getItem(
+            "token"
+          );
+
+
+        const headers = {
+
+          Authorization:
+            `Bearer ${token}`,
+
+        };
+
+
+        let response;
+
+
+        // --------------------------------------------
+        // EDIT PRODUCT
+        // --------------------------------------------
+
+        if (
+          editingProduct
+        ) {
+
+          response =
+            await axios.put(
+
+              `${API_URL}/api/products/${editingProduct.id}`,
+
+              formData,
+
+              {
+                headers,
+              }
+
+            );
+
+        }
+
+        // --------------------------------------------
+        // ADD PRODUCT
+        // --------------------------------------------
+
+        else {
+
+          response =
+            await axios.post(
+
+              `${API_URL}/api/products`,
+
+              formData,
+
+              {
+                headers,
+              }
+
+            );
+
+        }
+
+
+        console.log(
+          "PRODUCT SAVE RESPONSE:",
+          response.data
+        );
+
+
+        if (
+          response.data.success !== false
+        ) {
+
+          setMessage(
+
+            editingProduct
+
+              ? "Product updated successfully!"
+
+              : "Product added successfully!"
+
+          );
+
+
+          setShowForm(
+            false
+          );
+
+
+          setEditingProduct(
+            null
+          );
+
+
+          await fetchProducts();
+
+        }
+
+        else {
+
+          setError(
+
+            response.data.message ||
+
+            "Failed to save product"
+
+          );
+
+        }
+
+
+      } catch (error) {
+
+        console.error(
+          "SAVE PRODUCT ERROR:",
+          error
+        );
+
+
+        setError(
+
+          error.response?.data?.message ||
+
+          "Failed to save product"
+
+        );
+
 
       } finally {
 
-        setAddingProductId(null);
+        setFormLoading(
+          false
+        );
 
       }
 
     };
 
 
-  // ===================================================
-  // LOGOUT
-  // ===================================================
+  // ================================================
+  // DELETE PRODUCT
+  // ================================================
 
-  const handleLogout = () => {
+  const handleDeleteProduct =
+    async (productId) => {
 
-    localStorage.removeItem(
-      "token"
-    );
+      if (!isAdmin) {
 
+        setError(
+          "Only admin can delete products"
+        );
 
-    localStorage.removeItem(
-      "user"
-    );
+        return;
 
-
-    navigate(
-      "/login"
-    );
-
-  };
+      }
 
 
-  // ===================================================
-  // IMAGE ERROR HANDLER
-  // ===================================================
+      const confirmDelete =
+        window.confirm(
+          "Are you sure you want to delete this product?"
+        );
 
-  const handleImageError =
-    (event) => {
 
-      event.currentTarget.src =
-        productImages.default;
+      if (!confirmDelete) {
+
+        return;
+
+      }
+
+
+      try {
+
+        const token =
+          localStorage.getItem(
+            "token"
+          );
+
+
+        const response =
+          await axios.delete(
+
+            `${API_URL}/api/products/${productId}`,
+
+            {
+              headers: {
+
+                Authorization:
+                  `Bearer ${token}`,
+
+              },
+            }
+
+          );
+
+
+        if (
+          response.data.success !== false
+        ) {
+
+          setMessage(
+            "Product deleted successfully!"
+          );
+
+
+          await fetchProducts();
+
+        }
+
+        else {
+
+          setError(
+            response.data.message ||
+            "Failed to delete product"
+          );
+
+        }
+
+
+      } catch (error) {
+
+        console.error(
+          "DELETE PRODUCT ERROR:",
+          error
+        );
+
+
+        setError(
+
+          error.response?.data?.message ||
+
+          "Failed to delete product"
+
+        );
+
+      }
 
     };
 
 
-  // ===================================================
-  // LOADING
-  // ===================================================
+  // ================================================
+  // FILTER PRODUCTS
+  // ================================================
 
-  if (loading) {
+  const filteredProducts =
+    products.filter(
+      (product) => {
 
-    return (
+        const productName =
+          String(
+            product.name || ""
+          ).toLowerCase();
 
-      <div
-        style={{
-          minHeight: "100vh",
-          background:
-            "#f5f7f5",
-          display: "flex",
-          justifyContent: "center",
-          alignItems: "center",
-          fontSize: "20px",
-          fontWeight: "600",
-        }}
-      >
 
-        Loading products...
+        const searchText =
+          search.toLowerCase();
 
-      </div>
 
+        return productName.includes(
+          searchText
+        );
+
+      }
     );
 
-  }
+
+  // ================================================
+  // LOGOUT
+  // ================================================
+
+  const handleLogout =
+    () => {
+
+      localStorage.removeItem(
+        "token"
+      );
+
+      localStorage.removeItem(
+        "user"
+      );
 
 
-  // ===================================================
-  // MAIN UI
-  // ===================================================
+      navigate(
+        "/login",
+        {
+          replace: true,
+        }
+      );
+
+    };
+
+
+  // ================================================
+  // RENDER
+  // ================================================
 
   return (
 
@@ -785,7 +1061,7 @@ function Products() {
       style={{
         minHeight: "100vh",
         background:
-          "linear-gradient(135deg, #f4f8f4, #eef3ee)",
+          "linear-gradient(135deg, #f4f7f4, #e9efea)",
         padding: "30px",
         fontFamily:
           "Arial, sans-serif",
@@ -793,44 +1069,33 @@ function Products() {
     >
 
 
-      {/* ============================================= */}
+      {/* ============================================ */}
       {/* NAVBAR */}
-      {/* ============================================= */}
+      {/* ============================================ */}
 
       <div
         style={{
-          background:
-            "#ffffff",
-
-          padding:
-            "18px 25px",
-
-          borderRadius:
-            "15px",
-
-          display:
-            "flex",
-
+          display: "flex",
           justifyContent:
             "space-between",
-
           alignItems:
             "center",
-
           flexWrap:
             "wrap",
-
           gap:
             "15px",
-
+          background:
+            "#ffffff",
+          padding:
+            "20px 25px",
+          borderRadius:
+            "15px",
           marginBottom:
             "30px",
-
           boxShadow:
-            "0 4px 15px rgba(0,0,0,0.08)",
+            "0 8px 25px rgba(0,0,0,0.08)",
         }}
       >
-
 
         <div>
 
@@ -838,13 +1103,23 @@ function Products() {
             style={{
               margin: 0,
               color:
-                "#2f5d3a",
+                "#254b32",
             }}
           >
-
             🌿 HARI FARMS
-
           </h2>
+
+
+          <p
+            style={{
+              margin:
+                "5px 0 0",
+              color:
+                "#777",
+            }}
+          >
+            Fresh dairy products
+          </p>
 
         </div>
 
@@ -853,314 +1128,348 @@ function Products() {
           style={{
             display:
               "flex",
-
-            gap:
-              "10px",
-
             flexWrap:
               "wrap",
+            gap:
+              "10px",
           }}
         >
 
-
           <button
             onClick={() =>
               navigate(
-                "/user-dashboard"
+                isAdmin
+                  ? "/admin-dashboard"
+                  : "/user-dashboard"
               )
             }
             style={navButtonStyle}
           >
-
             Dashboard
-
           </button>
 
 
           <button
             onClick={() =>
-              navigate(
-                "/orders"
-              )
+              navigate("/cart")
             }
             style={navButtonStyle}
           >
-
-            📦 My Orders
-
+            🛒 Cart
           </button>
 
 
           <button
             onClick={() =>
-              navigate(
-                "/cart"
-              )
+              navigate("/orders")
             }
-            style={cartButtonStyle}
+            style={navButtonStyle}
           >
-
-            🛒 Cart
-
+            📦 Orders
           </button>
 
 
           <button
-            onClick={
-              handleLogout
-            }
-            style={logoutButtonStyle}
+            onClick={handleLogout}
+            style={{
+              ...navButtonStyle,
+              background:
+                "#d32f2f",
+            }}
           >
-
             Logout
-
           </button>
 
+        </div>
+
+      </div>
+
+
+      {/* ============================================ */}
+      {/* HEADER */}
+      {/* ============================================ */}
+
+      <div
+        style={{
+          display: "flex",
+          justifyContent:
+            "space-between",
+          alignItems:
+            "center",
+          flexWrap:
+            "wrap",
+          gap:
+            "20px",
+          marginBottom:
+            "25px",
+        }}
+      >
+
+        <div>
+
+          <h1
+            style={{
+              margin:
+                "0 0 8px",
+              color:
+                "#243b2a",
+            }}
+          >
+            🥛 Our Products
+          </h1>
+
+
+          <p
+            style={{
+              margin: 0,
+              color:
+                "#666",
+            }}
+          >
+            Fresh and quality dairy products from HARI FARMS
+          </p>
 
         </div>
 
 
+        {/* ADMIN ADD PRODUCT */}
+
+        {
+          isAdmin && (
+
+            <button
+              onClick={
+                handleAddProduct
+              }
+              style={{
+                background:
+                  "#2f6241",
+                color:
+                  "#ffffff",
+                border:
+                  "none",
+                padding:
+                  "14px 22px",
+                borderRadius:
+                  "8px",
+                fontSize:
+                  "16px",
+                fontWeight:
+                  "bold",
+                cursor:
+                  "pointer",
+              }}
+            >
+              ➕ Add Product
+            </button>
+
+          )
+        }
+
       </div>
 
 
-      {/* ============================================= */}
-      {/* HEADER */}
-      {/* ============================================= */}
+      {/* ============================================ */}
+      {/* SEARCH */}
+      {/* ============================================ */}
 
-      <div
+      <input
+
+        type="text"
+
+        placeholder="🔍 Search products..."
+
+        value={search}
+
+        onChange={(event) =>
+          setSearch(
+            event.target.value
+          )
+        }
+
         style={{
+          width:
+            "100%",
+          maxWidth:
+            "500px",
+          padding:
+            "15px",
+          borderRadius:
+            "10px",
+          border:
+            "1px solid #ddd",
           marginBottom:
-            "30px",
+            "25px",
+          fontSize:
+            "16px",
+          boxSizing:
+            "border-box",
         }}
-      >
 
-        <h1
-          style={{
-            color:
-              "#263238",
-
-            marginBottom:
-              "8px",
-          }}
-        >
-
-          🥛 Fresh Dairy Products
-
-        </h1>
+      />
 
 
-        <p
-          style={{
-            color:
-              "#666",
-
-            fontSize:
-              "16px",
-          }}
-        >
-
-          Fresh and quality dairy products from HARI FARMS.
-
-        </p>
-
-      </div>
-
-
-      {/* ============================================= */}
-      {/* ERROR */}
-      {/* ============================================= */}
+      {/* ============================================ */}
+      {/* SUCCESS MESSAGE */}
+      {/* ============================================ */}
 
       {
+        message && (
 
+          <div
+            style={{
+              background:
+                "#e8f5e9",
+              color:
+                "#2e7d32",
+              padding:
+                "15px",
+              borderRadius:
+                "10px",
+              marginBottom:
+                "20px",
+            }}
+          >
+            ✅ {message}
+          </div>
+
+        )
+      }
+
+
+      {/* ============================================ */}
+      {/* ERROR */}
+      {/* ============================================ */}
+
+      {
         error && (
 
           <div
             style={{
               background:
-                "#fff3f3",
-
+                "#ffebee",
               color:
-                "#d32f2f",
-
+                "#c62828",
               padding:
-                "18px",
-
+                "15px",
               borderRadius:
-                "12px",
-
+                "10px",
               marginBottom:
                 "20px",
             }}
           >
-
-            {error}
-
+            ❌ {error}
           </div>
 
         )
-
       }
 
 
-      {/* ============================================= */}
-      {/* EMPTY PRODUCTS */}
-      {/* ============================================= */}
+      {/* ============================================ */}
+      {/* LOADING */}
+      {/* ============================================ */}
 
       {
-
-        !error &&
-        products.length === 0 && (
+        loading && (
 
           <div
             style={{
-              background:
-                "#ffffff",
-
-              padding:
-                "40px",
-
-              borderRadius:
-                "15px",
-
               textAlign:
                 "center",
+              padding:
+                "50px",
+              fontSize:
+                "18px",
             }}
           >
-
-            <h3>
-              No products available
-            </h3>
-
+            Loading products...
           </div>
 
         )
-
       }
 
 
-      {/* ============================================= */}
-      {/* PRODUCT GRID */}
-      {/* ============================================= */}
+      {/* ============================================ */}
+      {/* PRODUCTS */}
+      {/* ============================================ */}
 
-      <div
-        style={{
-          display:
-            "grid",
+      {
+        !loading && (
 
-          gridTemplateColumns:
-            "repeat(auto-fill, minmax(260px, 1fr))",
+          <div
+            style={{
+              display:
+                "grid",
 
-          gap:
-            "25px",
-        }}
-      >
+              gridTemplateColumns:
+                "repeat(auto-fit, minmax(260px, 1fr))",
 
+              gap:
+                "22px",
+            }}
+          >
 
-        {
-
-          products.map(
-            (product) => {
-
-              const imageUrl =
-                getProductImage(
-                  product,
-                  API_URL
-                );
-
-
-              return (
-
-                <div
-
-                  key={
-                    product.id
-                  }
-
-                  style={{
-                    background:
-                      "#ffffff",
-
-                    borderRadius:
-                      "18px",
-
-                    overflow:
-                      "hidden",
-
-                    boxShadow:
-                      "0 5px 18px rgba(0,0,0,0.12)",
-
-                    transition:
-                      "transform 0.2s ease",
-
-                    display:
-                      "flex",
-
-                    flexDirection:
-                      "column",
-                  }}
-
-                  onMouseEnter={
-                    (event) => {
-
-                      event.currentTarget.style.transform =
-                        "translateY(-5px)";
-
-                    }
-                  }
-
-                  onMouseLeave={
-                    (event) => {
-
-                      event.currentTarget.style.transform =
-                        "translateY(0px)";
-
-                    }
-                  }
-
-                >
-
-
-                  {/* ================================= */}
-                  {/* PRODUCT IMAGE */}
-                  {/* ================================= */}
+            {
+              filteredProducts.map(
+                (product) => (
 
                   <div
-                    style={{
-                      width:
-                        "100%",
 
-                      height:
-                        "210px",
+                    key={product.id}
+
+                    style={{
+                      background:
+                        "#ffffff",
+
+                      borderRadius:
+                        "16px",
 
                       overflow:
                         "hidden",
 
-                      background:
-                        "#f0f0f0",
+                      boxShadow:
+                        "0 8px 25px rgba(0,0,0,0.12)",
+
+                      transition:
+                        "0.3s",
+
+                      display:
+                        "flex",
+
+                      flexDirection:
+                        "column",
                     }}
+
                   >
+
+
+                    {/* PRODUCT IMAGE */}
 
                     <img
 
                       src={
-                        imageUrl
+                        getProductImage(
+                          product
+                        )
                       }
 
                       alt={
-                        product.name ||
-                        "Dairy Product"
+                        product.name
                       }
 
-                      onError={
-                        handleImageError
-                      }
+                      onError={(event) => {
+
+                        event.currentTarget.src =
+                          productImages.default;
+
+                      }}
 
                       style={{
                         width:
                           "100%",
 
                         height:
-                          "100%",
+                          "220px",
 
                         objectFit:
                           "cover",
@@ -1171,263 +1480,626 @@ function Products() {
 
                     />
 
-                  </div>
 
+                    {/* PRODUCT CONTENT */}
 
-                  {/* ================================= */}
-                  {/* PRODUCT DETAILS */}
-                  {/* ================================= */}
-
-                  <div
-                    style={{
-                      padding:
-                        "20px",
-
-                      display:
-                        "flex",
-
-                      flexDirection:
-                        "column",
-
-                      flexGrow:
-                        1,
-                    }}
-                  >
-
-
-                    <h3
+                    <div
                       style={{
-                        margin:
-                          "0 0 12px 0",
-
-                        color:
-                          "#263238",
-
-                        fontSize:
+                        padding:
                           "20px",
+                        display:
+                          "flex",
+                        flexDirection:
+                          "column",
+                        flexGrow:
+                          1,
                       }}
                     >
 
-                      {
-                        product.name
-                      }
-
-                    </h3>
-
-
-                    <p
-                      style={{
-                        color:
-                          "#666",
-
-                        minHeight:
-                          "45px",
-
-                        margin:
-                          "0 0 15px 0",
-
-                        lineHeight:
-                          "1.5",
-                      }}
-                    >
-
-                      {
-
-                        product.description ||
-
-                        "Fresh dairy product from HARI FARMS."
-
-                      }
-
-                    </p>
+                      <h2
+                        style={{
+                          margin:
+                            "0 0 10px",
+                          color:
+                            "#263238",
+                        }}
+                      >
+                        {product.name}
+                      </h2>
 
 
-                    {/* PRICE */}
-
-                    <h2
-                      style={{
-                        margin:
-                          "5px 0",
-
-                        color:
-                          "#1f2937",
-
-                        fontSize:
-                          "24px",
-                      }}
-                    >
-
-                      ₹{
-                        Number(
-                          product.price || 0
-                        ).toFixed(2)
-                      }
-
-                    </h2>
+                      <p
+                        style={{
+                          color:
+                            "#666",
+                          lineHeight:
+                            "1.5",
+                          minHeight:
+                            "48px",
+                        }}
+                      >
+                        {
+                          product.description ||
+                          "Fresh quality dairy product."
+                        }
+                      </p>
 
 
-                    {/* UNIT */}
-
-                    <p
-                      style={{
-                        color:
-                          "#777",
-
-                        margin:
-                          "8px 0",
-                      }}
-                    >
-
-                      {
-                        product.unit ||
-                        ""
-                      }
-
-                    </p>
-
-
-                    {/* STOCK */}
-
-                    <p
-                      style={{
-                        fontWeight:
-                          "600",
-
-                        color:
-
+                      <h2
+                        style={{
+                          color:
+                            "#263238",
+                          margin:
+                            "10px 0",
+                        }}
+                      >
+                        ₹{
                           Number(
-                            product.stock
-                          ) > 0
-
-                            ? "#2f5d3a"
-
-                            : "#d32f2f",
-
-                        marginBottom:
-                          "18px",
-                      }}
-                    >
-
-                      Stock: {
-                        product.stock ?? 0
-                      }
-
-                    </p>
+                            product.price || 0
+                          ).toFixed(2)
+                        }
+                      </h2>
 
 
-                    {/* ADD TO CART */}
+                      {
+                        product.quantity && (
 
-                    <button
+                          <p
+                            style={{
+                              color:
+                                "#777",
+                            }}
+                          >
+                            {product.quantity}
+                          </p>
 
-                      disabled={
-
-                        Number(
-                          product.stock
-                        ) <= 0 ||
-
-                        addingProductId ===
-                        product.id
-
-                      }
-
-                      onClick={() =>
-                        handleAddToCart(
-                          product.id
                         )
                       }
 
-                      style={{
-                        marginTop:
-                          "auto",
 
-                        width:
-                          "100%",
+                      <p
+                        style={{
+                          fontWeight:
+                            "bold",
+                          color:
+                            "#355d40",
+                        }}
+                      >
+                        Stock: {
+                          product.stock ??
+                          0
+                        }
+                      </p>
 
-                        padding:
-                          "14px",
 
-                        border:
-                          "none",
+                      {/* USER ADD TO CART */}
 
-                        borderRadius:
-                          "10px",
+                      <button
 
-                        fontSize:
-                          "16px",
+                        onClick={() =>
+                          handleAddToCart(
+                            product.id
+                          )
+                        }
 
-                        fontWeight:
-                          "700",
+                        style={{
+                          width:
+                            "100%",
 
-                        cursor:
+                          padding:
+                            "14px",
 
-                          Number(
-                            product.stock
-                          ) <= 0
+                          background:
+                            "#2f6241",
 
-                            ? "not-allowed"
+                          color:
+                            "#ffffff",
 
-                            : "pointer",
+                          border:
+                            "none",
 
-                        background:
+                          borderRadius:
+                            "10px",
 
-                          Number(
-                            product.stock
-                          ) <= 0
+                          fontSize:
+                            "16px",
 
-                            ? "#cccccc"
+                          fontWeight:
+                            "bold",
 
-                            : "#2f5d3a",
+                          cursor:
+                            "pointer",
 
-                        color:
-                          "#ffffff",
+                          marginTop:
+                            "10px",
+                        }}
 
-                        opacity:
+                      >
+                        🛒 Add to Cart
+                      </button>
 
-                          addingProductId ===
-                          product.id
 
-                            ? 0.7
-
-                            : 1,
-                      }}
-                    >
+                      {/* ADMIN OPTIONS */}
 
                       {
+                        isAdmin && (
 
-                        addingProductId ===
-                        product.id
+                          <div
+                            style={{
+                              display:
+                                "flex",
 
-                          ? "Adding..."
+                              gap:
+                                "10px",
 
-                          : Number(
-                              product.stock
-                            ) <= 0
+                              marginTop:
+                                "12px",
+                            }}
+                          >
 
-                            ? "Out of Stock"
+                            <button
 
-                            : "🛒 Add to Cart"
+                              onClick={() =>
+                                handleEditProduct(
+                                  product
+                                )
+                              }
 
+                              style={{
+                                flex: 1,
+
+                                padding:
+                                  "12px",
+
+                                background:
+                                  "#f39c12",
+
+                                color:
+                                  "#ffffff",
+
+                                border:
+                                  "none",
+
+                                borderRadius:
+                                  "8px",
+
+                                fontWeight:
+                                  "bold",
+
+                                cursor:
+                                  "pointer",
+                              }}
+
+                            >
+                              ✏️ Edit
+                            </button>
+
+
+                            <button
+
+                              onClick={() =>
+                                handleDeleteProduct(
+                                  product.id
+                                )
+                              }
+
+                              style={{
+                                flex: 1,
+
+                                padding:
+                                  "12px",
+
+                                background:
+                                  "#d32f2f",
+
+                                color:
+                                  "#ffffff",
+
+                                border:
+                                  "none",
+
+                                borderRadius:
+                                  "8px",
+
+                                fontWeight:
+                                  "bold",
+
+                                cursor:
+                                  "pointer",
+                              }}
+
+                            >
+                              🗑 Delete
+                            </button>
+
+                          </div>
+
+                        )
                       }
 
-                    </button>
-
+                    </div>
 
                   </div>
 
+                )
+              )
+            }
+
+
+            {
+              filteredProducts.length === 0 && (
+
+                <div
+                  style={{
+                    gridColumn:
+                      "1 / -1",
+
+                    background:
+                      "#ffffff",
+
+                    padding:
+                      "50px",
+
+                    borderRadius:
+                      "15px",
+
+                    textAlign:
+                      "center",
+                  }}
+                >
+
+                  <h2>
+                    No products found
+                  </h2>
 
                 </div>
 
-              );
-
+              )
             }
 
-          )
+          </div>
 
-        }
+        )
+      }
 
 
-      </div>
+      {/* ============================================ */}
+      {/* ADMIN ADD / EDIT MODAL */}
+      {/* ============================================ */}
 
+      {
+        showForm &&
+        isAdmin && (
+
+          <div
+            style={{
+              position:
+                "fixed",
+
+              top: 0,
+
+              left: 0,
+
+              right: 0,
+
+              bottom: 0,
+
+              background:
+                "rgba(0,0,0,0.55)",
+
+              display:
+                "flex",
+
+              justifyContent:
+                "center",
+
+              alignItems:
+                "center",
+
+              padding:
+                "20px",
+
+              zIndex:
+                9999,
+
+              overflowY:
+                "auto",
+            }}
+          >
+
+            <form
+
+              onSubmit={
+                handleSubmit
+              }
+
+              style={{
+                background:
+                  "#ffffff",
+
+                padding:
+                  "30px",
+
+                borderRadius:
+                  "18px",
+
+                width:
+                  "100%",
+
+                maxWidth:
+                  "600px",
+
+                boxShadow:
+                  "0 10px 40px rgba(0,0,0,0.3)",
+              }}
+
+            >
+
+              <h2>
+
+                {
+                  editingProduct
+
+                    ? "✏️ Edit Product"
+
+                    : "➕ Add New Product"
+                }
+
+              </h2>
+
+
+              <input
+
+                type="text"
+
+                name="name"
+
+                placeholder="Product Name"
+
+                value={
+                  formData.name
+                }
+
+                onChange={
+                  handleChange
+                }
+
+                required
+
+                style={inputStyle}
+
+              />
+
+
+              <textarea
+
+                name="description"
+
+                placeholder="Product Description"
+
+                value={
+                  formData.description
+                }
+
+                onChange={
+                  handleChange
+                }
+
+                style={{
+                  ...inputStyle,
+                  minHeight:
+                    "100px",
+                  resize:
+                    "vertical",
+                }}
+
+              />
+
+
+              <input
+
+                type="number"
+
+                name="price"
+
+                placeholder="Price"
+
+                value={
+                  formData.price
+                }
+
+                onChange={
+                  handleChange
+                }
+
+                required
+
+                style={inputStyle}
+
+              />
+
+
+              <input
+
+                type="text"
+
+                name="quantity"
+
+                placeholder="Quantity (Example: 1 Litre)"
+
+                value={
+                  formData.quantity
+                }
+
+                onChange={
+                  handleChange
+                }
+
+                style={inputStyle}
+
+              />
+
+
+              <input
+
+                type="number"
+
+                name="stock"
+
+                placeholder="Stock"
+
+                value={
+                  formData.stock
+                }
+
+                onChange={
+                  handleChange
+                }
+
+                required
+
+                style={inputStyle}
+
+              />
+
+
+              <input
+
+                type="url"
+
+                name="image_url"
+
+                placeholder="Product Image URL"
+
+                value={
+                  formData.image_url
+                }
+
+                onChange={
+                  handleChange
+                }
+
+                style={inputStyle}
+
+              />
+
+
+              <div
+                style={{
+                  display:
+                    "flex",
+
+                  gap:
+                    "12px",
+
+                  marginTop:
+                    "20px",
+                }}
+              >
+
+                <button
+
+                  type="submit"
+
+                  disabled={
+                    formLoading
+                  }
+
+                  style={{
+                    flex: 1,
+
+                    padding:
+                      "14px",
+
+                    background:
+                      "#2f6241",
+
+                    color:
+                      "#ffffff",
+
+                    border:
+                      "none",
+
+                    borderRadius:
+                      "8px",
+
+                    fontWeight:
+                      "bold",
+
+                    cursor:
+                      "pointer",
+                  }}
+
+                >
+
+                  {
+                    formLoading
+
+                      ? "Saving..."
+
+                      : editingProduct
+
+                        ? "Update Product"
+
+                        : "Add Product"
+                  }
+
+                </button>
+
+
+                <button
+
+                  type="button"
+
+                  onClick={() => {
+
+                    setShowForm(
+                      false
+                    );
+
+                    setEditingProduct(
+                      null
+                    );
+
+                  }}
+
+                  style={{
+                    flex: 1,
+
+                    padding:
+                      "14px",
+
+                    background:
+                      "#777",
+
+                    color:
+                      "#ffffff",
+
+                    border:
+                      "none",
+
+                    borderRadius:
+                      "8px",
+
+                    fontWeight:
+                      "bold",
+
+                    cursor:
+                      "pointer",
+                  }}
+
+                >
+                  Cancel
+                </button>
+
+              </div>
+
+            </form>
+
+          </div>
+
+        )
+      }
 
     </div>
 
@@ -1436,84 +2108,62 @@ function Products() {
 }
 
 
-// =====================================================
-// BUTTON STYLES
-// =====================================================
+// ================================================
+// NAV BUTTON STYLE
+// ================================================
 
 const navButtonStyle = {
 
-  padding:
-    "10px 16px",
-
-  border:
-    "none",
-
-  borderRadius:
-    "8px",
-
   background:
-    "#e8f1e8",
-
-  color:
-    "#2f5d3a",
-
-  fontWeight:
-    "600",
-
-  cursor:
-    "pointer",
-
-};
-
-
-const cartButtonStyle = {
-
-  padding:
-    "10px 16px",
-
-  border:
-    "none",
-
-  borderRadius:
-    "8px",
-
-  background:
-    "#2f5d3a",
+    "#2f6241",
 
   color:
     "#ffffff",
 
-  fontWeight:
-    "600",
-
-  cursor:
-    "pointer",
-
-};
-
-
-const logoutButtonStyle = {
+  border:
+    "none",
 
   padding:
     "10px 16px",
 
+  borderRadius:
+    "8px",
+
+  cursor:
+    "pointer",
+
+  fontWeight:
+    "bold",
+
+};
+
+
+// ================================================
+// INPUT STYLE
+// ================================================
+
+const inputStyle = {
+
+  width:
+    "100%",
+
+  padding:
+    "13px",
+
+  marginTop:
+    "12px",
+
   border:
-    "none",
+    "1px solid #ddd",
 
   borderRadius:
     "8px",
 
-  background:
-    "#dc3545",
+  boxSizing:
+    "border-box",
 
-  color:
-    "#ffffff",
-
-  fontWeight:
-    "600",
-
-  cursor:
-    "pointer",
+  fontSize:
+    "15px",
 
 };
 

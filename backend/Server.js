@@ -28,14 +28,24 @@ const PORT = process.env.PORT || 5000;
 // CREATE UPLOADS DIRECTORY
 // ==================================================
 
-const uploadsPath = path.join(__dirname, "uploads");
+const uploadsPath = path.join(
+  __dirname,
+  "uploads"
+);
 
 if (!fs.existsSync(uploadsPath)) {
-  fs.mkdirSync(uploadsPath, {
-    recursive: true,
-  });
 
-  console.log("✅ Uploads folder created");
+  fs.mkdirSync(
+    uploadsPath,
+    {
+      recursive: true,
+    }
+  );
+
+  console.log(
+    "✅ Uploads folder created"
+  );
+
 }
 
 // ==================================================
@@ -43,48 +53,155 @@ if (!fs.existsSync(uploadsPath)) {
 // ==================================================
 
 const allowedOrigins = [
+
+  // React Local Development
+
   "http://localhost:3000",
+  "http://localhost:3001",
+
+  // Alternative localhost addresses
+
   "http://127.0.0.1:3000",
+  "http://127.0.0.1:3001",
+
+  // Vercel Production Frontend
+
   "https://farm-self-six.vercel.app",
+
 ];
 
-app.use(
-  cors({
-    origin: function (origin, callback) {
-      // Allow Postman, Render health checks,
-      // and server-to-server requests
-      if (!origin) {
-        return callback(null, true);
-      }
 
-      if (allowedOrigins.includes(origin)) {
-        return callback(null, true);
-      }
+// ==================================================
+// CORS CONFIGURATION
+// ==================================================
 
-      console.log("⚠️ CORS blocked:", origin);
+const corsOptions = {
+
+  origin: function (
+    origin,
+    callback
+  ) {
+
+    // ==============================================
+    // Allow requests without Origin
+    // Postman
+    // Render Health Checks
+    // Server-to-server requests
+    // ==============================================
+
+    if (!origin) {
 
       return callback(
-        new Error("Not allowed by CORS")
+        null,
+        true
       );
-    },
 
-    methods: [
-      "GET",
-      "POST",
-      "PUT",
-      "PATCH",
-      "DELETE",
-      "OPTIONS",
-    ],
+    }
 
-    allowedHeaders: [
-      "Content-Type",
-      "Authorization",
-    ],
 
-    credentials: true,
-  })
+    // ==============================================
+    // ALLOWED ORIGINS
+    // ==============================================
+
+    if (
+      allowedOrigins.includes(origin)
+    ) {
+
+      console.log(
+        "✅ CORS allowed:",
+        origin
+      );
+
+      return callback(
+        null,
+        true
+      );
+
+    }
+
+
+    // ==============================================
+    // BLOCK UNKNOWN ORIGINS
+    // ==============================================
+
+    console.log(
+      "❌ CORS BLOCKED:",
+      origin
+    );
+
+
+    return callback(
+      new Error(
+        "Not allowed by CORS"
+      )
+    );
+
+  },
+
+
+  // ==============================================
+  // HTTP METHODS
+  // ==============================================
+
+  methods: [
+
+    "GET",
+    "POST",
+    "PUT",
+    "PATCH",
+    "DELETE",
+    "OPTIONS",
+
+  ],
+
+
+  // ==============================================
+  // ALLOWED HEADERS
+  // ==============================================
+
+  allowedHeaders: [
+
+    "Content-Type",
+    "Authorization",
+
+  ],
+
+
+  // ==============================================
+  // CREDENTIALS
+  // ==============================================
+
+  credentials: true,
+
+
+  // ==============================================
+  // SUCCESS STATUS FOR OLD BROWSERS
+  // ==============================================
+
+  optionsSuccessStatus: 200,
+
+};
+
+
+// ==================================================
+// APPLY CORS
+// IMPORTANT: MUST COME BEFORE ROUTES
+// ==================================================
+
+app.use(
+  cors(corsOptions)
 );
+
+
+// ==================================================
+// HANDLE PREFLIGHT OPTIONS REQUESTS
+// ==================================================
+
+app.options(
+  "*",
+  cors(corsOptions)
+);
+
 
 // ==================================================
 // BODY PARSER
@@ -96,6 +213,7 @@ app.use(
   })
 );
 
+
 app.use(
   express.urlencoded({
     extended: true,
@@ -103,254 +221,427 @@ app.use(
   })
 );
 
+
 // ==================================================
 // STATIC PRODUCT IMAGES
 // ==================================================
-
-// Example:
-//
-// backend/uploads/milk.jpg
-//
-// Available at:
-//
-// http://localhost:5000/uploads/milk.jpg
 
 app.use(
   "/uploads",
   express.static(uploadsPath)
 );
 
+
 // ==================================================
 // REQUEST LOGGER
 // ==================================================
 
-app.use((req, res, next) => {
-  console.log(
-    `${new Date().toISOString()} | ${req.method} ${req.originalUrl}`
-  );
+app.use(
+  (req, res, next) => {
 
-  next();
-});
+    console.log(
+      `${new Date().toISOString()} | ${req.method} ${req.originalUrl}`
+    );
+
+    next();
+
+  }
+);
+
 
 // ==================================================
-// HOME
+// HOME ROUTE
 // ==================================================
 
-app.get("/", (req, res) => {
-  return res.status(200).json({
-    success: true,
-    message: "🥛 HARI FARMS API is running successfully",
-  });
-});
+app.get(
+  "/",
+  (req, res) => {
+
+    return res.status(200).json({
+
+      success: true,
+
+      message:
+        "🥛 HARI FARMS API is running successfully",
+
+    });
+
+  }
+);
+
 
 // ==================================================
 // HEALTH CHECK
 // ==================================================
 
-app.get("/api/health", async (req, res) => {
-  try {
-    await db.query("SELECT 1");
+app.get(
+  "/api/health",
 
-    return res.status(200).json({
-      success: true,
-      message: "Server and database are healthy",
-    });
+  async (req, res) => {
 
-  } catch (error) {
-    console.error(
-      "❌ HEALTH CHECK ERROR:",
-      error.message
-    );
+    try {
 
-    return res.status(500).json({
-      success: false,
-      message: "Database is not available",
-      error:
-        process.env.NODE_ENV === "production"
-          ? "Database connection failed"
-          : error.message,
-    });
+      await db.query(
+        "SELECT 1"
+      );
+
+
+      return res.status(200).json({
+
+        success: true,
+
+        message:
+          "Server and database are healthy",
+
+      });
+
+
+    } catch (error) {
+
+      console.error(
+        "❌ HEALTH CHECK ERROR:",
+        error.message
+      );
+
+
+      return res.status(500).json({
+
+        success: false,
+
+        message:
+          "Database is not available",
+
+        error:
+
+          process.env.NODE_ENV ===
+          "production"
+
+            ? "Database connection failed"
+
+            : error.message,
+
+      });
+
+    }
+
   }
-});
+);
+
 
 // ==================================================
 // TEST DATABASE
 // ==================================================
 
-app.get("/api/test-db", async (req, res) => {
-  try {
-    const [result] = await db.query(
-      "SELECT 1 AS test"
-    );
+app.get(
+  "/api/test-db",
 
-    return res.status(200).json({
-      success: true,
-      message: "Database connected successfully",
-      result,
-    });
+  async (req, res) => {
 
-  } catch (error) {
-    console.error(
-      "❌ DATABASE ERROR:",
-      error.message
-    );
+    try {
 
-    return res.status(500).json({
-      success: false,
-      message: "Database connection failed",
-      error:
-        process.env.NODE_ENV === "production"
-          ? "Database connection failed"
-          : error.message,
-    });
+      const [result] =
+        await db.query(
+          "SELECT 1 AS test"
+        );
+
+
+      return res.status(200).json({
+
+        success: true,
+
+        message:
+          "Database connected successfully",
+
+        result,
+
+      });
+
+
+    } catch (error) {
+
+      console.error(
+        "❌ DATABASE ERROR:",
+        error.message
+      );
+
+
+      return res.status(500).json({
+
+        success: false,
+
+        message:
+          "Database connection failed",
+
+        error:
+
+          process.env.NODE_ENV ===
+          "production"
+
+            ? "Database connection failed"
+
+            : error.message,
+
+      });
+
+    }
+
   }
-});
+);
+
 
 // ==================================================
 // API ROUTES
 // ==================================================
+
+
+// AUTH ROUTES
 
 app.use(
   "/api/auth",
   authRoutes
 );
 
+
+// PRODUCT ROUTES
+
 app.use(
   "/api/products",
   productRoutes
 );
+
+
+// CART ROUTES
 
 app.use(
   "/api/cart",
   cartRoutes
 );
 
+
+// ORDER ROUTES
+
 app.use(
   "/api/orders",
   orderRoutes
 );
 
+
 // ==================================================
 // 404 HANDLER
 // ==================================================
 
-app.use((req, res) => {
-  console.log(
-    "❌ ROUTE NOT FOUND:",
-    req.method,
-    req.originalUrl
-  );
+app.use(
+  (req, res) => {
 
-  return res.status(404).json({
-    success: false,
-    message: "API route not found",
-    path: req.originalUrl,
-  });
-});
+    console.log(
+      "❌ ROUTE NOT FOUND:",
+      req.method,
+      req.originalUrl
+    );
+
+
+    return res.status(404).json({
+
+      success: false,
+
+      message:
+        "API route not found",
+
+      path:
+        req.originalUrl,
+
+    });
+
+  }
+);
+
 
 // ==================================================
 // GLOBAL ERROR HANDLER
 // ==================================================
 
-app.use((error, req, res, next) => {
-  console.error(
-    "================================="
-  );
+app.use(
+  (
+    error,
+    req,
+    res,
+    next
+  ) => {
 
-  console.error(
-    "❌ GLOBAL SERVER ERROR"
-  );
+    console.error(
+      "================================="
+    );
 
-  console.error(
-    "Message:",
-    error.message
-  );
+    console.error(
+      "❌ GLOBAL SERVER ERROR"
+    );
 
-  console.error(
-    "Stack:",
-    error.stack
-  );
+    console.error(
+      "Message:",
+      error.message
+    );
 
-  console.error(
-    "================================="
-  );
+    console.error(
+      "Stack:",
+      error.stack
+    );
 
-  // CORS ERROR
+    console.error(
+      "================================="
+    );
 
-  if (
-    error.message === "Not allowed by CORS"
-  ) {
-    return res.status(403).json({
+
+    // ==============================================
+    // CORS ERROR
+    // ==============================================
+
+    if (
+      error.message ===
+      "Not allowed by CORS"
+    ) {
+
+      return res.status(403).json({
+
+        success: false,
+
+        message:
+          "CORS policy blocked this request",
+
+        origin:
+          req.headers.origin ||
+          "Unknown",
+
+      });
+
+    }
+
+
+    // ==============================================
+    // OTHER SERVER ERRORS
+    // ==============================================
+
+    return res.status(
+      error.status || 500
+    ).json({
+
       success: false,
-      message: "CORS policy blocked this request",
-    });
-  }
 
-  return res.status(
-    error.status || 500
-  ).json({
-    success: false,
-    message:
-      error.message ||
-      "Internal server error",
-  });
-});
+      message:
+
+        error.message ||
+
+        "Internal server error",
+
+    });
+
+  }
+);
+
 
 // ==================================================
 // START SERVER
 // ==================================================
 
 const startServer = async () => {
-  try {
-    // Test database before starting
 
-    await db.query("SELECT 1");
+  try {
+
+    console.log(
+      "================================="
+    );
+
+    console.log(
+      "🔄 Testing database connection..."
+    );
+
+    console.log(
+      "================================="
+    );
+
+
+    // ==============================================
+    // TEST DATABASE
+    // ==============================================
+
+    await db.query(
+      "SELECT 1"
+    );
+
 
     console.log(
       "✅ Database connection successful"
     );
 
-    // Start server
 
-    app.listen(PORT, () => {
-      console.log(
-        "================================="
-      );
+    // ==============================================
+    // START SERVER
+    // ==============================================
 
-      console.log(
-        "🚀 HARI FARMS SERVER STARTED"
-      );
+    app.listen(
+      PORT,
 
-      console.log(
-        `🌐 Server running on port ${PORT}`
-      );
+      () => {
 
-      console.log(
-        `📦 Products: /api/products`
-      );
+        console.log(
+          "================================="
+        );
 
-      console.log(
-        `🛒 Cart: /api/cart`
-      );
+        console.log(
+          "🚀 HARI FARMS SERVER STARTED"
+        );
 
-      console.log(
-        `📋 Orders: /api/orders`
-      );
+        console.log(
+          `🌐 Server running on port ${PORT}`
+        );
 
-      console.log(
-        `🖼️ Images: /uploads`
-      );
+        console.log(
+          `🔐 Authentication: /api/auth`
+        );
 
-      console.log(
-        `🔐 Authentication: /api/auth`
-      );
+        console.log(
+          `📦 Products: /api/products`
+        );
 
-      console.log(
-        "================================="
-      );
-    });
+        console.log(
+          `🛒 Cart: /api/cart`
+        );
+
+        console.log(
+          `📋 Orders: /api/orders`
+        );
+
+        console.log(
+          `🖼️ Images: /uploads`
+        );
+
+        console.log(
+          "================================="
+        );
+
+        console.log(
+          "✅ Allowed CORS Origins:"
+        );
+
+        allowedOrigins.forEach(
+          (origin) => {
+
+            console.log(
+              `   ${origin}`
+            );
+
+          }
+        );
+
+        console.log(
+          "================================="
+        );
+
+      }
+    );
+
 
   } catch (error) {
+
     console.error(
       "================================="
     );
@@ -360,6 +651,7 @@ const startServer = async () => {
     );
 
     console.error(
+      "Message:",
       error.message
     );
 
@@ -367,12 +659,16 @@ const startServer = async () => {
       "================================="
     );
 
+
     process.exit(1);
+
   }
+
 };
 
+
 // ==================================================
-// START
+// START SERVER
 // ==================================================
 
 startServer();

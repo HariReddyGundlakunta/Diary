@@ -13,18 +13,21 @@ import {
 
 function AdminDashboard() {
 
-  const navigate =
-    useNavigate();
+  const navigate = useNavigate();
 
+
+  // ==========================================
+  // API URL
+  // ==========================================
 
   const API_URL =
     process.env.REACT_APP_API_URL ||
     "http://localhost:5000";
 
 
-  // ==================================================
-  // STATES
-  // ==================================================
+  // ==========================================
+  // STATE
+  // ==========================================
 
   const [stats, setStats] =
     useState({
@@ -32,11 +35,8 @@ function AdminDashboard() {
       totalOrders: 0,
       totalRevenue: 0,
       totalCustomers: 0,
+      recentOrders: [],
     });
-
-
-  const [recentOrders, setRecentOrders] =
-    useState([]);
 
 
   const [loading, setLoading] =
@@ -47,47 +47,29 @@ function AdminDashboard() {
     useState("");
 
 
-  // ==================================================
-  // GET TOKEN
-  // ==================================================
+  // ==========================================
+  // GET ADMIN TOKEN
+  // ==========================================
 
-  const getToken = () => {
+  const getHeaders = () => {
 
-    return localStorage.getItem(
-      "token"
-    );
+    const token =
+      localStorage.getItem("token");
+
+
+    return {
+      headers: {
+        Authorization:
+          `Bearer ${token}`,
+      },
+    };
 
   };
 
 
-  // ==================================================
-  // AUTH CONFIG
-  // ==================================================
-
-  const getAuthConfig =
-    useCallback(() => {
-
-      const token =
-        getToken();
-
-
-      return {
-
-        headers: {
-
-          Authorization:
-            `Bearer ${token}`,
-
-        },
-
-      };
-
-    }, []);
-
-
-  // ==================================================
-  // FETCH ADMIN STATS
-  // ==================================================
+  // ==========================================
+  // FETCH ADMIN STATISTICS
+  // ==========================================
 
   const fetchAdminStats =
     useCallback(async () => {
@@ -100,7 +82,7 @@ function AdminDashboard() {
 
 
         const token =
-          getToken();
+          localStorage.getItem("token");
 
 
         if (!token) {
@@ -118,20 +100,7 @@ function AdminDashboard() {
 
 
         console.log(
-          "================================="
-        );
-
-        console.log(
-          "FETCHING ADMIN STATS"
-        );
-
-        console.log(
-          "API:",
-          `${API_URL}/api/orders/admin/stats`
-        );
-
-        console.log(
-          "================================="
+          "📊 Fetching admin statistics..."
         );
 
 
@@ -140,7 +109,7 @@ function AdminDashboard() {
 
             `${API_URL}/api/orders/admin/stats`,
 
-            getAuthConfig()
+            getHeaders()
 
           );
 
@@ -151,57 +120,52 @@ function AdminDashboard() {
         );
 
 
-        if (
-          response.data.success
-        ) {
+        if (response.data.success) {
 
           setStats({
 
             totalProducts:
               Number(
-                response.data.totalProducts || 0
+                response.data.stats?.totalProducts ||
+                0
               ),
 
             totalOrders:
               Number(
-                response.data.totalOrders || 0
+                response.data.stats?.totalOrders ||
+                0
               ),
 
             totalRevenue:
               Number(
-                response.data.totalRevenue || 0
+                response.data.stats?.totalRevenue ||
+                0
               ),
 
             totalCustomers:
               Number(
-                response.data.totalCustomers || 0
+                response.data.stats?.totalCustomers ||
+                0
               ),
 
+            recentOrders:
+              Array.isArray(
+                response.data.stats?.recentOrders
+              )
+                ? response.data.stats.recentOrders
+                : [],
+
           });
-
-
-          setRecentOrders(
-
-            Array.isArray(
-              response.data.recentOrders
-            )
-
-              ? response.data.recentOrders
-
-              : []
-
-          );
 
         } else {
 
           setError(
-
             response.data.message ||
-            "Failed to load dashboard"
-
+            "Failed to load dashboard statistics"
           );
 
         }
+
 
       } catch (error) {
 
@@ -216,6 +180,8 @@ function AdminDashboard() {
           error.response?.data
         );
 
+
+        // Unauthorized
 
         if (
           error.response?.status === 401
@@ -242,25 +208,17 @@ function AdminDashboard() {
         }
 
 
+        // Not admin
+
         if (
           error.response?.status === 403
         ) {
 
-          setError(
-            "You do not have admin permission."
-          );
-
-          return;
-
-        }
-
-
-        if (
-          error.response?.status === 404
-        ) {
-
-          setError(
-            "Admin statistics route is not available. Please redeploy the updated backend."
+          navigate(
+            "/user-dashboard",
+            {
+              replace: true,
+            }
           );
 
           return;
@@ -272,9 +230,10 @@ function AdminDashboard() {
 
           error.response?.data?.message ||
 
-          "Failed to load admin dashboard"
+          "Unable to load dashboard statistics. Please check the backend OrderRoutes.js."
 
         );
+
 
       } finally {
 
@@ -284,14 +243,13 @@ function AdminDashboard() {
 
     }, [
       API_URL,
-      getAuthConfig,
       navigate,
     ]);
 
 
-  // ==================================================
-  // LOAD DATA
-  // ==================================================
+  // ==========================================
+  // LOAD DASHBOARD
+  // ==========================================
 
   useEffect(() => {
 
@@ -302,119 +260,197 @@ function AdminDashboard() {
   ]);
 
 
-  // ==================================================
+  // ==========================================
   // LOGOUT
-  // ==================================================
+  // ==========================================
 
-  const handleLogout =
-    () => {
+  const handleLogout = () => {
 
-      localStorage.removeItem(
-        "token"
-      );
+    localStorage.removeItem(
+      "token"
+    );
 
-      localStorage.removeItem(
-        "user"
-      );
+    localStorage.removeItem(
+      "user"
+    );
 
 
-      navigate(
-        "/login",
+    navigate(
+      "/login",
+      {
+        replace: true,
+      }
+    );
+
+  };
+
+
+  // ==========================================
+  // FORMAT CURRENCY
+  // ==========================================
+
+  const formatCurrency =
+    (amount) => {
+
+      return new Intl.NumberFormat(
+        "en-IN",
         {
-          replace: true,
+          style: "currency",
+          currency: "INR",
+          minimumFractionDigits: 2,
         }
+      ).format(
+        Number(amount || 0)
       );
 
     };
 
 
-  // ==================================================
-  // NAVIGATION
-  // ==================================================
+  // ==========================================
+  // STYLES
+  // ==========================================
 
-  const handleManageProducts =
-    () => {
+  const pageStyle = {
 
-      navigate("/products");
+    minHeight: "100vh",
 
-    };
+    background:
+      "linear-gradient(135deg, #eef3ee 0%, #f7f7f4 100%)",
+
+    padding: "30px",
+
+    fontFamily:
+      "Arial, sans-serif",
+
+  };
 
 
-  const handleOrders =
-    () => {
+  const cardStyle = {
 
-      navigate("/orders");
+    background:
+      "#ffffff",
 
-    };
+    borderRadius:
+      "20px",
+
+    padding:
+      "28px",
+
+    boxShadow:
+      "0 8px 25px rgba(0,0,0,0.08)",
+
+    border:
+      "1px solid rgba(0,0,0,0.04)",
+
+  };
 
 
-  // ==================================================
-  // RETURN
-  // ==================================================
+  const buttonStyle = {
+
+    border:
+      "none",
+
+    background:
+      "#2f6b3d",
+
+    color:
+      "#ffffff",
+
+    padding:
+      "12px 20px",
+
+    borderRadius:
+      "8px",
+
+    cursor:
+      "pointer",
+
+    fontWeight:
+      "bold",
+
+    fontSize:
+      "15px",
+
+  };
+
 
   return (
 
     <div
-      style={{
-        minHeight: "100vh",
-        background:
-          "#f3f6f3",
-        fontFamily:
-          "Arial, sans-serif",
-      }}
+      style={pageStyle}
     >
 
 
-      {/* ============================================== */}
-      {/* NAVBAR */}
-      {/* ============================================== */}
+      {/* ======================================
+          NAVBAR
+      ====================================== */}
 
       <div
+
         style={{
-          background:
-            "#ffffff",
-          padding:
-            "20px 35px",
+
           display:
             "flex",
+
           justifyContent:
             "space-between",
+
           alignItems:
             "center",
+
           flexWrap:
             "wrap",
+
           gap:
-            "15px",
-          boxShadow:
-            "0 2px 10px rgba(0,0,0,0.08)",
+            "20px",
+
+          marginBottom:
+            "30px",
+
         }}
+
       >
+
 
         <div>
 
-          <h2
+          <h1
+
             style={{
-              margin: 0,
+
+              margin:
+                "0 0 8px 0",
+
               color:
-                "#1f3d2b",
+                "#263238",
+
             }}
+
           >
 
-            🌿 HARI FARMS
+            Welcome, Admin 👋
 
-          </h2>
+          </h1>
 
 
           <p
+
             style={{
+
               margin:
-                "5px 0 0",
+                0,
+
               color:
-                "#777",
+                "#666",
+
+              fontSize:
+                "16px",
+
             }}
+
           >
 
-            Admin Dashboard
+            Manage your HARI FARMS store from one place.
 
           </p>
 
@@ -422,76 +458,53 @@ function AdminDashboard() {
 
 
         <div
+
           style={{
+
             display:
               "flex",
+
             gap:
-              "10px",
+              "12px",
+
             flexWrap:
               "wrap",
+
           }}
+
         >
 
+
           <button
-            onClick={handleManageProducts}
-            style={{
-              padding:
-                "10px 16px",
-              border:
-                "none",
-              borderRadius:
-                "8px",
-              cursor:
-                "pointer",
-              fontWeight:
-                "bold",
-            }}
+
+            style={buttonStyle}
+
+            onClick={
+              fetchAdminStats
+            }
+
           >
 
-            📦 Products
+            🔄 Refresh
 
           </button>
 
 
           <button
-            onClick={handleOrders}
+
             style={{
-              padding:
-                "10px 16px",
-              border:
-                "none",
-              borderRadius:
-                "8px",
-              cursor:
-                "pointer",
-              fontWeight:
-                "bold",
-            }}
-          >
 
-            📋 Orders
+              ...buttonStyle,
 
-          </button>
-
-
-          <button
-            onClick={handleLogout}
-            style={{
-              padding:
-                "10px 16px",
-              border:
-                "none",
-              borderRadius:
-                "8px",
-              cursor:
-                "pointer",
               background:
-                "#c62828",
-              color:
-                "white",
-              fontWeight:
-                "bold",
+                "#c0392b",
+
             }}
+
+            onClick={
+              handleLogout
+            }
+
           >
 
             Logout
@@ -503,898 +516,1033 @@ function AdminDashboard() {
       </div>
 
 
-      {/* ============================================== */}
-      {/* MAIN */}
-      {/* ============================================== */}
+      {/* ======================================
+          ERROR MESSAGE
+      ====================================== */}
+
+      {
+
+        error && (
+
+          <div
+
+            style={{
+
+              background:
+                "#fff3f3",
+
+              border:
+                "1px solid #f5c6c6",
+
+              color:
+                "#b33939",
+
+              padding:
+                "20px",
+
+              borderRadius:
+                "15px",
+
+              marginBottom:
+                "25px",
+
+            }}
+
+          >
+
+            <strong>
+              Error:
+            </strong>
+
+            {" "}
+
+            {error}
+
+
+            <br />
+
+            <br />
+
+
+            <button
+
+              onClick={
+                fetchAdminStats
+              }
+
+              style={{
+
+                background:
+                  "#c0392b",
+
+                color:
+                  "#ffffff",
+
+                border:
+                  "none",
+
+                padding:
+                  "10px 18px",
+
+                borderRadius:
+                  "7px",
+
+                cursor:
+                  "pointer",
+
+                fontWeight:
+                  "bold",
+
+              }}
+
+            >
+
+              Try Again
+
+            </button>
+
+          </div>
+
+        )
+
+      }
+
+
+      {/* ======================================
+          STATISTICS
+      ====================================== */}
 
       <div
+
         style={{
-          padding:
-            "35px",
+
+          display:
+            "grid",
+
+          gridTemplateColumns:
+            "repeat(auto-fit, minmax(230px, 1fr))",
+
+          gap:
+            "22px",
+
+          marginBottom:
+            "40px",
+
         }}
+
       >
 
 
-        {/* HEADER */}
+        {/* TOTAL PRODUCTS */}
 
         <div
-          style={{
-            display:
-              "flex",
-            justifyContent:
-              "space-between",
-            alignItems:
-              "center",
-            flexWrap:
-              "wrap",
-            marginBottom:
-              "30px",
-          }}
+          style={cardStyle}
         >
 
-          <div>
+          <div
 
-            <h1
-              style={{
-                margin: 0,
-                color:
-                  "#263238",
-              }}
-            >
-
-              Welcome, Admin 👋
-
-            </h1>
-
-
-            <p
-              style={{
-                color:
-                  "#666",
-              }}
-            >
-
-              Manage your HARI FARMS store from one place.
-
-            </p>
-
-          </div>
-
-
-          <button
-            onClick={fetchAdminStats}
             style={{
-              background:
-                "#276738",
-              color:
-                "white",
-              padding:
-                "13px 22px",
-              border:
-                "none",
-              borderRadius:
-                "8px",
-              cursor:
-                "pointer",
-              fontWeight:
-                "bold",
+
+              display:
+                "flex",
+
+              justifyContent:
+                "space-between",
+
+              alignItems:
+                "center",
+
             }}
+
           >
 
-            🔄 Refresh
+            <div>
 
-          </button>
+              <h3
 
-        </div>
-
-
-        {/* ============================================ */}
-        {/* ERROR */}
-        {/* ============================================ */}
-
-        {
-          error && (
-
-            <div
-              style={{
-                background:
-                  "#fff5f5",
-                border:
-                  "1px solid #ffcaca",
-                color:
-                  "#c0392b",
-                padding:
-                  "20px",
-                borderRadius:
-                  "14px",
-                marginBottom:
-                  "25px",
-              }}
-            >
-
-              <strong>
-                Error:
-              </strong>
-
-              {" "}
-
-              {error}
-
-
-              <br />
-
-
-              <button
-                onClick={fetchAdminStats}
                 style={{
-                  marginTop:
-                    "15px",
-                  padding:
-                    "10px 18px",
-                  border:
-                    "none",
-                  borderRadius:
-                    "7px",
-                  background:
-                    "#c0392b",
+
+                  margin:
+                    0,
+
                   color:
-                    "white",
-                  cursor:
-                    "pointer",
+                    "#666",
+
+                  fontSize:
+                    "16px",
+
                 }}
+
               >
 
-                Try Again
+                Total Products
 
-              </button>
+              </h3>
+
+
+              <h1
+
+                style={{
+
+                  margin:
+                    "18px 0 10px",
+
+                  color:
+                    "#222",
+
+                }}
+
+              >
+
+                {
+                  loading
+                    ? "..."
+                    : stats.totalProducts
+                }
+
+              </h1>
+
+
+              <p
+
+                style={{
+
+                  color:
+                    "#777",
+
+                  margin:
+                    0,
+
+                }}
+
+              >
+
+                Products in your store
+
+              </p>
 
             </div>
 
-          )
-        }
-
-
-        {/* ============================================ */}
-        {/* LOADING */}
-        {/* ============================================ */}
-
-        {
-          loading && (
 
             <div
+
               style={{
-                textAlign:
-                  "center",
-                padding:
-                  "30px",
-              }}
-            >
 
-              Loading dashboard...
-
-            </div>
-
-          )
-        }
-
-
-        {/* ============================================ */}
-        {/* STATISTICS */}
-        {/* ============================================ */}
-
-        {
-          !loading && (
-
-            <div
-              style={{
-                display:
-                  "grid",
-                gridTemplateColumns:
-                  "repeat(auto-fit, minmax(240px, 1fr))",
-                gap:
-                  "22px",
-                marginBottom:
-                  "40px",
-              }}
-            >
-
-
-              {/* PRODUCTS */}
-
-              <div
-                style={{
-                  background:
-                    "#ffffff",
-                  padding:
-                    "28px",
-                  borderRadius:
-                    "20px",
-                  boxShadow:
-                    "0 5px 20px rgba(0,0,0,0.08)",
-                }}
-              >
-
-                <div
-                  style={{
-                    display:
-                      "flex",
-                    justifyContent:
-                      "space-between",
-                  }}
-                >
-
-                  <div>
-
-                    <h4
-                      style={{
-                        margin: 0,
-                        color:
-                          "#666",
-                      }}
-                    >
-
-                      Total Products
-
-                    </h4>
-
-
-                    <h2>
-
-                      {stats.totalProducts}
-
-                    </h2>
-
-
-                    <p
-                      style={{
-                        color:
-                          "#888",
-                      }}
-                    >
-
-                      Products in your store
-
-                    </p>
-
-                  </div>
-
-
-                  <div
-                    style={{
-                      fontSize:
-                        "40px",
-                    }}
-                  >
-
-                    📦
-
-                  </div>
-
-                </div>
-
-              </div>
-
-
-              {/* ORDERS */}
-
-              <div
-                style={{
-                  background:
-                    "#ffffff",
-                  padding:
-                    "28px",
-                  borderRadius:
-                    "20px",
-                  boxShadow:
-                    "0 5px 20px rgba(0,0,0,0.08)",
-                }}
-              >
-
-                <div
-                  style={{
-                    display:
-                      "flex",
-                    justifyContent:
-                      "space-between",
-                  }}
-                >
-
-                  <div>
-
-                    <h4
-                      style={{
-                        margin: 0,
-                        color:
-                          "#666",
-                      }}
-                    >
-
-                      Total Orders
-
-                    </h4>
-
-
-                    <h2>
-
-                      {stats.totalOrders}
-
-                    </h2>
-
-
-                    <p
-                      style={{
-                        color:
-                          "#888",
-                      }}
-                    >
-
-                      Orders received
-
-                    </p>
-
-                  </div>
-
-
-                  <div
-                    style={{
-                      fontSize:
-                        "40px",
-                    }}
-                  >
-
-                    📋
-
-                  </div>
-
-                </div>
-
-              </div>
-
-
-              {/* REVENUE */}
-
-              <div
-                style={{
-                  background:
-                    "#ffffff",
-                  padding:
-                    "28px",
-                  borderRadius:
-                    "20px",
-                  boxShadow:
-                    "0 5px 20px rgba(0,0,0,0.08)",
-                }}
-              >
-
-                <div
-                  style={{
-                    display:
-                      "flex",
-                    justifyContent:
-                      "space-between",
-                  }}
-                >
-
-                  <div>
-
-                    <h4
-                      style={{
-                        margin: 0,
-                        color:
-                          "#666",
-                      }}
-                    >
-
-                      Total Revenue
-
-                    </h4>
-
-
-                    <h2>
-
-                      ₹{
-                        Number(
-                          stats.totalRevenue
-                        ).toFixed(2)
-                      }
-
-                    </h2>
-
-
-                    <p
-                      style={{
-                        color:
-                          "#888",
-                      }}
-                    >
-
-                      Total store revenue
-
-                    </p>
-
-                  </div>
-
-
-                  <div
-                    style={{
-                      fontSize:
-                        "40px",
-                    }}
-                  >
-
-                    💰
-
-                  </div>
-
-                </div>
-
-              </div>
-
-
-              {/* CUSTOMERS */}
-
-              <div
-                style={{
-                  background:
-                    "#ffffff",
-                  padding:
-                    "28px",
-                  borderRadius:
-                    "20px",
-                  boxShadow:
-                    "0 5px 20px rgba(0,0,0,0.08)",
-                }}
-              >
-
-                <div
-                  style={{
-                    display:
-                      "flex",
-                    justifyContent:
-                      "space-between",
-                  }}
-                >
-
-                  <div>
-
-                    <h4
-                      style={{
-                        margin: 0,
-                        color:
-                          "#666",
-                      }}
-                    >
-
-                      Total Customers
-
-                    </h4>
-
-
-                    <h2>
-
-                      {stats.totalCustomers}
-
-                    </h2>
-
-
-                    <p
-                      style={{
-                        color:
-                          "#888",
-                      }}
-                    >
-
-                      Registered customers
-
-                    </p>
-
-                  </div>
-
-
-                  <div
-                    style={{
-                      fontSize:
-                        "40px",
-                    }}
-                  >
-
-                    👥
-
-                  </div>
-
-                </div>
-
-              </div>
-
-            </div>
-
-          )
-        }
-
-
-        {/* ============================================ */}
-        {/* FARM MANAGEMENT */}
-        {/* ============================================ */}
-
-        <h2
-          style={{
-            color:
-              "#294b35",
-            marginBottom:
-              "20px",
-          }}
-        >
-
-          Farm Management
-
-        </h2>
-
-
-        <div
-          style={{
-            display:
-              "grid",
-            gridTemplateColumns:
-              "repeat(auto-fit, minmax(280px, 1fr))",
-            gap:
-              "22px",
-            marginBottom:
-              "35px",
-          }}
-        >
-
-
-          {/* ADD PRODUCT */}
-
-          <div
-            style={{
-              background:
-                "#ffffff",
-              padding:
-                "28px",
-              borderRadius:
-                "20px",
-              boxShadow:
-                "0 5px 20px rgba(0,0,0,0.08)",
-            }}
-          >
-
-            <div
-              style={{
                 fontSize:
-                  "38px",
+                  "42px",
+
               }}
-            >
 
-              ➕
-
-            </div>
-
-
-            <h3>
-
-              Add Product
-
-            </h3>
-
-
-            <p>
-
-              Add a new dairy product to HARI FARMS.
-
-            </p>
-
-
-            <button
-              onClick={handleManageProducts}
-              style={{
-                border:
-                  "none",
-                background:
-                  "transparent",
-                color:
-                  "#2e7d32",
-                fontWeight:
-                  "bold",
-                cursor:
-                  "pointer",
-                padding: 0,
-              }}
-            >
-
-              Manage Products →
-
-            </button>
-
-          </div>
-
-
-          {/* MANAGE PRODUCTS */}
-
-          <div
-            style={{
-              background:
-                "#ffffff",
-              padding:
-                "28px",
-              borderRadius:
-                "20px",
-              boxShadow:
-                "0 5px 20px rgba(0,0,0,0.08)",
-            }}
-          >
-
-            <div
-              style={{
-                fontSize:
-                  "38px",
-              }}
-            >
-
-              🥛
-
-            </div>
-
-
-            <h3>
-
-              Manage Products
-
-            </h3>
-
-
-            <p>
-
-              View and edit all products from the database.
-
-            </p>
-
-
-            <button
-              onClick={handleManageProducts}
-              style={{
-                border:
-                  "none",
-                background:
-                  "transparent",
-                color:
-                  "#2e7d32",
-                fontWeight:
-                  "bold",
-                cursor:
-                  "pointer",
-                padding: 0,
-              }}
-            >
-
-              Manage Products →
-
-            </button>
-
-          </div>
-
-
-          {/* MANAGE ORDERS */}
-
-          <div
-            style={{
-              background:
-                "#ffffff",
-              padding:
-                "28px",
-              borderRadius:
-                "20px",
-              boxShadow:
-                "0 5px 20px rgba(0,0,0,0.08)",
-            }}
-          >
-
-            <div
-              style={{
-                fontSize:
-                  "38px",
-              }}
             >
 
               📦
 
             </div>
 
+          </div>
 
-            <h3>
-
-              Manage Orders
-
-            </h3>
+        </div>
 
 
-            <p>
+        {/* TOTAL ORDERS */}
 
-              View and manage customer orders.
+        <div
+          style={cardStyle}
+        >
 
-            </p>
+          <div
+
+            style={{
+
+              display:
+                "flex",
+
+              justifyContent:
+                "space-between",
+
+              alignItems:
+                "center",
+
+            }}
+
+          >
+
+            <div>
+
+              <h3
+
+                style={{
+
+                  margin:
+                    0,
+
+                  color:
+                    "#666",
+
+                  fontSize:
+                    "16px",
+
+                }}
+
+              >
+
+                Total Orders
+
+              </h3>
 
 
-            <button
-              onClick={handleOrders}
-              style={{
-                border:
-                  "none",
-                background:
-                  "transparent",
-                color:
-                  "#2e7d32",
-                fontWeight:
-                  "bold",
-                cursor:
-                  "pointer",
-                padding: 0,
-              }}
+              <h1
+
+                style={{
+
+                  margin:
+                    "18px 0 10px",
+
+                  color:
+                    "#222",
+
+                }}
+
+              >
+
+                {
+                  loading
+                    ? "..."
+                    : stats.totalOrders
+                }
+
+              </h1>
+
+
+              <p
+
+                style={{
+
+                  color:
+                    "#777",
+
+                  margin:
+                    0,
+
+                }}
+
+              >
+
+                Orders received
+
+              </p>
+
+            </div>
+
+
+            <div
+              style={{ fontSize: "42px" }}
             >
 
-              View Orders →
+              📋
 
-            </button>
+            </div>
 
           </div>
 
         </div>
 
 
-        {/* ============================================ */}
-        {/* RECENT ORDERS */}
-        {/* ============================================ */}
+        {/* TOTAL REVENUE */}
 
         <div
-          style={{
-            background:
-              "#ffffff",
-            padding:
-              "30px",
-            borderRadius:
-              "20px",
-            boxShadow:
-              "0 5px 20px rgba(0,0,0,0.08)",
-          }}
+          style={cardStyle}
         >
 
           <div
+
             style={{
+
               display:
                 "flex",
+
               justifyContent:
                 "space-between",
+
               alignItems:
                 "center",
-              marginBottom:
-                "20px",
+
             }}
+
           >
 
-            <h2>
+            <div>
 
-              Recent Orders
+              <h3
 
-            </h2>
-
-
-            <span
-              style={{
-                background:
-                  "#e8f5e9",
-                color:
-                  "#2e7d32",
-                padding:
-                  "10px 15px",
-                borderRadius:
-                  "20px",
-                fontWeight:
-                  "bold",
-              }}
-            >
-
-              {recentOrders.length} Recent
-
-            </span>
-
-          </div>
-
-
-          {
-            recentOrders.length === 0 ? (
-
-              <p
                 style={{
-                  textAlign:
-                    "center",
-                  padding:
-                    "30px",
+
+                  margin:
+                    0,
+
                   color:
-                    "#777",
+                    "#666",
+
+                  fontSize:
+                    "16px",
+
                 }}
+
               >
 
-                No recent orders found.
+                Total Revenue
+
+              </h3>
+
+
+              <h1
+
+                style={{
+
+                  margin:
+                    "18px 0 10px",
+
+                  color:
+                    "#222",
+
+                }}
+
+              >
+
+                {
+                  loading
+                    ? "..."
+                    : formatCurrency(
+                        stats.totalRevenue
+                      )
+                }
+
+              </h1>
+
+
+              <p
+
+                style={{
+
+                  color:
+                    "#777",
+
+                  margin:
+                    0,
+
+                }}
+
+              >
+
+                Total store revenue
 
               </p>
 
-            ) : (
-
-              recentOrders.map(
-                (order) => (
-
-                  <div
-                    key={order.id}
-                    style={{
-                      padding:
-                        "15px",
-                      borderBottom:
-                        "1px solid #eeeeee",
-                      display:
-                        "flex",
-                      justifyContent:
-                        "space-between",
-                      flexWrap:
-                        "wrap",
-                      gap:
-                        "10px",
-                    }}
-                  >
-
-                    <div>
-
-                      <strong>
-
-                        Order #{order.id}
-
-                      </strong>
+            </div>
 
 
-                      <p
-                        style={{
-                          margin:
-                            "5px 0",
-                        }}
-                      >
+            <div
+              style={{ fontSize: "42px" }}
+            >
 
-                        {order.customer_name ||
-                          order.email ||
-                          "Customer"}
+              💰
 
-                      </p>
+            </div>
 
-                    </div>
+          </div>
+
+        </div>
 
 
-                    <div>
+        {/* TOTAL CUSTOMERS */}
 
-                      ₹{
-                        Number(
-                          order.total || 0
-                        ).toFixed(2)
-                      }
+        <div
+          style={cardStyle}
+        >
 
-                    </div>
+          <div
+
+            style={{
+
+              display:
+                "flex",
+
+              justifyContent:
+                "space-between",
+
+              alignItems:
+                "center",
+
+            }}
+
+          >
+
+            <div>
+
+              <h3
+
+                style={{
+
+                  margin:
+                    0,
+
+                  color:
+                    "#666",
+
+                  fontSize:
+                    "16px",
+
+                }}
+
+              >
+
+                Total Customers
+
+              </h3>
 
 
-                    <div>
+              <h1
 
-                      {order.status ||
-                        "Pending"}
+                style={{
 
-                    </div>
+                  margin:
+                    "18px 0 10px",
 
-                  </div>
+                  color:
+                    "#222",
 
-                )
-              )
+                }}
 
-            )
-          }
+              >
+
+                {
+                  loading
+                    ? "..."
+                    : stats.totalCustomers
+                }
+
+              </h1>
+
+
+              <p
+
+                style={{
+
+                  color:
+                    "#777",
+
+                  margin:
+                    0,
+
+                }}
+
+              >
+
+                Registered customers
+
+              </p>
+
+            </div>
+
+
+            <div
+              style={{ fontSize: "42px" }}
+            >
+
+              👥
+
+            </div>
+
+          </div>
 
         </div>
 
       </div>
+
+
+      {/* ======================================
+          QUICK ACTIONS
+      ====================================== */}
+
+      <h2
+
+        style={{
+
+          color:
+            "#2f4f3a",
+
+          marginBottom:
+            "20px",
+
+        }}
+
+      >
+
+        ⚡ Quick Actions
+
+      </h2>
+
+
+      <div
+
+        style={{
+
+          display:
+            "grid",
+
+          gridTemplateColumns:
+            "repeat(auto-fit, minmax(280px, 1fr))",
+
+          gap:
+            "22px",
+
+          marginBottom:
+            "35px",
+
+        }}
+
+      >
+
+
+        {/* ADD PRODUCT */}
+
+        <div
+          style={cardStyle}
+        >
+
+          <div
+            style={{ fontSize: "45px" }}
+          >
+            ➕
+          </div>
+
+
+          <h2>
+            Add Product
+          </h2>
+
+
+          <p
+            style={{ color: "#666" }}
+          >
+            Add a new dairy product to HARI FARMS.
+          </p>
+
+
+          <button
+
+            onClick={() =>
+              navigate("/add-product")
+            }
+
+            style={buttonStyle}
+
+          >
+
+            Add Product →
+
+          </button>
+
+        </div>
+
+
+        {/* MANAGE PRODUCTS */}
+
+        <div
+          style={cardStyle}
+        >
+
+          <div
+            style={{ fontSize: "45px" }}
+          >
+            🥛
+          </div>
+
+
+          <h2>
+            Manage Products
+          </h2>
+
+
+          <p
+            style={{ color: "#666" }}
+          >
+            View, edit and manage all products.
+          </p>
+
+
+          <button
+
+            onClick={() =>
+              navigate("/products")
+            }
+
+            style={buttonStyle}
+
+          >
+
+            Manage Products →
+
+          </button>
+
+        </div>
+
+
+        {/* MANAGE ORDERS */}
+
+        <div
+          style={cardStyle}
+        >
+
+          <div
+            style={{ fontSize: "45px" }}
+          >
+            📦
+          </div>
+
+
+          <h2>
+            Manage Orders
+          </h2>
+
+
+          <p
+            style={{ color: "#666" }}
+          >
+            View and manage customer orders.
+          </p>
+
+
+          <button
+
+            onClick={() =>
+              navigate("/admin-orders")
+            }
+
+            style={buttonStyle}
+
+          >
+
+            View Orders →
+
+          </button>
+
+        </div>
+
+      </div>
+
+
+      {/* ======================================
+          RECENT ORDERS
+      ====================================== */}
+
+      <div
+        style={cardStyle}
+      >
+
+
+        <div
+
+          style={{
+
+            display:
+              "flex",
+
+            justifyContent:
+              "space-between",
+
+            alignItems:
+              "center",
+
+            marginBottom:
+              "20px",
+
+          }}
+
+        >
+
+          <h2
+            style={{ margin: 0 }}
+          >
+            Recent Orders
+          </h2>
+
+
+          <span
+
+            style={{
+
+              background:
+                "#e8f3e9",
+
+              color:
+                "#2f6b3d",
+
+              padding:
+                "8px 14px",
+
+              borderRadius:
+                "20px",
+
+              fontWeight:
+                "bold",
+
+            }}
+
+          >
+
+            {
+              stats.recentOrders.length
+            } Recent
+
+          </span>
+
+        </div>
+
+
+        {
+
+          loading ? (
+
+            <p>
+              Loading recent orders...
+            </p>
+
+          ) : stats.recentOrders.length === 0 ? (
+
+            <div
+
+              style={{
+
+                textAlign:
+                  "center",
+
+                padding:
+                  "40px",
+
+                color:
+                  "#777",
+
+              }}
+
+            >
+
+              <div
+                style={{ fontSize: "50px" }}
+              >
+                📦
+              </div>
+
+
+              <h3>
+                No orders yet
+              </h3>
+
+
+              <p>
+                Customer orders will appear here.
+              </p>
+
+            </div>
+
+          ) : (
+
+            <div
+
+              style={{
+
+                overflowX:
+                  "auto",
+
+              }}
+
+            >
+
+              <table
+
+                style={{
+
+                  width:
+                    "100%",
+
+                  borderCollapse:
+                    "collapse",
+
+                }}
+
+              >
+
+                <thead>
+
+                  <tr>
+
+                    <th
+                      style={{
+                        textAlign: "left",
+                        padding: "15px",
+                        borderBottom:
+                          "1px solid #ddd",
+                      }}
+                    >
+                      Order ID
+                    </th>
+
+
+                    <th
+                      style={{
+                        textAlign: "left",
+                        padding: "15px",
+                        borderBottom:
+                          "1px solid #ddd",
+                      }}
+                    >
+                      Customer
+                    </th>
+
+
+                    <th
+                      style={{
+                        textAlign: "left",
+                        padding: "15px",
+                        borderBottom:
+                          "1px solid #ddd",
+                      }}
+                    >
+                      Status
+                    </th>
+
+
+                    <th
+                      style={{
+                        textAlign: "left",
+                        padding: "15px",
+                        borderBottom:
+                          "1px solid #ddd",
+                      }}
+                    >
+                      Date
+                    </th>
+
+                  </tr>
+
+                </thead>
+
+
+                <tbody>
+
+                  {
+
+                    stats.recentOrders.map(
+                      (order) => (
+
+                        <tr
+                          key={order.id}
+                        >
+
+                          <td
+                            style={{
+                              padding: "15px",
+                              borderBottom:
+                                "1px solid #eee",
+                            }}
+                          >
+                            #{order.id}
+                          </td>
+
+
+                          <td
+                            style={{
+                              padding: "15px",
+                              borderBottom:
+                                "1px solid #eee",
+                            }}
+                          >
+                            {
+                              order.customer_name ||
+                              `User ${order.user_id}`
+                            }
+                          </td>
+
+
+                          <td
+                            style={{
+                              padding: "15px",
+                              borderBottom:
+                                "1px solid #eee",
+                            }}
+                          >
+
+                            <span
+
+                              style={{
+
+                                background:
+                                  "#fff4d6",
+
+                                padding:
+                                  "6px 12px",
+
+                                borderRadius:
+                                  "15px",
+
+                                fontSize:
+                                  "13px",
+
+                              }}
+
+                            >
+
+                              {
+                                order.status ||
+                                "Pending"
+                              }
+
+                            </span>
+
+                          </td>
+
+
+                          <td
+                            style={{
+                              padding: "15px",
+                              borderBottom:
+                                "1px solid #eee",
+                            }}
+                          >
+
+                            {
+
+                              order.order_date
+
+                                ? new Date(
+                                    order.order_date
+                                  ).toLocaleString()
+
+                                : "Not available"
+
+                            }
+
+                          </td>
+
+                        </tr>
+
+                      )
+                    )
+
+                  }
+
+                </tbody>
+
+              </table>
+
+            </div>
+
+          )
+
+        }
+
+      </div>
+
 
     </div>
 
