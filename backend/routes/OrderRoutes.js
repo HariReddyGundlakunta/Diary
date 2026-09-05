@@ -37,11 +37,14 @@ const authenticateUser = (req, res, next) => {
 
     req.user = decoded;
 
+    console.log("✅ AUTHENTICATED USER:", decoded);
+
     next();
 
   } catch (error) {
+
     console.error(
-      "ORDER AUTH ERROR:",
+      "❌ ORDER AUTH ERROR:",
       error.message
     );
 
@@ -54,15 +57,22 @@ const authenticateUser = (req, res, next) => {
 
 
 // ==================================================
-// GET USER ID FROM TOKEN
+// GET USER ID FROM JWT TOKEN
 // ==================================================
 
 const getUserId = (req) => {
+
+  if (!req.user) {
+    return null;
+  }
+
   return (
-    req.user?.id ||
-    req.user?.userId ||
-    req.user?.user_id
+    req.user.id ||
+    req.user.userId ||
+    req.user.user_id ||
+    null
   );
+
 };
 
 
@@ -84,19 +94,10 @@ router.post(
       );
 
       console.log(
-        "POST /api/orders/checkout"
+        "🛒 CHECKOUT REQUEST RECEIVED"
       );
-
-      // ==========================================
-      // GET USER ID FROM JWT TOKEN
-      // ==========================================
 
       const userId = getUserId(req);
-
-      console.log(
-        "CHECKOUT USER:",
-        req.user
-      );
 
       console.log(
         "USER ID:",
@@ -104,59 +105,85 @@ router.post(
       );
 
 
+      // ==============================================
+      // CHECK USER
+      // ==============================================
+
       if (!userId) {
-        return res.status(401).json({
+
+        return res.status(400).json({
           success: false,
           message:
             "User ID not found in login token",
         });
+
       }
 
 
-      // ==========================================
-      // DATABASE CONNECTION
-      // ==========================================
+      // ==============================================
+      // GET DATABASE CONNECTION
+      // ==============================================
 
       connection =
         await db.getConnection();
 
+
       await connection.beginTransaction();
 
 
-      // ==========================================
+      // ==============================================
       // GET CART ITEMS
-      // ==========================================
+      // ==============================================
 
       const [cartItems] =
         await connection.query(
+
           `
           SELECT
+
             cart_items.id AS cart_id,
+
             cart_items.product_id,
+
             cart_items.quantity,
 
             products.name,
+
             products.price,
+
             products.emoji,
-            products.image,
+
             products.stock
 
           FROM cart_items
 
           INNER JOIN products
-            ON cart_items.product_id = products.id
+
+          ON cart_items.product_id =
+             products.id
 
           WHERE cart_items.user_id = ?
           `,
+
           [userId]
+
         );
 
 
-      // ==========================================
-      // CHECK EMPTY CART
-      // ==========================================
+      console.log(
+        "CART ITEMS:",
+        cartItems
+      );
 
-      if (cartItems.length === 0) {
+
+      // ==============================================
+      // CHECK EMPTY CART
+      // ==============================================
+
+      if (
+        !cartItems ||
+        cartItems.length === 0
+      ) {
 
         await connection.rollback();
 
@@ -165,30 +192,41 @@ router.post(
           message:
             "Your cart is empty",
         });
+
       }
 
 
-      // ==========================================
+      // ==============================================
       // CALCULATE TOTAL
-      // ==========================================
+      // ==============================================
 
       let total = 0;
+
 
       for (const item of cartItems) {
 
         total +=
+
           Number(item.price || 0) *
+
           Number(item.quantity || 0);
 
       }
 
 
-      // ==========================================
+      console.log(
+        "ORDER TOTAL:",
+        total
+      );
+
+
+      // ==============================================
       // CREATE ORDER
-      // ==========================================
+      // ==============================================
 
       const [orderResult] =
         await connection.query(
+
           `
           INSERT INTO orders
           (
@@ -196,13 +234,16 @@ router.post(
             total,
             status
           )
+
           VALUES (?, ?, ?)
           `,
+
           [
             userId,
             total,
             "Pending",
           ]
+
         );
 
 
@@ -216,32 +257,14 @@ router.post(
       );
 
 
-      // ==========================================
-      // CREATE ORDER ITEMS
-      // ==========================================
+      // ==============================================
+      // INSERT ORDER ITEMS
+      // ==============================================
 
       for (const item of cartItems) {
 
-        // ----------------------------------------
-        // CHECK STOCK
-        // ----------------------------------------
-
-        if (
-          Number(item.stock) <
-          Number(item.quantity)
-        ) {
-
-          throw new Error(
-            `${item.name} does not have enough stock`
-          );
-        }
-
-
-        // ----------------------------------------
-        // INSERT ORDER ITEM
-        // ----------------------------------------
-
         await connection.query(
+
           `
           INSERT INTO order_items
           (
@@ -252,57 +275,76 @@ router.post(
             quantity,
             emoji
           )
+
           VALUES (?, ?, ?, ?, ?, ?)
           `,
+
           [
             orderId,
+
             item.product_id,
+
             item.name,
+
             item.price,
+
             item.quantity,
+
             item.emoji || "🥛",
           ]
+
         );
 
 
-        // ----------------------------------------
+        // ============================================
         // UPDATE STOCK
-        // ----------------------------------------
+        // ============================================
 
         await connection.query(
+
           `
           UPDATE products
 
-          SET stock = stock - ?
+          SET stock =
+            GREATEST(
+              stock - ?,
+              0
+            )
 
           WHERE id = ?
           `,
+
           [
-            item.quantity,
+            Number(item.quantity),
+
             item.product_id,
           ]
+
         );
 
       }
 
 
-      // ==========================================
+      // ==============================================
       // CLEAR CART
-      // ==========================================
+      // ==============================================
 
       await connection.query(
+
         `
         DELETE FROM cart_items
 
         WHERE user_id = ?
         `,
+
         [userId]
+
       );
 
 
-      // ==========================================
+      // ==============================================
       // COMMIT
-      // ==========================================
+      // ==============================================
 
       await connection.commit();
 
@@ -321,22 +363,23 @@ router.post(
       );
 
       console.log(
-        "TOTAL:",
-        total
-      );
-
-      console.log(
         "================================="
       );
 
 
       return res.status(201).json({
+
         success: true,
+
         message:
           "Order placed successfully",
+
         orderId,
+
         total,
+
       });
+
 
     } catch (error) {
 
@@ -345,9 +388,10 @@ router.post(
       );
 
       console.error(
-        "❌ CHECKOUT ERROR:",
-        error.message
+        "❌ CHECKOUT ERROR"
       );
+
+      console.error(error);
 
       console.error(
         "================================="
@@ -355,21 +399,42 @@ router.post(
 
 
       if (connection) {
-        await connection.rollback();
+
+        try {
+
+          await connection.rollback();
+
+        } catch (rollbackError) {
+
+          console.error(
+            "ROLLBACK ERROR:",
+            rollbackError.message
+          );
+
+        }
+
       }
 
 
       return res.status(500).json({
+
         success: false,
+
         message:
-          error.message ||
           "Failed to place order",
+
+        error:
+          error.message,
+
       });
+
 
     } finally {
 
       if (connection) {
+
         connection.release();
+
       }
 
     }
@@ -379,7 +444,8 @@ router.post(
 
 
 // ==================================================
-// GET LOGGED-IN USER ORDERS
+// GET MY ORDERS
+// IMPORTANT: THIS MUST COME BEFORE "/:orderId"
 // ==================================================
 
 router.get(
@@ -389,53 +455,124 @@ router.get(
 
     try {
 
-      const userId = getUserId(req);
+      console.log(
+        "================================="
+      );
+
+      console.log(
+        "📦 FETCHING MY ORDERS"
+      );
+
+
+      const userId =
+        getUserId(req);
+
+
+      console.log(
+        "USER ID:",
+        userId
+      );
+
+
+      // ==============================================
+      // CHECK USER ID
+      // ==============================================
 
       if (!userId) {
-        return res.status(401).json({
+
+        return res.status(400).json({
+
           success: false,
+
           message:
             "User ID not found in login token",
+
         });
+
       }
 
 
+      // ==============================================
+      // FETCH ORDERS
+      // ==============================================
+
       const [orders] =
         await db.query(
+
           `
           SELECT
+
             id,
+
             user_id,
+
             total,
+
             status,
+
             created_at
 
           FROM orders
 
           WHERE user_id = ?
 
-          ORDER BY id DESC
+          ORDER BY created_at DESC, id DESC
           `,
+
           [userId]
+
         );
 
 
+      console.log(
+        "ORDERS FOUND:",
+        orders.length
+      );
+
+
       return res.status(200).json({
+
         success: true,
-        orders,
+
+        orders:
+          Array.isArray(orders)
+            ? orders
+            : [],
+
       });
+
 
     } catch (error) {
 
       console.error(
-        "GET MY ORDERS ERROR:",
-        error
+        "================================="
       );
 
+      console.error(
+        "❌ GET MY ORDERS ERROR"
+      );
+
+      console.error(
+        error.message
+      );
+
+      console.error(error);
+
+      console.error(
+        "================================="
+      );
+
+
       return res.status(500).json({
+
         success: false,
+
         message:
           "Failed to fetch orders",
+
+        error:
+          error.message,
+
       });
 
     }
@@ -455,25 +592,53 @@ router.get(
 
     try {
 
-      const userId = getUserId(req);
+      const userId =
+        getUserId(req);
+
 
       const orderId =
         Number(req.params.orderId);
 
 
-      if (!orderId) {
-        return res.status(400).json({
+      // ==============================================
+      // VALIDATE
+      // ==============================================
+
+      if (!userId) {
+
+        return res.status(401).json({
+
           success: false,
+
           message:
-            "Invalid order ID",
+            "User ID not found",
+
         });
+
       }
 
 
-      // Get only the logged-in user's order
+      if (!orderId) {
+
+        return res.status(400).json({
+
+          success: false,
+
+          message:
+            "Invalid order ID",
+
+        });
+
+      }
+
+
+      // ==============================================
+      // GET ORDER
+      // ==============================================
 
       const [orders] =
         await db.query(
+
           `
           SELECT *
 
@@ -482,24 +647,36 @@ router.get(
           WHERE id = ?
           AND user_id = ?
           `,
+
           [
             orderId,
             userId,
           ]
+
         );
 
 
       if (orders.length === 0) {
+
         return res.status(404).json({
+
           success: false,
+
           message:
             "Order not found",
+
         });
+
       }
 
 
+      // ==============================================
+      // GET ORDER ITEMS
+      // ==============================================
+
       const [items] =
         await db.query(
+
           `
           SELECT *
 
@@ -507,27 +684,42 @@ router.get(
 
           WHERE order_id = ?
           `,
+
           [orderId]
+
         );
 
 
       return res.status(200).json({
+
         success: true,
-        order: orders[0],
+
+        order:
+          orders[0],
+
         items,
+
       });
+
 
     } catch (error) {
 
       console.error(
-        "GET ORDER ERROR:",
+        "❌ GET SINGLE ORDER ERROR:",
         error
       );
 
+
       return res.status(500).json({
+
         success: false,
+
         message:
           "Failed to fetch order",
+
+        error:
+          error.message,
+
       });
 
     }

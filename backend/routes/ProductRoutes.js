@@ -1,5 +1,4 @@
 const express = require("express");
-const jwt = require("jsonwebtoken");
 
 const router = express.Router();
 
@@ -7,943 +6,478 @@ const db = require("../db");
 
 
 // ==================================================
-// AUTHENTICATE USER
+// GET ALL PRODUCTS
 // ==================================================
 
-const authenticateUser = async (req, res, next) => {
+router.get("/", async (req, res) => {
 
   try {
 
-    const authorizationHeader =
-      req.headers.authorization;
+    const [products] = await db.query(`
+      SELECT
+        id,
+        name,
+        price,
+        unit,
+        description,
+        emoji,
+        image,
+        stock
+      FROM products
+      ORDER BY id DESC
+    `);
+
+    return res.status(200).json({
+      success: true,
+      products,
+    });
+
+  } catch (error) {
+
+    console.error(
+      "GET PRODUCTS ERROR:",
+      error
+    );
+
+    return res.status(500).json({
+      success: false,
+      message: "Failed to fetch products",
+      error: error.message,
+    });
+
+  }
+
+});
 
 
-    // ----------------------------------------------
-    // CHECK AUTHORIZATION HEADER
-    // ----------------------------------------------
+// ==================================================
+// GET SINGLE PRODUCT
+// ==================================================
 
-    if (!authorizationHeader) {
+router.get("/:id", async (req, res) => {
 
-      return res.status(401).json({
+  try {
+
+    const productId =
+      Number(req.params.id);
+
+
+    if (!productId) {
+
+      return res.status(400).json({
         success: false,
-        message: "Authentication token is required",
+        message: "Invalid product ID",
       });
 
     }
 
 
-    // Expected:
-    //
-    // Authorization: Bearer TOKEN
-
-    const token =
-      authorizationHeader.startsWith("Bearer ")
-        ? authorizationHeader.split(" ")[1]
-        : null;
-
-
-    if (!token) {
-
-      return res.status(401).json({
-        success: false,
-        message: "Invalid authentication token",
-      });
-
-    }
-
-
-    // ----------------------------------------------
-    // VERIFY TOKEN
-    // ----------------------------------------------
-
-    const decoded =
-      jwt.verify(
-        token,
-        process.env.JWT_SECRET
-      );
-
-
-    // ----------------------------------------------
-    // GET USER ID FROM TOKEN
-    // ----------------------------------------------
-
-    const userId =
-      decoded.id ||
-      decoded.userId ||
-      decoded.user_id;
-
-
-    if (!userId) {
-
-      return res.status(401).json({
-        success: false,
-        message: "Invalid user token",
-      });
-
-    }
-
-
-    // ----------------------------------------------
-    // GET USER FROM DATABASE
-    // ----------------------------------------------
-
-    const [users] =
+    const [products] =
       await db.query(
         `
         SELECT
           id,
           name,
-          email,
-          role
-        FROM users
+          price,
+          unit,
+          description,
+          emoji,
+          image,
+          stock
+        FROM products
         WHERE id = ?
         `,
-        [userId]
+        [productId]
       );
 
 
-    if (users.length === 0) {
+    if (products.length === 0) {
 
-      return res.status(401).json({
+      return res.status(404).json({
         success: false,
-        message: "User not found",
+        message: "Product not found",
       });
 
     }
 
 
-    // ----------------------------------------------
-    // SAVE USER IN REQUEST
-    // ----------------------------------------------
-
-    req.user =
-      users[0];
-
-
-    next();
+    return res.status(200).json({
+      success: true,
+      product: products[0],
+    });
 
   } catch (error) {
 
     console.error(
-      "AUTHENTICATION ERROR:",
-      error.message
+      "GET SINGLE PRODUCT ERROR:",
+      error
     );
-
-
-    if (
-      error.name === "JsonWebTokenError" ||
-      error.name === "TokenExpiredError"
-    ) {
-
-      return res.status(401).json({
-        success: false,
-        message: "Invalid or expired token",
-      });
-
-    }
-
 
     return res.status(500).json({
       success: false,
-      message: "Authentication failed",
+      message: "Failed to fetch product",
+      error: error.message,
     });
 
   }
 
-};
-
-
-// ==================================================
-// REQUIRE ADMIN
-// ==================================================
-
-const requireAdmin = (
-  req,
-  res,
-  next
-) => {
-
-  if (!req.user) {
-
-    return res.status(401).json({
-      success: false,
-      message: "Authentication required",
-    });
-
-  }
-
-
-  if (
-    req.user.role !== "admin"
-  ) {
-
-    return res.status(403).json({
-      success: false,
-      message:
-        "Only administrators can perform this operation",
-    });
-
-  }
-
-
-  next();
-
-};
-
-
-// ==================================================
-// FORMAT PRODUCT IMAGE
-// ==================================================
-
-const formatProduct = (
-  product,
-  req
-) => {
-
-  let imageUrl =
-    product.image || "";
-
-
-  // ----------------------------------------------
-  // NO IMAGE
-  // ----------------------------------------------
-
-  if (!imageUrl) {
-
-    return {
-      ...product,
-      image: "",
-    };
-
-  }
-
-
-  // ----------------------------------------------
-  // EXTERNAL IMAGE
-  // ----------------------------------------------
-
-  if (
-    imageUrl.startsWith("http://") ||
-    imageUrl.startsWith("https://")
-  ) {
-
-    return {
-      ...product,
-      image: imageUrl,
-    };
-
-  }
-
-
-  // ----------------------------------------------
-  // LOCAL UPLOAD IMAGE
-  // ----------------------------------------------
-
-  // Remove /uploads/ if it already exists
-
-  imageUrl =
-    imageUrl.replace(
-      /^\/uploads\//,
-      ""
-    );
-
-
-  const baseUrl =
-    `${req.protocol}://${req.get("host")}`;
-
-
-  return {
-
-    ...product,
-
-    image:
-      `${baseUrl}/uploads/${imageUrl}`,
-
-  };
-
-};
-
-
-// ==================================================
-// GET ALL PRODUCTS
-// PUBLIC
-// ==================================================
-
-router.get(
-  "/",
-
-  async (req, res) => {
-
-    try {
-
-      console.log(
-        "================================="
-      );
-
-      console.log(
-        "GET /api/products"
-      );
-
-
-      const [products] =
-        await db.query(`
-          SELECT
-            id,
-            name,
-            price,
-            unit,
-            description,
-            emoji,
-            image,
-            stock,
-            created_at
-          FROM products
-          ORDER BY id DESC
-        `);
-
-
-      const formattedProducts =
-        products.map(
-          (product) =>
-            formatProduct(
-              product,
-              req
-            )
-        );
-
-
-      console.log(
-        "✅ Products found:",
-        formattedProducts.length
-      );
-
-
-      return res.status(200).json(
-        formattedProducts
-      );
-
-    } catch (error) {
-
-      console.error(
-        "❌ GET PRODUCTS ERROR:",
-        error
-      );
-
-
-      return res.status(500).json({
-
-        success: false,
-
-        message:
-          "Failed to fetch products",
-
-        error:
-          error.message,
-
-      });
-
-    }
-
-  }
-);
-
-
-// ==================================================
-// GET SINGLE PRODUCT
-// PUBLIC
-// ==================================================
-
-router.get(
-  "/:id",
-
-  async (req, res) => {
-
-    try {
-
-      const { id } =
-        req.params;
-
-
-      const [products] =
-        await db.query(
-          `
-          SELECT
-            id,
-            name,
-            price,
-            unit,
-            description,
-            emoji,
-            image,
-            stock,
-            created_at
-          FROM products
-          WHERE id = ?
-          `,
-          [id]
-        );
-
-
-      if (
-        products.length === 0
-      ) {
-
-        return res.status(404).json({
-
-          success: false,
-
-          message:
-            "Product not found",
-
-        });
-
-      }
-
-
-      const product =
-        formatProduct(
-          products[0],
-          req
-        );
-
-
-      return res.status(200).json(
-        product
-      );
-
-    } catch (error) {
-
-      console.error(
-        "❌ GET SINGLE PRODUCT ERROR:",
-        error
-      );
-
-
-      return res.status(500).json({
-
-        success: false,
-
-        message:
-          "Failed to fetch product",
-
-        error:
-          error.message,
-
-      });
-
-    }
-
-  }
-);
+});
 
 
 // ==================================================
 // ADD PRODUCT
-// ADMIN ONLY
 // ==================================================
 
-router.post(
-  "/",
-
-  authenticateUser,
-
-  requireAdmin,
-
-  async (req, res) => {
-
-    try {
-
-      const {
-
-        name,
-
-        price,
-
-        unit,
-
-        description,
-
-        emoji,
-
-        image,
-
-        stock,
-
-      } = req.body;
-
-
-      // ----------------------------------------------
-      // VALIDATION
-      // ----------------------------------------------
-
-      if (
-        !name ||
-        !name.trim()
-      ) {
-
-        return res.status(400).json({
-
-          success: false,
-
-          message:
-            "Product name is required",
-
-        });
-
-      }
-
-
-      if (
-        price === undefined ||
-        price === ""
-      ) {
-
-        return res.status(400).json({
-
-          success: false,
-
-          message:
-            "Product price is required",
-
-        });
-
-      }
-
-
-      const productPrice =
-        Number(price);
-
-
-      const productStock =
-        stock === undefined ||
-        stock === ""
-          ? 0
-          : Number(stock);
-
-
-      if (
-        Number.isNaN(productPrice) ||
-        productPrice < 0
-      ) {
-
-        return res.status(400).json({
-
-          success: false,
-
-          message:
-            "Price must be a valid positive number",
-
-        });
-
-      }
-
-
-      if (
-        Number.isNaN(productStock) ||
-        productStock < 0
-      ) {
-
-        return res.status(400).json({
-
-          success: false,
-
-          message:
-            "Stock must be a valid positive number",
-
-        });
-
-      }
-
-
-      // ----------------------------------------------
-      // INSERT PRODUCT
-      // ----------------------------------------------
-
-      const [result] =
-        await db.query(
-          `
-          INSERT INTO products
-          (
-            name,
-            price,
-            unit,
-            description,
-            emoji,
-            image,
-            stock
-          )
-          VALUES (?, ?, ?, ?, ?, ?, ?)
-          `,
-          [
-
-            name.trim(),
-
-            productPrice,
-
-            unit || "",
-
-            description || "",
-
-            emoji || "🥛",
-
-            image || "",
-
-            productStock,
-
-          ]
-        );
-
-
-      console.log(
-        "✅ PRODUCT ADDED BY ADMIN:",
-        req.user.email
-      );
-
-
-      return res.status(201).json({
-
-        success: true,
-
-        message:
-          "Product added successfully",
-
-        productId:
-          result.insertId,
-
-      });
-
-    } catch (error) {
-
-      console.error(
-        "❌ ADD PRODUCT ERROR:",
-        error
-      );
-
-
-      return res.status(500).json({
-
+router.post("/", async (req, res) => {
+
+  try {
+
+    const {
+      name,
+      price,
+      unit,
+      description,
+      emoji,
+      image,
+      stock,
+    } = req.body;
+
+
+    if (
+      !name ||
+      price === undefined ||
+      price === ""
+    ) {
+
+      return res.status(400).json({
         success: false,
-
         message:
-          "Failed to add product",
-
-        error:
-          error.message,
-
+          "Product name and price are required",
       });
 
     }
 
+
+    const productPrice =
+      Number(price);
+
+
+    const productStock =
+      stock === undefined ||
+      stock === ""
+        ? 0
+        : Number(stock);
+
+
+    if (
+      Number.isNaN(productPrice) ||
+      productPrice < 0
+    ) {
+
+      return res.status(400).json({
+        success: false,
+        message:
+          "Price must be a valid number",
+      });
+
+    }
+
+
+    if (
+      Number.isNaN(productStock) ||
+      productStock < 0
+    ) {
+
+      return res.status(400).json({
+        success: false,
+        message:
+          "Stock must be a valid number",
+      });
+
+    }
+
+
+    const [result] =
+      await db.query(
+        `
+        INSERT INTO products
+        (
+          name,
+          price,
+          unit,
+          description,
+          emoji,
+          image,
+          stock
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+        `,
+        [
+          name.trim(),
+          productPrice,
+          unit || "",
+          description || "",
+          emoji || "🥛",
+          image || "",
+          productStock,
+        ]
+      );
+
+
+    return res.status(201).json({
+      success: true,
+      message:
+        "Product added successfully",
+      productId:
+        result.insertId,
+    });
+
+  } catch (error) {
+
+    console.error(
+      "ADD PRODUCT ERROR:",
+      error
+    );
+
+    return res.status(500).json({
+      success: false,
+      message:
+        "Failed to add product",
+      error:
+        error.message,
+    });
+
   }
-);
+
+});
 
 
 // ==================================================
 // UPDATE PRODUCT
-// ADMIN ONLY
 // ==================================================
 
-router.put(
-  "/:id",
+router.put("/:id", async (req, res) => {
 
-  authenticateUser,
+  try {
 
-  requireAdmin,
-
-  async (req, res) => {
-
-    try {
-
-      const { id } =
-        req.params;
+    const productId =
+      Number(req.params.id);
 
 
-      const {
-
-        name,
-
-        price,
-
-        unit,
-
-        description,
-
-        emoji,
-
-        image,
-
-        stock,
-
-      } = req.body;
+    const {
+      name,
+      price,
+      unit,
+      description,
+      emoji,
+      image,
+      stock,
+    } = req.body;
 
 
-      // ----------------------------------------------
-      // CHECK PRODUCT
-      // ----------------------------------------------
+    if (!productId) {
 
-      const [existingProducts] =
-        await db.query(
-          `
-          SELECT id
-          FROM products
-          WHERE id = ?
-          `,
-          [id]
-        );
+      return res.status(400).json({
+        success: false,
+        message:
+          "Invalid product ID",
+      });
+
+    }
 
 
-      if (
-        existingProducts.length === 0
-      ) {
+    if (
+      !name ||
+      price === undefined ||
+      price === ""
+    ) {
 
-        return res.status(404).json({
+      return res.status(400).json({
+        success: false,
+        message:
+          "Product name and price are required",
+      });
 
-          success: false,
-
-          message:
-            "Product not found",
-
-        });
-
-      }
-
-
-      // ----------------------------------------------
-      // VALIDATION
-      // ----------------------------------------------
-
-      if (
-        !name ||
-        !name.trim()
-      ) {
-
-        return res.status(400).json({
-
-          success: false,
-
-          message:
-            "Product name is required",
-
-        });
-
-      }
+    }
 
 
-      const productPrice =
-        Number(price);
+    const productPrice =
+      Number(price);
 
 
-      const productStock =
-        Number(stock);
+    const productStock =
+      stock === undefined ||
+      stock === ""
+        ? 0
+        : Number(stock);
 
 
-      if (
-        Number.isNaN(productPrice) ||
-        productPrice < 0
-      ) {
+    if (
+      Number.isNaN(productPrice) ||
+      productPrice < 0
+    ) {
 
-        return res.status(400).json({
+      return res.status(400).json({
+        success: false,
+        message:
+          "Price must be a valid number",
+      });
 
-          success: false,
-
-          message:
-            "Price must be a valid positive number",
-
-        });
-
-      }
+    }
 
 
-      if (
-        Number.isNaN(productStock) ||
-        productStock < 0
-      ) {
+    if (
+      Number.isNaN(productStock) ||
+      productStock < 0
+    ) {
 
-        return res.status(400).json({
+      return res.status(400).json({
+        success: false,
+        message:
+          "Stock must be a valid number",
+      });
 
-          success: false,
-
-          message:
-            "Stock must be a valid positive number",
-
-        });
-
-      }
+    }
 
 
-      // ----------------------------------------------
-      // UPDATE PRODUCT
-      // ----------------------------------------------
-
+    const [result] =
       await db.query(
         `
         UPDATE products
+
         SET
-
           name = ?,
-
           price = ?,
-
           unit = ?,
-
           description = ?,
-
           emoji = ?,
-
           image = ?,
-
           stock = ?
 
         WHERE id = ?
         `,
         [
-
           name.trim(),
-
           productPrice,
-
           unit || "",
-
           description || "",
-
           emoji || "🥛",
-
           image || "",
-
           productStock,
-
-          id,
-
+          productId,
         ]
       );
 
 
-      console.log(
-        "✏️ PRODUCT UPDATED BY ADMIN:",
-        req.user.email
-      );
+    if (
+      result.affectedRows === 0
+    ) {
 
-
-      return res.status(200).json({
-
-        success: true,
-
-        message:
-          "Product updated successfully",
-
-      });
-
-    } catch (error) {
-
-      console.error(
-        "❌ UPDATE PRODUCT ERROR:",
-        error
-      );
-
-
-      return res.status(500).json({
-
+      return res.status(404).json({
         success: false,
-
         message:
-          "Failed to update product",
-
-        error:
-          error.message,
-
+          "Product not found",
       });
 
     }
 
+
+    return res.status(200).json({
+      success: true,
+      message:
+        "Product updated successfully",
+    });
+
+  } catch (error) {
+
+    console.error(
+      "UPDATE PRODUCT ERROR:",
+      error
+    );
+
+    return res.status(500).json({
+      success: false,
+      message:
+        "Failed to update product",
+      error:
+        error.message,
+    });
+
   }
-);
+
+});
 
 
 // ==================================================
 // DELETE PRODUCT
-// ADMIN ONLY
 // ==================================================
 
-router.delete(
-  "/:id",
+router.delete("/:id", async (req, res) => {
 
-  authenticateUser,
+  try {
 
-  requireAdmin,
-
-  async (req, res) => {
-
-    try {
-
-      const { id } =
-        req.params;
+    const productId =
+      Number(req.params.id);
 
 
-      const [result] =
-        await db.query(
-          `
-          DELETE FROM products
-          WHERE id = ?
-          `,
-          [id]
-        );
+    if (!productId) {
 
-
-      if (
-        result.affectedRows === 0
-      ) {
-
-        return res.status(404).json({
-
-          success: false,
-
-          message:
-            "Product not found",
-
-        });
-
-      }
-
-
-      console.log(
-        "🗑️ PRODUCT DELETED BY ADMIN:",
-        req.user.email
-      );
-
-
-      return res.status(200).json({
-
-        success: true,
-
-        message:
-          "Product deleted successfully",
-
-      });
-
-    } catch (error) {
-
-      console.error(
-        "❌ DELETE PRODUCT ERROR:",
-        error
-      );
-
-
-      return res.status(500).json({
-
+      return res.status(400).json({
         success: false,
-
         message:
-          "Failed to delete product",
-
-        error:
-          error.message,
-
+          "Invalid product ID",
       });
 
     }
 
+
+    const [result] =
+      await db.query(
+        `
+        DELETE FROM products
+        WHERE id = ?
+        `,
+        [productId]
+      );
+
+
+    if (
+      result.affectedRows === 0
+    ) {
+
+      return res.status(404).json({
+        success: false,
+        message:
+          "Product not found",
+      });
+
+    }
+
+
+    return res.status(200).json({
+      success: true,
+      message:
+        "Product deleted successfully",
+    });
+
+  } catch (error) {
+
+    console.error(
+      "DELETE PRODUCT ERROR:",
+      error
+    );
+
+    return res.status(500).json({
+      success: false,
+      message:
+        "Failed to delete product",
+      error:
+        error.message,
+    });
+
   }
-);
+
+});
 
 
 // ==================================================
