@@ -1,7 +1,8 @@
 import React, {
-  useEffect,
-  useState,
   useCallback,
+  useEffect,
+  useMemo,
+  useState,
 } from "react";
 
 import axios from "axios";
@@ -13,121 +14,94 @@ import {
 
 function Products() {
 
-  const navigate =
-    useNavigate();
+  // ================================================
+  // NAVIGATION
+  // ================================================
+
+  const navigate = useNavigate();
 
 
-  // ==================================================
+  // ================================================
   // API URL
-  // ==================================================
+  // ================================================
 
   const API_URL =
     process.env.REACT_APP_API_URL ||
     "http://localhost:5000";
 
 
-  // ==================================================
+  // ================================================
   // STATE
-  // ==================================================
+  // ================================================
 
   const [products, setProducts] =
     useState([]);
 
-
   const [loading, setLoading] =
     useState(true);
-
 
   const [error, setError] =
     useState("");
 
-
   const [message, setMessage] =
     useState("");
 
+  const [search, setSearch] =
+    useState("");
 
   const [user, setUser] =
     useState(null);
 
-
   const [addingProduct, setAddingProduct] =
     useState(null);
-
-
-  // ==================================================
-  // ADMIN PRODUCT FORM
-  // ==================================================
 
   const [showForm, setShowForm] =
     useState(false);
 
-
   const [editingProduct, setEditingProduct] =
     useState(null);
 
+  const [formLoading, setFormLoading] =
+    useState(false);
+
+
+  // ================================================
+  // PRODUCT FORM
+  // ================================================
 
   const [formData, setFormData] =
     useState({
+
       name: "",
-      price: "",
+
       description: "",
-      image: "",
+
+      price: "",
+
+      quantity: "",
+
       stock: "",
+
+      image_url: "",
+
     });
 
 
-  // ==================================================
-  // DEFAULT PRODUCT IMAGES
-  // ==================================================
-
-  const productImages = {
-
-    milk:
-      "https://images.unsplash.com/photo-1550583724-b2692b85b150?auto=format&fit=crop&w=800&q=80",
-
-    paneer:
-      "https://images.unsplash.com/photo-1631452180519-c014fe946bc7?auto=format&fit=crop&w=800&q=80",
-
-    cheese:
-      "https://images.unsplash.com/photo-1486297678162-eb2a19b0a32d?auto=format&fit=crop&w=800&q=80",
-
-    butter:
-      "https://images.unsplash.com/photo-1589985270826-4b7bb135bc9d?auto=format&fit=crop&w=800&q=80",
-
-    ghee:
-      "https://images.unsplash.com/photo-1589985270826-4b7bb135bc9d?auto=format&fit=crop&w=800&q=80",
-
-    curd:
-      "https://images.unsplash.com/photo-1571212515416-fef01fc43637?auto=format&fit=crop&w=800&q=80",
-
-    yogurt:
-      "https://images.unsplash.com/photo-1571212515416-fef01fc43637?auto=format&fit=crop&w=800&q=80",
-
-    cream:
-      "https://images.unsplash.com/photo-1571212515416-fef01fc43637?auto=format&fit=crop&w=800&q=80",
-
-    default:
-      "https://images.unsplash.com/photo-1563636619-e9143da7973b?auto=format&fit=crop&w=800&q=80",
-
-  };
-
-
-  // ==================================================
-  // GET CURRENT USER
-  // ==================================================
+  // ================================================
+  // GET LOGGED IN USER
+  // ================================================
 
   useEffect(() => {
 
     try {
 
-      const savedUser =
+      const storedUser =
         localStorage.getItem("user");
 
-
-      if (savedUser) {
+      if (storedUser) {
 
         setUser(
-          JSON.parse(savedUser)
+          JSON.parse(storedUser)
         );
 
       }
@@ -144,267 +118,347 @@ function Products() {
   }, []);
 
 
-  // ==================================================
+  // ================================================
+  // CHECK ADMIN
+  // ================================================
+
+  const isAdmin =
+    user?.role?.toLowerCase() === "admin";
+
+
+  // ================================================
+  // PRODUCT FALLBACK IMAGES
+  // ================================================
+
+  const productImages = useMemo(() => ({
+
+    milk:
+      "https://images.unsplash.com/photo-1563636619-e9143da7973b?auto=format&fit=crop&w=800&q=80",
+
+    paneer:
+      "https://images.unsplash.com/photo-1631452180519-c014fe946bc7?auto=format&fit=crop&w=800&q=80",
+
+    cheese:
+      "https://images.unsplash.com/photo-1486297678162-eb2a19b0a32d?auto=format&fit=crop&w=800&q=80",
+
+    butter:
+      "https://images.unsplash.com/photo-1589985270826-4b7bb135bc9d?auto=format&fit=crop&w=800&q=80",
+
+    curd:
+      "https://images.unsplash.com/photo-1571212515416-fca88f6b4a49?auto=format&fit=crop&w=800&q=80",
+
+    yogurt:
+      "https://images.unsplash.com/photo-1488477181946-6428a0291777?auto=format&fit=crop&w=800&q=80",
+
+    cream:
+      "https://images.unsplash.com/photo-1571212515416-fca88f6b4a49?auto=format&fit=crop&w=800&q=80",
+
+    ghee:
+      "https://images.unsplash.com/photo-1601050690597-df0568f70950?auto=format&fit=crop&w=800&q=80",
+
+    lassi:
+      "https://images.unsplash.com/photo-1577805947697-89e18249d767?auto=format&fit=crop&w=800&q=80",
+
+    milkshake:
+      "https://images.unsplash.com/photo-1572490122747-3968b75cc699?auto=format&fit=crop&w=800&q=80",
+
+    kulfi:
+      "https://images.unsplash.com/photo-1570197788417-0e82375c9371?auto=format&fit=crop&w=800&q=80",
+
+    rabri:
+      "https://images.unsplash.com/photo-1571115177098-24ec42ed204d?auto=format&fit=crop&w=800&q=80",
+
+    khoa:
+      "https://images.unsplash.com/photo-1582058091505-f87a2e55a40f?auto=format&fit=crop&w=800&q=80",
+
+    default:
+      "https://images.unsplash.com/photo-1550583724-b2692b85b150?auto=format&fit=crop&w=800&q=80",
+
+  }), []);
+
+
+  // ================================================
   // GET PRODUCT IMAGE
-  // ==================================================
+  // ================================================
 
   const getProductImage =
-    useCallback(
-      (product) => {
+    useCallback((product) => {
 
-        // ----------------------------------------------
-        // IMAGE FROM DATABASE
-        // ----------------------------------------------
+      if (
+        product.image_url &&
+        String(product.image_url).trim() !== ""
+      ) {
+
+        const image =
+          String(product.image_url).trim();
+
+
+        // FULL URL
 
         if (
-          product.image
+          image.startsWith("http://") ||
+          image.startsWith("https://")
         ) {
 
-          if (
-            product.image.startsWith("http")
-          ) {
-
-            return product.image;
-
-          }
-
-
-          if (
-            product.image.startsWith("/uploads")
-          ) {
-
-            return `${API_URL}${product.image}`;
-
-          }
-
-
-          if (
-            product.image.startsWith("uploads/")
-          ) {
-
-            return `${API_URL}/${product.image}`;
-
-          }
-
-
-          return product.image;
+          return image;
 
         }
 
 
-        // ----------------------------------------------
-        // IMAGE_URL FROM DATABASE
-        // ----------------------------------------------
+        // BACKEND UPLOAD URL
 
         if (
-          product.image_url
+          image.startsWith("/uploads/")
         ) {
 
-          if (
-            product.image_url.startsWith("http")
-          ) {
-
-            return product.image_url;
-
-          }
-
-
-          if (
-            product.image_url.startsWith("/")
-          ) {
-
-            return `${API_URL}${product.image_url}`;
-
-          }
-
-
-          return product.image_url;
+          return `${API_URL}${image}`;
 
         }
 
 
-        // ----------------------------------------------
-        // CATEGORY / NAME FALLBACK IMAGE
-        // ----------------------------------------------
-
-        const productName =
-          (
-            product.name ||
-            product.category ||
-            ""
-          )
-            .toLowerCase();
-
+        // ONLY FILE NAME
 
         if (
-          productName.includes("milk")
+          !image.includes("/")
         ) {
 
-          return productImages.milk;
+          return `${API_URL}/uploads/${image}`;
 
         }
 
 
-        if (
-          productName.includes("paneer")
-        ) {
+        return image;
 
-          return productImages.paneer;
-
-        }
+      }
 
 
-        if (
-          productName.includes("cheese")
-        ) {
+      // FALLBACK IMAGE BASED ON PRODUCT NAME
 
-          return productImages.cheese;
-
-        }
+      const productName =
+        String(product.name || "")
+          .toLowerCase();
 
 
-        if (
-          productName.includes("butter")
-        ) {
+      if (
+        productName.includes("milkshake")
+      ) {
 
-          return productImages.butter;
+        return productImages.milkshake;
 
-        }
-
-
-        if (
-          productName.includes("ghee")
-        ) {
-
-          return productImages.ghee;
-
-        }
+      }
 
 
-        if (
-          productName.includes("curd")
-        ) {
+      if (
+        productName.includes("paneer")
+      ) {
 
-          return productImages.curd;
+        return productImages.paneer;
 
-        }
-
-
-        if (
-          productName.includes("yogurt")
-        ) {
-
-          return productImages.yogurt;
-
-        }
+      }
 
 
-        if (
-          productName.includes("cream")
-        ) {
+      if (
+        productName.includes("cheese")
+      ) {
 
-          return productImages.cream;
+        return productImages.cheese;
 
-        }
-
-
-        return productImages.default;
-
-      },
-
-      [
-        API_URL,
-      ]
-    );
+      }
 
 
-  // ==================================================
+      if (
+        productName.includes("butter")
+      ) {
+
+        return productImages.butter;
+
+      }
+
+
+      if (
+        productName.includes("curd")
+      ) {
+
+        return productImages.curd;
+
+      }
+
+
+      if (
+        productName.includes("yogurt") ||
+        productName.includes("yoghurt")
+      ) {
+
+        return productImages.yogurt;
+
+      }
+
+
+      if (
+        productName.includes("cream")
+      ) {
+
+        return productImages.cream;
+
+      }
+
+
+      if (
+        productName.includes("ghee")
+      ) {
+
+        return productImages.ghee;
+
+      }
+
+
+      if (
+        productName.includes("lassi")
+      ) {
+
+        return productImages.lassi;
+
+      }
+
+
+      if (
+        productName.includes("kulfi")
+      ) {
+
+        return productImages.kulfi;
+
+      }
+
+
+      if (
+        productName.includes("rabri")
+      ) {
+
+        return productImages.rabri;
+
+      }
+
+
+      if (
+        productName.includes("khoa") ||
+        productName.includes("khoya")
+      ) {
+
+        return productImages.khoa;
+
+      }
+
+
+      if (
+        productName.includes("milk")
+      ) {
+
+        return productImages.milk;
+
+      }
+
+
+      return productImages.default;
+
+    }, [
+      API_URL,
+      productImages,
+    ]);
+
+
+  // ================================================
   // FETCH PRODUCTS
-  // ==================================================
+  // ================================================
 
   const fetchProducts =
-    useCallback(
-      async () => {
+    useCallback(async () => {
 
-        try {
+      try {
 
-          setLoading(true);
+        setLoading(true);
 
-          setError("");
-
-
-          const response =
-            await axios.get(
-              `${API_URL}/api/products`
-            );
+        setError("");
 
 
-          console.log(
-            "PRODUCT RESPONSE:",
-            response.data
+        const response =
+          await axios.get(
+            `${API_URL}/api/products`
           );
 
 
-          if (
-            response.data.success
-          ) {
-
-            setProducts(
-
-              Array.isArray(
-                response.data.products
-              )
-
-                ? response.data.products
-
-                : []
-
-            );
-
-          } else {
-
-            setError(
-
-              response.data.message ||
-              "Failed to fetch products"
-
-            );
-
-          }
-
-        } catch (error) {
-
-          console.error(
-            "FETCH PRODUCTS ERROR:",
-            error
-          );
+        console.log(
+          "PRODUCT RESPONSE:",
+          response.data
+        );
 
 
-          setError(
+        let productData = [];
 
-            error.response?.data?.message ||
 
-            "Unable to load products"
+        if (
+          Array.isArray(response.data)
+        ) {
 
-          );
-
-        } finally {
-
-          setLoading(false);
+          productData =
+            response.data;
 
         }
 
-      },
+        else if (
+          Array.isArray(response.data?.products)
+        ) {
 
-      [
-        API_URL,
-      ]
-    );
+          productData =
+            response.data.products;
+
+        }
+
+        else if (
+          Array.isArray(response.data?.data)
+        ) {
+
+          productData =
+            response.data.data;
+
+        }
 
 
-  // ==================================================
+        setProducts(productData);
+
+      }
+
+      catch (error) {
+
+        console.error(
+          "FETCH PRODUCTS ERROR:",
+          error
+        );
+
+
+        setError(
+
+          error.response?.data?.message ||
+
+          "Failed to fetch products"
+
+        );
+
+      }
+
+      finally {
+
+        setLoading(false);
+
+      }
+
+    }, [
+      API_URL,
+    ]);
+
+
+  // ================================================
   // LOAD PRODUCTS
-  // ==================================================
+  // ================================================
 
   useEffect(() => {
 
@@ -415,29 +469,45 @@ function Products() {
   ]);
 
 
-  // ==================================================
+  // ================================================
   // ADD TO CART
-  // ==================================================
+  // ================================================
 
-  const addToCart =
+  const handleAddToCart =
     async (product) => {
 
       try {
 
-        setMessage("");
-
         setError("");
+
+        setMessage("");
 
 
         const token =
           localStorage.getItem("token");
 
 
-        if (
-          !token
-        ) {
+        if (!token) {
+
+          alert(
+            "Please login first."
+          );
 
           navigate("/login");
+
+          return;
+
+        }
+
+
+        if (
+          !product ||
+          !product.id
+        ) {
+
+          setError(
+            "Invalid product selected"
+          );
 
           return;
 
@@ -455,14 +525,9 @@ function Products() {
         );
 
 
-        // ==============================================
-        // IMPORTANT
-        //
-        // Send BOTH commonly-used product field names.
-        //
-        // Your backend should use:
-        // req.body.product_id
-        // ==============================================
+        // ============================================
+        // ADD PRODUCT TO CART
+        // ============================================
 
         const response =
           await axios.post(
@@ -472,7 +537,7 @@ function Products() {
             {
 
               product_id:
-                product.id,
+                Number(product.id),
 
               quantity:
                 1,
@@ -517,7 +582,9 @@ function Products() {
 
           }, 3000);
 
-        } else {
+        }
+
+        else {
 
           setError(
 
@@ -529,7 +596,9 @@ function Products() {
 
         }
 
-      } catch (error) {
+      }
+
+      catch (error) {
 
         console.error(
           "ADD TO CART ERROR:",
@@ -538,7 +607,7 @@ function Products() {
 
 
         console.log(
-          "ADD TO CART SERVER RESPONSE:",
+          "SERVER RESPONSE:",
           error.response?.data
         );
 
@@ -547,14 +616,9 @@ function Products() {
           error.response?.status === 401
         ) {
 
-          localStorage.removeItem(
-            "token"
-          );
+          localStorage.removeItem("token");
 
-          localStorage.removeItem(
-            "user"
-          );
-
+          localStorage.removeItem("user");
 
           navigate("/login");
 
@@ -567,33 +631,326 @@ function Products() {
 
           error.response?.data?.message ||
 
-          "Unable to add product to cart"
+          "Failed to add product to cart"
 
         );
 
-      } finally {
+      }
 
-        setAddingProduct(
-          null
-        );
+      finally {
+
+        setAddingProduct(null);
 
       }
 
     };
 
 
-  // ==================================================
-  // DELETE PRODUCT
-  // ==================================================
+  // ================================================
+  // OPEN ADD PRODUCT FORM
+  // ================================================
 
-  const deleteProduct =
-    async (product) => {
+  const handleAddProduct =
+    () => {
+
+      if (!isAdmin) {
+
+        setError(
+          "Only admin can add products"
+        );
+
+        return;
+
+      }
+
+
+      setEditingProduct(null);
+
+
+      setFormData({
+
+        name: "",
+
+        description: "",
+
+        price: "",
+
+        quantity: "",
+
+        stock: "",
+
+        image_url: "",
+
+      });
+
+
+      setShowForm(true);
+
+    };
+
+
+  // ================================================
+  // OPEN EDIT PRODUCT FORM
+  // ================================================
+
+  const handleEditProduct =
+    (product) => {
+
+      if (!isAdmin) {
+
+        setError(
+          "Only admin can edit products"
+        );
+
+        return;
+
+      }
+
+
+      setEditingProduct(product);
+
+
+      setFormData({
+
+        name:
+          product.name || "",
+
+        description:
+          product.description || "",
+
+        price:
+          product.price || "",
+
+        quantity:
+          product.quantity || "",
+
+        stock:
+          product.stock ?? "",
+
+        image_url:
+          product.image_url || "",
+
+      });
+
+
+      setShowForm(true);
+
+    };
+
+
+  // ================================================
+  // HANDLE INPUT CHANGE
+  // ================================================
+
+  const handleChange =
+    (event) => {
+
+      const {
+        name,
+        value,
+      } = event.target;
+
+
+      setFormData(
+        (previous) => ({
+
+          ...previous,
+
+          [name]: value,
+
+        })
+      );
+
+    };
+
+
+  // ================================================
+  // SAVE PRODUCT
+  // ================================================
+
+  const handleSubmit =
+    async (event) => {
+
+      event.preventDefault();
+
+
+      if (!isAdmin) {
+
+        setError(
+          "Only admin can manage products"
+        );
+
+        return;
+
+      }
+
+
+      try {
+
+        setFormLoading(true);
+
+        setError("");
+
+        setMessage("");
+
+
+        const token =
+          localStorage.getItem("token");
+
+
+        if (!token) {
+
+          navigate("/login");
+
+          return;
+
+        }
+
+
+        const headers = {
+
+          Authorization:
+            `Bearer ${token}`,
+
+          "Content-Type":
+            "application/json",
+
+        };
+
+
+        let response;
+
+
+        // ============================================
+        // UPDATE PRODUCT
+        // ============================================
+
+        if (editingProduct) {
+
+          response =
+            await axios.put(
+
+              `${API_URL}/api/products/${editingProduct.id}`,
+
+              formData,
+
+              {
+                headers,
+              }
+
+            );
+
+        }
+
+
+        // ============================================
+        // ADD PRODUCT
+        // ============================================
+
+        else {
+
+          response =
+            await axios.post(
+
+              `${API_URL}/api/products`,
+
+              formData,
+
+              {
+                headers,
+              }
+
+            );
+
+        }
+
+
+        if (
+          response.data.success !== false
+        ) {
+
+          setMessage(
+
+            editingProduct
+
+              ? "Product updated successfully!"
+
+              : "Product added successfully!"
+
+          );
+
+
+          setShowForm(false);
+
+          setEditingProduct(null);
+
+
+          await fetchProducts();
+
+        }
+
+        else {
+
+          setError(
+
+            response.data.message ||
+
+            "Failed to save product"
+
+          );
+
+        }
+
+      }
+
+      catch (error) {
+
+        console.error(
+          "SAVE PRODUCT ERROR:",
+          error
+        );
+
+
+        setError(
+
+          error.response?.data?.message ||
+
+          "Failed to save product"
+
+        );
+
+      }
+
+      finally {
+
+        setFormLoading(false);
+
+      }
+
+    };
+
+
+  // ================================================
+  // DELETE PRODUCT
+  // ================================================
+
+  const handleDeleteProduct =
+    async (productId) => {
+
+      if (!isAdmin) {
+
+        setError(
+          "Only admin can delete products"
+        );
+
+        return;
+
+      }
+
 
       const confirmed =
         window.confirm(
-
-          `Are you sure you want to delete ${product.name}?`
-
+          "Are you sure you want to delete this product?"
         );
 
 
@@ -613,7 +970,7 @@ function Products() {
         const response =
           await axios.delete(
 
-            `${API_URL}/api/products/${product.id}`,
+            `${API_URL}/api/products/${productId}`,
 
             {
 
@@ -630,26 +987,33 @@ function Products() {
 
 
         if (
-          response.data.success
+          response.data.success !== false
         ) {
 
           setMessage(
-            "Product deleted successfully"
+            "Product deleted successfully!"
           );
 
 
-          fetchProducts();
+          await fetchProducts();
 
-        } else {
+        }
+
+        else {
 
           setError(
+
             response.data.message ||
+
             "Failed to delete product"
+
           );
 
         }
 
-      } catch (error) {
+      }
+
+      catch (error) {
 
         console.error(
           "DELETE PRODUCT ERROR:",
@@ -661,7 +1025,7 @@ function Products() {
 
           error.response?.data?.message ||
 
-          "Unable to delete product"
+          "Failed to delete product"
 
         );
 
@@ -670,305 +1034,47 @@ function Products() {
     };
 
 
-  // ==================================================
-  // OPEN ADD PRODUCT FORM
-  // ==================================================
+  // ================================================
+  // FILTER PRODUCTS
+  // ================================================
 
-  const openAddForm =
-    () => {
+  const filteredProducts =
+    products.filter(
+      (product) =>
 
-      setEditingProduct(null);
+        String(product.name || "")
+          .toLowerCase()
+          .includes(
+            search.toLowerCase()
+          )
 
+    );
 
-      setFormData({
 
-        name: "",
-
-        price: "",
-
-        description: "",
-
-        image: "",
-
-        stock: "",
-
-      });
-
-
-      setShowForm(true);
-
-    };
-
-
-  // ==================================================
-  // OPEN EDIT PRODUCT FORM
-  // ==================================================
-
-  const openEditForm =
-    (product) => {
-
-      setEditingProduct(
-        product
-      );
-
-
-      setFormData({
-
-        name:
-          product.name || "",
-
-        price:
-          product.price || "",
-
-        description:
-          product.description || "",
-
-        image:
-          product.image ||
-          product.image_url ||
-          "",
-
-        stock:
-          product.stock || "",
-
-      });
-
-
-      setShowForm(true);
-
-    };
-
-
-  // ==================================================
-  // HANDLE FORM CHANGE
-  // ==================================================
-
-  const handleChange =
-    (event) => {
-
-      const {
-        name,
-        value,
-      } = event.target;
-
-
-      setFormData(
-        (previous) => ({
-
-          ...previous,
-
-          [name]:
-            value,
-
-        })
-      );
-
-    };
-
-
-  // ==================================================
-  // SAVE PRODUCT
-  // ==================================================
-
-  const saveProduct =
-    async (event) => {
-
-      event.preventDefault();
-
-
-      try {
-
-        const token =
-          localStorage.getItem("token");
-
-
-        const productData = {
-
-          name:
-            formData.name,
-
-          price:
-            Number(formData.price),
-
-          description:
-            formData.description,
-
-          image:
-            formData.image,
-
-          stock:
-            Number(formData.stock || 0),
-
-        };
-
-
-        let response;
-
-
-        // ----------------------------------------------
-
-        if (
-          editingProduct
-        ) {
-
-          response =
-            await axios.put(
-
-              `${API_URL}/api/products/${editingProduct.id}`,
-
-              productData,
-
-              {
-
-                headers: {
-
-                  Authorization:
-                    `Bearer ${token}`,
-
-                  "Content-Type":
-                    "application/json",
-
-                },
-
-              }
-
-            );
-
-        }
-
-        // ----------------------------------------------
-
-        else {
-
-          response =
-            await axios.post(
-
-              `${API_URL}/api/products`,
-
-              productData,
-
-              {
-
-                headers: {
-
-                  Authorization:
-                    `Bearer ${token}`,
-
-                  "Content-Type":
-                    "application/json",
-
-                },
-
-              }
-
-            );
-
-        }
-
-
-        if (
-          response.data.success
-        ) {
-
-          setMessage(
-
-            editingProduct
-
-              ? "Product updated successfully"
-
-              : "Product added successfully"
-
-          );
-
-
-          setShowForm(false);
-
-
-          fetchProducts();
-
-        } else {
-
-          setError(
-
-            response.data.message ||
-
-            "Failed to save product"
-
-          );
-
-        }
-
-      } catch (error) {
-
-        console.error(
-          "SAVE PRODUCT ERROR:",
-          error
-        );
-
-
-        setError(
-
-          error.response?.data?.message ||
-
-          "Unable to save product"
-
-        );
-
-      }
-
-    };
-
-
-  // ==================================================
+  // ================================================
   // LOGOUT
-  // ==================================================
+  // ================================================
 
   const handleLogout =
     () => {
 
-      localStorage.removeItem(
-        "token"
-      );
+      localStorage.removeItem("token");
 
+      localStorage.removeItem("user");
 
-      localStorage.removeItem(
-        "user"
-      );
-
-
-      navigate(
-        "/login",
-        {
-          replace: true,
-        }
-      );
+      navigate("/login");
 
     };
 
 
-  // ==================================================
-  // CHECK ADMIN
-  // ==================================================
-
-  const isAdmin =
-    user?.role === "admin";
-
-
-  // ==================================================
-  // RENDER
-  // ==================================================
+  // ================================================
+  // PAGE
+  // ================================================
 
   return (
 
     <div
-      style={{
-        minHeight: "100vh",
-        background:
-          "linear-gradient(135deg, #f4f9f4, #e8f5e9)",
-        padding: "30px",
-        fontFamily:
-          "Arial, sans-serif",
-      }}
+      style={styles.page}
     >
 
 
@@ -977,130 +1083,77 @@ function Products() {
       {/* ============================================ */}
 
       <div
-        style={{
-          display: "flex",
-          justifyContent:
-            "space-between",
-          alignItems:
-            "center",
-          flexWrap:
-            "wrap",
-          gap: "15px",
-          background:
-            "#ffffff",
-          padding:
-            "20px 30px",
-          borderRadius:
-            "15px",
-          boxShadow:
-            "0 4px 15px rgba(0,0,0,0.08)",
-          marginBottom:
-            "30px",
-        }}
+        style={styles.navbar}
       >
 
         <div>
 
           <h2
-            style={{
-              margin: 0,
-              color: "#2e7d32",
-            }}
+            style={styles.logo}
           >
             🌿 HARI FARMS
           </h2>
 
-          <small
-            style={{
-              color: "#777",
-            }}
+          <p
+            style={styles.subtitle}
           >
             Fresh Dairy Products
-          </small>
+          </p>
 
         </div>
 
 
         <div
-          style={{
-            display:
-              "flex",
-            gap:
-              "10px",
-            flexWrap:
-              "wrap",
-          }}
+          style={styles.navButtons}
         >
 
           <button
-            onClick={() =>
+            style={styles.navButton}
+            onClick={() => {
+
               navigate(
-
                 isAdmin
-
                   ? "/admin-dashboard"
-
                   : "/user-dashboard"
+              );
 
-              )
-            }
-            style={buttonStyle}
-          >
-            Dashboard
-          </button>
-
-
-          <button
-            onClick={() =>
-              navigate("/cart")
-            }
-            style={buttonStyle}
-          >
-            🛒 Cart
-          </button>
-
-
-          {
-            !isAdmin && (
-
-              <button
-                onClick={() =>
-                  navigate("/orders")
-                }
-                style={buttonStyle}
-              >
-                📦 My Orders
-              </button>
-
-            )
-          }
-
-
-          {
-            isAdmin && (
-
-              <button
-                onClick={() =>
-                  navigate("/admin-orders")
-                }
-                style={buttonStyle}
-              >
-                📋 Manage Orders
-              </button>
-
-            )
-          }
-
-
-          <button
-            onClick={
-              handleLogout
-            }
-            style={{
-              ...buttonStyle,
-              background:
-                "#d32f2f",
             }}
+          >
+            🏠 Dashboard
+          </button>
+
+
+          {!isAdmin && (
+
+            <button
+              style={styles.navButton}
+              onClick={() =>
+                navigate("/cart")
+              }
+            >
+              🛒 Cart
+            </button>
+
+          )}
+
+
+          {!isAdmin && (
+
+            <button
+              style={styles.navButton}
+              onClick={() =>
+                navigate("/orders")
+              }
+            >
+              📦 My Orders
+            </button>
+
+          )}
+
+
+          <button
+            style={styles.logoutButton}
+            onClick={handleLogout}
           >
             Logout
           </button>
@@ -1115,160 +1168,106 @@ function Products() {
       {/* ============================================ */}
 
       <div
-        style={{
-          display:
-            "flex",
-          justifyContent:
-            "space-between",
-          alignItems:
-            "center",
-          flexWrap:
-            "wrap",
-          gap:
-            "15px",
-          marginBottom:
-            "25px",
-        }}
+        style={styles.header}
       >
 
         <div>
 
           <h1
-            style={{
-              marginBottom:
-                "5px",
-              color:
-                "#1b5e20",
-            }}
+            style={styles.title}
           >
             🥛 Our Dairy Products
           </h1>
 
           <p
-            style={{
-              color:
-                "#666",
-            }}
+            style={styles.description}
           >
-            Fresh and healthy products directly from HARI FARMS
+            Fresh and high-quality dairy products from HARI FARMS
           </p>
 
         </div>
 
 
-        {
-          isAdmin && (
+        {isAdmin && (
 
-            <button
-              onClick={
-                openAddForm
-              }
-              style={{
-                ...buttonStyle,
-                background:
-                  "#2e7d32",
-                padding:
-                  "12px 20px",
-              }}
-            >
-              ➕ Add Product
-            </button>
+          <button
+            style={styles.addButton}
+            onClick={handleAddProduct}
+          >
+            ➕ Add Product
+          </button>
 
-          )
-        }
+        )}
 
       </div>
+
+
+      {/* ============================================ */}
+      {/* SEARCH */}
+      {/* ============================================ */}
+
+      <input
+        type="text"
+        placeholder="🔍 Search products..."
+        value={search}
+        onChange={(event) =>
+          setSearch(event.target.value)
+        }
+        style={styles.search}
+      />
 
 
       {/* ============================================ */}
       {/* SUCCESS MESSAGE */}
       {/* ============================================ */}
 
-      {
-        message && (
+      {message && (
 
-          <div
-            style={{
-              background:
-                "#dff5e1",
-              color:
-                "#1b5e20",
-              padding:
-                "15px",
-              borderRadius:
-                "10px",
-              marginBottom:
-                "20px",
-              fontWeight:
-                "bold",
-            }}
-          >
-            ✅ {message}
-          </div>
+        <div
+          style={styles.success}
+        >
+          ✅ {message}
+        </div>
 
-        )
-      }
+      )}
 
 
       {/* ============================================ */}
       {/* ERROR MESSAGE */}
       {/* ============================================ */}
 
-      {
-        error && (
+      {error && (
 
-          <div
-            style={{
-              background:
-                "#ffebee",
-              color:
-                "#c62828",
-              padding:
-                "15px",
-              borderRadius:
-                "10px",
-              marginBottom:
-                "20px",
-            }}
-          >
-            ❌ {error}
-          </div>
+        <div
+          style={styles.error}
+        >
+          ❌ {error}
+        </div>
 
-        )
-      }
+      )}
 
 
       {/* ============================================ */}
-      {/* PRODUCT FORM */}
+      {/* ADD / EDIT FORM */}
       {/* ============================================ */}
 
-      {
-        isAdmin &&
-        showForm && (
+      {showForm && isAdmin && (
+
+        <div
+          style={styles.modalOverlay}
+        >
 
           <div
-            style={{
-              background:
-                "#ffffff",
-              padding:
-                "25px",
-              borderRadius:
-                "15px",
-              marginBottom:
-                "30px",
-              boxShadow:
-                "0 4px 15px rgba(0,0,0,0.1)",
-            }}
+            style={styles.modal}
           >
 
             <h2>
 
-              {
-                editingProduct
+              {editingProduct
 
-                  ? "✏️ Edit Product"
+                ? "✏️ Edit Product"
 
-                  : "➕ Add New Product"
+                : "➕ Add New Product"
 
               }
 
@@ -1276,23 +1275,25 @@ function Products() {
 
 
             <form
-              onSubmit={
-                saveProduct
-              }
+              onSubmit={handleSubmit}
             >
 
               <input
-                type="text"
                 name="name"
                 placeholder="Product Name"
-                value={
-                  formData.name
-                }
-                onChange={
-                  handleChange
-                }
+                value={formData.name}
+                onChange={handleChange}
+                style={styles.input}
                 required
-                style={inputStyle}
+              />
+
+
+              <textarea
+                name="description"
+                placeholder="Product Description"
+                value={formData.description}
+                onChange={handleChange}
+                style={styles.textarea}
               />
 
 
@@ -1300,444 +1301,288 @@ function Products() {
                 type="number"
                 name="price"
                 placeholder="Price"
-                value={
-                  formData.price
-                }
-                onChange={
-                  handleChange
-                }
+                value={formData.price}
+                onChange={handleChange}
+                style={styles.input}
                 required
-                style={inputStyle}
               />
 
 
               <input
                 type="number"
                 name="stock"
-                placeholder="Stock Quantity"
-                value={
-                  formData.stock
-                }
-                onChange={
-                  handleChange
-                }
-                style={inputStyle}
+                placeholder="Stock"
+                value={formData.stock}
+                onChange={handleChange}
+                style={styles.input}
               />
 
 
               <input
-                type="text"
-                name="image"
+                name="image_url"
                 placeholder="Product Image URL"
-                value={
-                  formData.image
-                }
-                onChange={
-                  handleChange
-                }
-                style={inputStyle}
+                value={formData.image_url}
+                onChange={handleChange}
+                style={styles.input}
               />
 
 
-              <textarea
-                name="description"
-                placeholder="Product Description"
-                value={
-                  formData.description
-                }
-                onChange={
-                  handleChange
-                }
-                style={{
-                  ...inputStyle,
-                  minHeight:
-                    "100px",
-                }}
-              />
-
-
-              <button
-                type="submit"
-                style={{
-                  ...buttonStyle,
-                  background:
-                    "#2e7d32",
-                  marginRight:
-                    "10px",
-                }}
+              <div
+                style={styles.formButtons}
               >
-                💾 Save Product
-              </button>
+
+                <button
+                  type="submit"
+                  style={styles.saveButton}
+                  disabled={formLoading}
+                >
+
+                  {formLoading
+
+                    ? "Saving..."
+
+                    : "💾 Save Product"
+
+                  }
+
+                </button>
 
 
-              <button
-                type="button"
-                onClick={() =>
-                  setShowForm(false)
-                }
-                style={{
-                  ...buttonStyle,
-                  background:
-                    "#777",
-                }}
-              >
-                Cancel
-              </button>
+                <button
+                  type="button"
+                  style={styles.cancelButton}
+                  onClick={() =>
+                    setShowForm(false)
+                  }
+                >
+                  Cancel
+                </button>
+
+              </div>
 
             </form>
 
           </div>
 
-        )
-      }
+        </div>
+
+      )}
 
 
       {/* ============================================ */}
       {/* LOADING */}
       {/* ============================================ */}
 
-      {
-        loading && (
+      {loading && (
 
-          <div
-            style={{
-              textAlign:
-                "center",
-              padding:
-                "50px",
-              fontSize:
-                "20px",
-            }}
-          >
-            🥛 Loading products...
-          </div>
+        <div
+          style={styles.loading}
+        >
+          Loading products...
+        </div>
 
-        )
-      }
+      )}
 
 
       {/* ============================================ */}
       {/* PRODUCTS */}
       {/* ============================================ */}
 
-      {
-        !loading && (
+      {!loading && (
 
-          <div
-            style={{
-              display:
-                "grid",
+        <div
+          style={styles.grid}
+        >
 
-              gridTemplateColumns:
-                "repeat(auto-fit, minmax(250px, 1fr))",
+          {filteredProducts.map(
+            (product) => (
 
-              gap:
-                "25px",
-            }}
-          >
+              <div
+                key={product.id}
+                style={styles.card}
+              >
 
-            {
-              products.map(
-                (product) => (
+                {/* PRODUCT IMAGE */}
 
-                  <div
-                    key={
-                      product.id
+                <img
+
+                  src={
+                    getProductImage(product)
+                  }
+
+                  alt={
+                    product.name
+                  }
+
+                  style={styles.image}
+
+                  onError={(event) => {
+
+                    event.currentTarget.onerror =
+                      null;
+
+                    event.currentTarget.src =
+                      productImages.default;
+
+                  }}
+
+                />
+
+
+                <div
+                  style={styles.cardContent}
+                >
+
+                  <h3
+                    style={styles.productName}
+                  >
+                    {product.name}
+                  </h3>
+
+
+                  <p
+                    style={styles.productDescription}
+                  >
+                    {product.description ||
+                      "Fresh dairy product from HARI FARMS"}
+                  </p>
+
+
+                  <h2
+                    style={styles.price}
+                  >
+                    ₹{
+                      Number(
+                        product.price || 0
+                      ).toFixed(2)
                     }
-                    style={{
-                      background:
-                        "#ffffff",
+                  </h2>
 
-                      borderRadius:
-                        "18px",
 
-                      overflow:
-                        "hidden",
-
-                      boxShadow:
-                        "0 5px 18px rgba(0,0,0,0.1)",
-
-                      transition:
-                        "transform 0.2s",
-
-                    }}
+                  <p
+                    style={styles.stock}
                   >
 
-                    {/* IMAGE */}
+                    📦 Stock: {
 
-                    <img
-                      src={
-                        getProductImage(
-                          product
-                        )
+                      product.stock ??
+                      product.quantity ??
+                      "Available"
+
+                    }
+
+                  </p>
+
+
+                  {/* USER BUTTON */}
+
+                  {!isAdmin && (
+
+                    <button
+
+                      style={
+
+                        addingProduct === product.id
+
+                          ? styles.disabledButton
+
+                          : styles.cartButton
+
                       }
 
-                      alt={
-                        product.name
+                      disabled={
+                        addingProduct === product.id
                       }
 
-                      onError={
-                        (event) => {
-
-                          event.target.src =
-                            productImages.default;
-
-                        }
+                      onClick={() =>
+                        handleAddToCart(product)
                       }
 
-                      style={{
-                        width:
-                          "100%",
-
-                        height:
-                          "200px",
-
-                        objectFit:
-                          "cover",
-
-                      }}
-                    />
-
-
-                    {/* PRODUCT DETAILS */}
-
-                    <div
-                      style={{
-                        padding:
-                          "20px",
-                      }}
                     >
 
-                      <h3
-                        style={{
-                          marginTop:
-                            0,
-
-                          color:
-                            "#1b5e20",
-                        }}
-                      >
-                        {product.name}
-                      </h3>
-
-
-                      <p
-                        style={{
-                          color:
-                            "#666",
-
-                          minHeight:
-                            "40px",
-                        }}
-                      >
-                        {
-                          product.description ||
-                          "Fresh and healthy dairy product from HARI FARMS."
-                        }
-                      </p>
-
-
-                      <h2
-                        style={{
-                          color:
-                            "#2e7d32",
-                        }}
-                      >
-                        ₹{
-                          Number(
-                            product.price || 0
-                          ).toFixed(2)
-                        }
-                      </h2>
-
-
                       {
-                        product.stock !== undefined && (
 
-                          <p
-                            style={{
-                              color:
-                                product.stock > 0
+                        addingProduct === product.id
 
-                                  ? "#2e7d32"
+                          ? "Adding..."
 
-                                  : "#d32f2f",
-                            }}
-                          >
+                          : "🛒 Add to Cart"
 
-                            <strong>
-                              Stock:
-                            </strong>
-
-                            {" "}
-
-                            {product.stock}
-
-                          </p>
-
-                        )
                       }
 
+                    </button>
 
-                      {/* ================================= */}
-                      {/* ADMIN BUTTONS */}
-                      {/* ================================= */}
-
-                      {
-                        isAdmin ? (
-
-                          <div
-                            style={{
-                              display:
-                                "flex",
-
-                              gap:
-                                "10px",
-                            }}
-                          >
-
-                            <button
-                              onClick={() =>
-                                openEditForm(
-                                  product
-                                )
-                              }
-                              style={{
-                                ...buttonStyle,
-
-                                background:
-                                  "#1976d2",
-
-                                flex:
-                                  1,
-                              }}
-                            >
-                              ✏️ Edit
-                            </button>
+                  )}
 
 
-                            <button
-                              onClick={() =>
-                                deleteProduct(
-                                  product
-                                )
-                              }
-                              style={{
-                                ...buttonStyle,
+                  {/* ADMIN BUTTONS */}
 
-                                background:
-                                  "#d32f2f",
+                  {isAdmin && (
 
-                                flex:
-                                  1,
-                              }}
-                            >
-                              🗑 Delete
-                            </button>
+                    <div
+                      style={styles.adminButtons}
+                    >
 
-                          </div>
+                      <button
 
-                        ) : (
+                        style={styles.editButton}
 
-                          /* ================================= */
-                          /* USER ADD TO CART */
-                          /* ================================= */
+                        onClick={() =>
+                          handleEditProduct(product)
+                        }
 
-                          <button
-                            onClick={() =>
-                              addToCart(
-                                product
-                              )
-                            }
+                      >
+                        ✏️ Edit
+                      </button>
 
-                            disabled={
-                              addingProduct ===
-                              product.id
-                            }
 
-                            style={{
-                              ...buttonStyle,
+                      <button
 
-                              background:
-                                "#2e7d32",
+                        style={styles.deleteButton}
 
-                              width:
-                                "100%",
+                        onClick={() =>
+                          handleDeleteProduct(
+                            product.id
+                          )
+                        }
 
-                              padding:
-                                "12px",
-
-                              opacity:
-
-                                addingProduct ===
-                                product.id
-
-                                  ? 0.7
-
-                                  : 1,
-                            }}
-                          >
-
-                            {
-                              addingProduct ===
-                              product.id
-
-                                ? "Adding..."
-
-                                : "🛒 Add to Cart"
-                            }
-
-                          </button>
-
-                        )
-                      }
+                      >
+                        🗑️ Delete
+                      </button>
 
                     </div>
 
-                  </div>
+                  )}
 
-                )
-              )
-            }
+                </div>
 
-          </div>
+              </div>
 
-        )
-      }
+            )
+          )}
 
 
-      {/* ============================================ */}
-      {/* NO PRODUCTS */}
-      {/* ============================================ */}
+          {filteredProducts.length === 0 && (
 
-      {
-        !loading &&
-        products.length === 0 && (
+            <div
+              style={styles.empty}
+            >
 
-          <div
-            style={{
-              background:
-                "#ffffff",
+              <h3>
+                No products found
+              </h3>
 
-              padding:
-                "40px",
+              <p>
+                Try searching for another product.
+              </p>
 
-              textAlign:
-                "center",
+            </div>
 
-              borderRadius:
-                "15px",
-            }}
-          >
+          )}
 
-            <h2>
-              No products available
-            </h2>
+        </div>
 
-          </div>
-
-        )
-      }
+      )}
 
     </div>
 
@@ -1747,67 +1592,727 @@ function Products() {
 
 
 // ==================================================
-// BUTTON STYLE
+// STYLES
 // ==================================================
 
-const buttonStyle = {
+const styles = {
 
-  border:
-    "none",
+  page: {
 
-  padding:
-    "10px 15px",
+    minHeight: "100vh",
 
-  borderRadius:
-    "8px",
+    background:
+      "#f4f7f4",
 
-  background:
-    "#388e3c",
+    padding:
+      "25px",
 
-  color:
-    "#ffffff",
+    fontFamily:
+      "Arial, sans-serif",
 
-  cursor:
-    "pointer",
+  },
 
-  fontWeight:
-    "bold",
+
+  navbar: {
+
+    display:
+      "flex",
+
+    justifyContent:
+      "space-between",
+
+    alignItems:
+      "center",
+
+    flexWrap:
+      "wrap",
+
+    gap:
+      "20px",
+
+    background:
+      "#ffffff",
+
+    padding:
+      "20px 30px",
+
+    borderRadius:
+      "15px",
+
+    marginBottom:
+      "30px",
+
+    boxShadow:
+      "0 4px 15px rgba(0,0,0,0.08)",
+
+  },
+
+
+  logo: {
+
+    margin:
+      0,
+
+    color:
+      "#246b3f",
+
+  },
+
+
+  subtitle: {
+
+    margin:
+      "5px 0 0",
+
+    color:
+      "#777",
+
+  },
+
+
+  navButtons: {
+
+    display:
+      "flex",
+
+    gap:
+      "10px",
+
+    flexWrap:
+      "wrap",
+
+  },
+
+
+  navButton: {
+
+    padding:
+      "10px 16px",
+
+    border:
+      "none",
+
+    borderRadius:
+      "8px",
+
+    cursor:
+      "pointer",
+
+    background:
+      "#e8f5e9",
+
+    color:
+      "#246b3f",
+
+    fontWeight:
+      "bold",
+
+  },
+
+
+  logoutButton: {
+
+    padding:
+      "10px 16px",
+
+    border:
+      "none",
+
+    borderRadius:
+      "8px",
+
+    cursor:
+      "pointer",
+
+    background:
+      "#dc3545",
+
+    color:
+      "white",
+
+    fontWeight:
+      "bold",
+
+  },
+
+
+  header: {
+
+    display:
+      "flex",
+
+    justifyContent:
+      "space-between",
+
+    alignItems:
+      "center",
+
+    flexWrap:
+      "wrap",
+
+    gap:
+      "20px",
+
+    marginBottom:
+      "25px",
+
+  },
+
+
+  title: {
+
+    margin:
+      0,
+
+    color:
+      "#222",
+
+  },
+
+
+  description: {
+
+    color:
+      "#666",
+
+  },
+
+
+  addButton: {
+
+    background:
+      "#198754",
+
+    color:
+      "white",
+
+    border:
+      "none",
+
+    padding:
+      "13px 20px",
+
+    borderRadius:
+      "8px",
+
+    fontSize:
+      "16px",
+
+    fontWeight:
+      "bold",
+
+    cursor:
+      "pointer",
+
+  },
+
+
+  search: {
+
+    width:
+      "100%",
+
+    boxSizing:
+      "border-box",
+
+    padding:
+      "15px",
+
+    borderRadius:
+      "10px",
+
+    border:
+      "1px solid #ddd",
+
+    marginBottom:
+      "25px",
+
+    fontSize:
+      "16px",
+
+  },
+
+
+  success: {
+
+    background:
+      "#d1e7dd",
+
+    color:
+      "#0f5132",
+
+    padding:
+      "15px",
+
+    borderRadius:
+      "10px",
+
+    marginBottom:
+      "20px",
+
+  },
+
+
+  error: {
+
+    background:
+      "#f8d7da",
+
+    color:
+      "#842029",
+
+    padding:
+      "15px",
+
+    borderRadius:
+      "10px",
+
+    marginBottom:
+      "20px",
+
+  },
+
+
+  loading: {
+
+    background:
+      "white",
+
+    padding:
+      "30px",
+
+    textAlign:
+      "center",
+
+    borderRadius:
+      "12px",
+
+  },
+
+
+  grid: {
+
+    display:
+      "grid",
+
+    gridTemplateColumns:
+      "repeat(auto-fit, minmax(260px, 1fr))",
+
+    gap:
+      "25px",
+
+  },
+
+
+  card: {
+
+    background:
+      "white",
+
+    borderRadius:
+      "15px",
+
+    overflow:
+      "hidden",
+
+    boxShadow:
+      "0 5px 18px rgba(0,0,0,0.10)",
+
+    transition:
+      "transform 0.2s",
+
+  },
+
+
+  image: {
+
+    width:
+      "100%",
+
+    height:
+      "210px",
+
+    objectFit:
+      "cover",
+
+    display:
+      "block",
+
+  },
+
+
+  cardContent: {
+
+    padding:
+      "20px",
+
+  },
+
+
+  productName: {
+
+    marginTop:
+      0,
+
+    color:
+      "#222",
+
+  },
+
+
+  productDescription: {
+
+    color:
+      "#777",
+
+    minHeight:
+      "40px",
+
+  },
+
+
+  price: {
+
+    color:
+      "#198754",
+
+    margin:
+      "15px 0",
+
+  },
+
+
+  stock: {
+
+    color:
+      "#555",
+
+  },
+
+
+  cartButton: {
+
+    width:
+      "100%",
+
+    padding:
+      "13px",
+
+    border:
+      "none",
+
+    borderRadius:
+      "8px",
+
+    background:
+      "#198754",
+
+    color:
+      "white",
+
+    fontSize:
+      "16px",
+
+    fontWeight:
+      "bold",
+
+    cursor:
+      "pointer",
+
+  },
+
+
+  disabledButton: {
+
+    width:
+      "100%",
+
+    padding:
+      "13px",
+
+    border:
+      "none",
+
+    borderRadius:
+      "8px",
+
+    background:
+      "#999",
+
+    color:
+      "white",
+
+    fontSize:
+      "16px",
+
+  },
+
+
+  adminButtons: {
+
+    display:
+      "flex",
+
+    gap:
+      "10px",
+
+  },
+
+
+  editButton: {
+
+    flex:
+      1,
+
+    padding:
+      "12px",
+
+    border:
+      "none",
+
+    borderRadius:
+      "8px",
+
+    background:
+      "#ffc107",
+
+    cursor:
+      "pointer",
+
+    fontWeight:
+      "bold",
+
+  },
+
+
+  deleteButton: {
+
+    flex:
+      1,
+
+    padding:
+      "12px",
+
+    border:
+      "none",
+
+    borderRadius:
+      "8px",
+
+    background:
+      "#dc3545",
+
+    color:
+      "white",
+
+    cursor:
+      "pointer",
+
+    fontWeight:
+      "bold",
+
+  },
+
+
+  empty: {
+
+    background:
+      "white",
+
+    padding:
+      "40px",
+
+    borderRadius:
+      "12px",
+
+    textAlign:
+      "center",
+
+    gridColumn:
+      "1 / -1",
+
+  },
+
+
+  modalOverlay: {
+
+    position:
+      "fixed",
+
+    top:
+      0,
+
+    left:
+      0,
+
+    right:
+      0,
+
+    bottom:
+      0,
+
+    background:
+      "rgba(0,0,0,0.5)",
+
+    display:
+      "flex",
+
+    justifyContent:
+      "center",
+
+    alignItems:
+      "center",
+
+    zIndex:
+      1000,
+
+    padding:
+      "20px",
+
+  },
+
+
+  modal: {
+
+    width:
+      "100%",
+
+    maxWidth:
+      "500px",
+
+    maxHeight:
+      "90vh",
+
+    overflowY:
+      "auto",
+
+    background:
+      "white",
+
+    padding:
+      "30px",
+
+    borderRadius:
+      "15px",
+
+  },
+
+
+  input: {
+
+    width:
+      "100%",
+
+    boxSizing:
+      "border-box",
+
+    padding:
+      "13px",
+
+    marginBottom:
+      "15px",
+
+    border:
+      "1px solid #ddd",
+
+    borderRadius:
+      "8px",
+
+  },
+
+
+  textarea: {
+
+    width:
+      "100%",
+
+    boxSizing:
+      "border-box",
+
+    minHeight:
+      "100px",
+
+    padding:
+      "13px",
+
+    marginBottom:
+      "15px",
+
+    border:
+      "1px solid #ddd",
+
+    borderRadius:
+      "8px",
+
+  },
+
+
+  formButtons: {
+
+    display:
+      "flex",
+
+    gap:
+      "10px",
+
+  },
+
+
+  saveButton: {
+
+    flex:
+      1,
+
+    padding:
+      "13px",
+
+    border:
+      "none",
+
+    borderRadius:
+      "8px",
+
+    background:
+      "#198754",
+
+    color:
+      "white",
+
+    fontWeight:
+      "bold",
+
+    cursor:
+      "pointer",
+
+  },
+
+
+  cancelButton: {
+
+    flex:
+      1,
+
+    padding:
+      "13px",
+
+    border:
+      "none",
+
+    borderRadius:
+      "8px",
+
+    background:
+      "#6c757d",
+
+    color:
+      "white",
+
+    cursor:
+      "pointer",
+
+  },
 
 };
 
-
-// ==================================================
-// INPUT STYLE
-// ==================================================
-
-const inputStyle = {
-
-  width:
-    "100%",
-
-  padding:
-    "12px",
-
-  marginBottom:
-    "15px",
-
-  border:
-    "1px solid #ddd",
-
-  borderRadius:
-    "8px",
-
-  boxSizing:
-    "border-box",
-
-  fontSize:
-    "15px",
-
-};
-
-
-// ==================================================
-// EXPORT
-// ==================================================
 
 export default Products;
