@@ -7,10 +7,11 @@ const db = require("../db");
 
 
 // ==================================================
-// AUTHENTICATE USER
+// AUTHENTICATION MIDDLEWARE
 // ==================================================
 
 const authenticateUser = (req, res, next) => {
+
   try {
 
     const authHeader =
@@ -29,7 +30,7 @@ const authenticateUser = (req, res, next) => {
 
     const token =
       authHeader.startsWith("Bearer ")
-        ? authHeader.substring(7)
+        ? authHeader.split(" ")[1]
         : authHeader;
 
 
@@ -65,234 +66,385 @@ const authenticateUser = (req, res, next) => {
 
     return res.status(401).json({
       success: false,
-      message: "Invalid or expired login token",
-    });
-
-  }
-};
-
-
-// ==================================================
-// GET USER ID
-// ==================================================
-
-const getUserId = (req) => {
-
-  return (
-    req.user?.id ||
-    req.user?.userId ||
-    req.user?.user_id
-  );
-
-};
-
-
-// ==================================================
-// CHECK ADMIN
-// ==================================================
-
-const requireAdmin = (
-  req,
-  res,
-  next
-) => {
-
-  const role =
-    String(
-      req.user?.role ||
-      ""
-    )
-      .trim()
-      .toLowerCase();
-
-
-  if (role !== "admin") {
-
-    return res.status(403).json({
-      success: false,
-      message:
-        "Admin access required",
+      message: "Invalid or expired token",
     });
 
   }
 
-
-  next();
-
 };
 
 
 // ==================================================
-// ADMIN DASHBOARD STATS
-// IMPORTANT:
-// THIS ROUTE MUST BE BEFORE /:id
+// GET MY ORDERS
 // ==================================================
 
 router.get(
-  "/admin/stats",
-
+  "/my-orders",
   authenticateUser,
-
-  requireAdmin,
-
   async (req, res) => {
 
     try {
 
       console.log(
-        "📊 ADMIN STATS REQUEST RECEIVED"
+        "================================="
+      );
+
+      console.log(
+        "📦 FETCHING USER ORDERS"
+      );
+
+      console.log(
+        "Logged in user:",
+        req.user
+      );
+
+      console.log(
+        "================================="
       );
 
 
-      // ==============================================
-      // TOTAL PRODUCTS
-      // ==============================================
-
-      const [
-        productResult
-      ] = await db.query(
-        `
-        SELECT
-          COUNT(*) AS totalProducts
-        FROM products
-        `
-      );
+      const userId =
+        req.user.id ||
+        req.user.userId;
 
 
-      // ==============================================
-      // TOTAL ORDERS
-      // ==============================================
+      if (!userId) {
 
-      const [
-        orderResult
-      ] = await db.query(
-        `
-        SELECT
-          COUNT(*) AS totalOrders
-        FROM orders
-        `
-      );
+        return res.status(400).json({
+          success: false,
+          message:
+            "User ID not found in authentication token",
+        });
+
+      }
 
 
-      // ==============================================
-      // TOTAL CUSTOMERS
-      // ==============================================
+      // ==========================================
+      // FETCH ORDERS
+      // ==========================================
 
-      const [
-        customerResult
-      ] = await db.query(
-        `
-        SELECT
-          COUNT(*) AS totalCustomers
-        FROM users
-        WHERE LOWER(role) != 'admin'
-        `
-      );
+      const [orders] =
+        await db.query(
 
+          `
+          SELECT
+            o.id,
+            o.user_id,
+            o.status,
+            o.total,
+            o.order_date AS created_at
+          FROM orders o
+          WHERE o.user_id = ?
+          ORDER BY o.order_date DESC
+          `,
 
-      // ==============================================
-      // TOTAL REVENUE
-      // ==============================================
+          [userId]
 
-      const [
-        revenueResult
-      ] = await db.query(
-        `
-        SELECT
-          COALESCE(
-            SUM(total),
-            0
-          ) AS totalRevenue
-        FROM orders
-        `
-      );
-
-
-      // ==============================================
-      // RECENT ORDERS
-      // ==============================================
-
-      const [
-        recentOrders
-      ] = await db.query(
-        `
-        SELECT
-          orders.id,
-          orders.user_id,
-          orders.total,
-          orders.status,
-          orders.created_at,
-
-          users.name AS customer_name,
-          users.email AS customer_email
-
-        FROM orders
-
-        LEFT JOIN users
-          ON orders.user_id = users.id
-
-        ORDER BY
-          orders.created_at DESC
-
-        LIMIT 5
-        `
-      );
-
-
-      const stats = {
-
-        totalProducts:
-          Number(
-            productResult[0]
-              ?.totalProducts || 0
-          ),
-
-        totalOrders:
-          Number(
-            orderResult[0]
-              ?.totalOrders || 0
-          ),
-
-        totalCustomers:
-          Number(
-            customerResult[0]
-              ?.totalCustomers || 0
-          ),
-
-        totalRevenue:
-          Number(
-            revenueResult[0]
-              ?.totalRevenue || 0
-          ),
-
-      };
+        );
 
 
       console.log(
-        "✅ ADMIN STATS:",
-        stats
+        "Orders found:",
+        orders.length
       );
+
+
+      // ==========================================
+      // FETCH ITEMS FOR EACH ORDER
+      // ==========================================
+
+      for (
+        let i = 0;
+        i < orders.length;
+        i++
+      ) {
+
+        try {
+
+          const [items] =
+            await db.query(
+
+              `
+              SELECT
+                oi.id,
+                oi.product_id,
+                oi.quantity,
+                oi.price,
+
+                p.name,
+                p.image
+
+              FROM order_items oi
+
+              LEFT JOIN products p
+              ON oi.product_id = p.id
+
+              WHERE oi.order_id = ?
+              `,
+
+              [orders[i].id]
+
+            );
+
+
+          orders[i].items =
+            items || [];
+
+
+        } catch (itemError) {
+
+          console.error(
+            "ORDER ITEMS ERROR:",
+            itemError.message
+          );
+
+
+          // Still return the order
+          orders[i].items = [];
+
+        }
+
+      }
 
 
       return res.status(200).json({
 
         success: true,
 
-        stats,
+        orders: orders,
+
+      });
+
+
+    } catch (error) {
+
+      console.error(
+        "================================="
+      );
+
+      console.error(
+        "❌ FETCH MY ORDERS ERROR"
+      );
+
+      console.error(
+        "Message:",
+        error.message
+      );
+
+      console.error(
+        "Stack:",
+        error.stack
+      );
+
+      console.error(
+        "================================="
+      );
+
+
+      return res.status(500).json({
+
+        success: false,
+
+        message:
+          "Failed to fetch orders",
+
+        error:
+          process.env.NODE_ENV === "production"
+            ? undefined
+            : error.message,
+
+      });
+
+    }
+
+  }
+);
+
+
+// ==================================================
+// ADMIN STATISTICS
+// IMPORTANT: THIS ROUTE MUST COME BEFORE /:id
+// ==================================================
+
+router.get(
+  "/admin/stats",
+  authenticateUser,
+  async (req, res) => {
+
+    try {
+
+      const role =
+        String(
+          req.user.role || ""
+        )
+          .trim()
+          .toLowerCase();
+
+
+      if (role !== "admin") {
+
+        return res.status(403).json({
+          success: false,
+          message:
+            "Admin access required",
+        });
+
+      }
+
+
+      // ==========================================
+      // TOTAL PRODUCTS
+      // ==========================================
+
+      const [[productResult]] =
+        await db.query(
+
+          `
+          SELECT
+            COUNT(*) AS totalProducts
+          FROM products
+          `
+
+        );
+
+
+      // ==========================================
+      // TOTAL ORDERS
+      // ==========================================
+
+      const [[orderResult]] =
+        await db.query(
+
+          `
+          SELECT
+            COUNT(*) AS totalOrders
+          FROM orders
+          `
+
+        );
+
+
+      // ==========================================
+      // TOTAL CUSTOMERS
+      // ==========================================
+
+      const [[customerResult]] =
+        await db.query(
+
+          `
+          SELECT
+            COUNT(*) AS totalCustomers
+          FROM users
+          WHERE LOWER(role) != 'admin'
+          `
+
+        );
+
+
+      // ==========================================
+      // TOTAL REVENUE
+      // ==========================================
+
+      const [[revenueResult]] =
+        await db.query(
+
+          `
+          SELECT
+            COALESCE(
+              SUM(total),
+              0
+            ) AS totalRevenue
+          FROM orders
+          WHERE LOWER(status) != 'cancelled'
+          `
+
+        );
+
+
+      // ==========================================
+      // RECENT ORDERS
+      // ==========================================
+
+      const [recentOrders] =
+        await db.query(
+
+          `
+          SELECT
+            o.id,
+            o.user_id,
+            o.status,
+            o.total,
+            o.order_date,
+
+            u.name AS customer_name
+
+          FROM orders o
+
+          LEFT JOIN users u
+          ON o.user_id = u.id
+
+          ORDER BY o.order_date DESC
+
+          LIMIT 5
+          `
+
+        );
+
+
+      return res.status(200).json({
+
+        success: true,
+
+        stats: {
+
+          totalProducts:
+            Number(
+              productResult.totalProducts || 0
+            ),
+
+          totalOrders:
+            Number(
+              orderResult.totalOrders || 0
+            ),
+
+          totalCustomers:
+            Number(
+              customerResult.totalCustomers || 0
+            ),
+
+          totalRevenue:
+            Number(
+              revenueResult.totalRevenue || 0
+            ),
+
+        },
 
         recentOrders,
 
       });
 
+
     } catch (error) {
 
       console.error(
-        "❌ ADMIN STATS ERROR:",
+        "================================="
+      );
+
+      console.error(
+        "❌ ADMIN STATS ERROR"
+      );
+
+      console.error(
         error.message
       );
 
+      console.error(
+        error.stack
+      );
 
-      console.error(error);
+      console.error(
+        "================================="
+      );
 
 
       return res.status(500).json({
@@ -303,7 +455,9 @@ router.get(
           "Failed to fetch admin statistics",
 
         error:
-          error.message,
+          process.env.NODE_ENV === "production"
+            ? undefined
+            : error.message,
 
       });
 
@@ -314,139 +468,57 @@ router.get(
 
 
 // ==================================================
-// GET ALL ORDERS FOR ADMIN
+// ADMIN GET ALL ORDERS
 // ==================================================
 
 router.get(
   "/admin/all",
-
   authenticateUser,
-
-  requireAdmin,
-
   async (req, res) => {
 
     try {
 
-      const [orders] =
-        await db.query(
-          `
-          SELECT
-
-            orders.id,
-            orders.user_id,
-            orders.total,
-            orders.status,
-            orders.created_at,
-
-            users.name AS customer_name,
-            users.email AS customer_email
-
-          FROM orders
-
-          LEFT JOIN users
-            ON orders.user_id = users.id
-
-          ORDER BY
-            orders.created_at DESC
-          `
-        );
+      const role =
+        String(
+          req.user.role || ""
+        )
+          .trim()
+          .toLowerCase();
 
 
-      return res.status(200).json({
+      if (role !== "admin") {
 
-        success: true,
-
-        orders,
-
-      });
-
-    } catch (error) {
-
-      console.error(
-        "GET ADMIN ORDERS ERROR:",
-        error.message
-      );
-
-
-      return res.status(500).json({
-
-        success: false,
-
-        message:
-          "Failed to fetch orders",
-
-        error:
-          error.message,
-
-      });
-
-    }
-
-  }
-);
-
-
-// ==================================================
-// GET MY ORDERS
-// ==================================================
-
-router.get(
-  "/my-orders",
-
-  authenticateUser,
-
-  async (req, res) => {
-
-    try {
-
-      const userId =
-        getUserId(req);
-
-
-      if (!userId) {
-
-        return res.status(401).json({
-
+        return res.status(403).json({
           success: false,
-
           message:
-            "User ID not found in login token",
-
+            "Admin access required",
         });
 
       }
 
 
-      console.log(
-        "📦 FETCHING ORDERS FOR USER:",
-        userId
-      );
-
-
       const [orders] =
         await db.query(
+
           `
           SELECT
+            o.id,
+            o.user_id,
+            o.status,
+            o.total,
+            o.order_date,
 
-            id,
+            u.name AS customer_name,
+            u.email AS customer_email
 
-            user_id,
+          FROM orders o
 
-            total,
+          LEFT JOIN users u
+          ON o.user_id = u.id
 
-            status,
+          ORDER BY o.order_date DESC
+          `
 
-            created_at
-
-          FROM orders
-
-          WHERE user_id = ?
-
-          ORDER BY
-            created_at DESC
-          `,
-          [userId]
         );
 
 
@@ -458,15 +530,13 @@ router.get(
 
       });
 
+
     } catch (error) {
 
       console.error(
-        "❌ MY ORDERS ERROR:",
+        "ADMIN ORDERS ERROR:",
         error.message
       );
-
-
-      console.error(error);
 
 
       return res.status(500).json({
@@ -474,10 +544,7 @@ router.get(
         success: false,
 
         message:
-          "Failed to fetch orders",
-
-        error:
-          error.message,
+          "Failed to fetch admin orders",
 
       });
 
@@ -493,28 +560,25 @@ router.get(
 
 router.post(
   "/checkout",
-
   authenticateUser,
-
   async (req, res) => {
 
     let connection;
 
+
     try {
 
       const userId =
-        getUserId(req);
+        req.user.id ||
+        req.user.userId;
 
 
       if (!userId) {
 
-        return res.status(401).json({
-
+        return res.status(400).json({
           success: false,
-
           message:
-            "User ID not found",
-
+            "User ID is required",
         });
 
       }
@@ -527,44 +591,42 @@ router.post(
       await connection.beginTransaction();
 
 
-      // ==============================================
+      // ==========================================
       // GET CART ITEMS
-      // ==============================================
+      // ==========================================
 
       const [cartItems] =
         await connection.query(
+
           `
           SELECT
+            c.id AS cart_id,
+            c.product_id,
+            c.quantity,
 
-            cart_items.id,
-            cart_items.product_id,
-            cart_items.quantity,
+            p.name,
+            p.price,
+            p.stock
 
-            products.name,
-            products.price,
-            products.stock
+          FROM cart c
 
-          FROM cart_items
+          INNER JOIN products p
+          ON c.product_id = p.id
 
-          INNER JOIN products
-
-            ON cart_items.product_id =
-               products.id
-
-          WHERE
-            cart_items.user_id = ?
+          WHERE c.user_id = ?
           `,
+
           [userId]
+
         );
 
 
       if (
+        !cartItems ||
         cartItems.length === 0
       ) {
 
         await connection.rollback();
-
-        connection.release();
 
 
         return res.status(400).json({
@@ -579,16 +641,14 @@ router.post(
       }
 
 
-      // ==============================================
+      // ==========================================
       // CALCULATE TOTAL
-      // ==============================================
+      // ==========================================
 
       let total = 0;
 
 
-      for (
-        const item of cartItems
-      ) {
+      for (const item of cartItems) {
 
         const price =
           Number(item.price || 0);
@@ -601,18 +661,11 @@ router.post(
           price * quantity;
 
 
-        // ============================================
-        // CHECK STOCK
-        // ============================================
-
         if (
-          Number(item.stock) <
-          quantity
+          Number(item.stock) < quantity
         ) {
 
           await connection.rollback();
-
-          connection.release();
 
 
           return res.status(400).json({
@@ -620,7 +673,7 @@ router.post(
             success: false,
 
             message:
-              `${item.name} does not have enough stock`,
+              `Insufficient stock for ${item.name}`,
 
           });
 
@@ -629,48 +682,48 @@ router.post(
       }
 
 
-      // ==============================================
+      // ==========================================
       // CREATE ORDER
-      // ==============================================
+      // ==========================================
 
-      const [
-        orderResult
-      ] = await connection.query(
-        `
-        INSERT INTO orders
-        (
-          user_id,
-          total,
-          status
-        )
-        VALUES
-        (
-          ?,
-          ?,
-          ?
-        )
-        `,
-        [
-          userId,
-          total,
-          "Pending",
-        ]
-      );
+      const [orderResult] =
+        await connection.query(
+
+          `
+          INSERT INTO orders
+          (
+            user_id,
+            total,
+            status
+          )
+          VALUES
+          (
+            ?,
+            ?,
+            'Pending'
+          )
+          `,
+
+          [
+            userId,
+            total,
+          ]
+
+        );
 
 
       const orderId =
         orderResult.insertId;
 
 
-      // ==============================================
+      // ==========================================
       // CREATE ORDER ITEMS
-      // ==============================================
+      // ==========================================
 
-      for (
-        const item of cartItems
-      ) {
+      for (const item of cartItems) {
 
         await connection.query(
+
           `
           INSERT INTO order_items
           (
@@ -687,60 +740,64 @@ router.post(
             ?
           )
           `,
+
           [
+
             orderId,
+
             item.product_id,
+
             item.quantity,
+
             item.price,
+
           ]
+
         );
 
 
-        // ============================================
+        // ========================================
         // UPDATE PRODUCT STOCK
-        // ============================================
+        // ========================================
 
         await connection.query(
+
           `
           UPDATE products
-
-          SET stock =
-            stock - ?
-
+          SET stock = stock - ?
           WHERE id = ?
           `,
+
           [
+
             item.quantity,
+
             item.product_id,
+
           ]
+
         );
 
       }
 
 
-      // ==============================================
+      // ==========================================
       // CLEAR CART
-      // ==============================================
+      // ==========================================
 
       await connection.query(
-        `
-        DELETE FROM cart_items
 
+        `
+        DELETE FROM cart
         WHERE user_id = ?
         `,
+
         [userId]
+
       );
 
 
       await connection.commit();
-
-      connection.release();
-
-
-      console.log(
-        "✅ ORDER CREATED:",
-        orderId
-      );
 
 
       return res.status(201).json({
@@ -750,46 +807,41 @@ router.post(
         message:
           "Order placed successfully",
 
-        order: {
+        orderId,
 
-          id:
-            orderId,
-
-          total,
-
-          status:
-            "Pending",
-
-        },
+        total,
 
       });
 
+
     } catch (error) {
-
-      console.error(
-        "❌ CHECKOUT ERROR:",
-        error
-      );
-
 
       if (connection) {
 
-        try {
-
-          await connection.rollback();
-
-          connection.release();
-
-        } catch (rollbackError) {
-
-          console.error(
-            "ROLLBACK ERROR:",
-            rollbackError.message
-          );
-
-        }
+        await connection.rollback();
 
       }
+
+
+      console.error(
+        "================================="
+      );
+
+      console.error(
+        "❌ CHECKOUT ERROR"
+      );
+
+      console.error(
+        error.message
+      );
+
+      console.error(
+        error.stack
+      );
+
+      console.error(
+        "================================="
+      );
 
 
       return res.status(500).json({
@@ -800,9 +852,20 @@ router.post(
           "Failed to place order",
 
         error:
-          error.message,
+          process.env.NODE_ENV === "production"
+            ? undefined
+            : error.message,
 
       });
+
+
+    } finally {
+
+      if (connection) {
+
+        connection.release();
+
+      }
 
     }
 
@@ -811,42 +874,41 @@ router.post(
 
 
 // ==================================================
-// UPDATE ORDER STATUS
+// UPDATE ORDER STATUS - ADMIN
 // ==================================================
 
 router.put(
-  "/admin/:orderId/status",
-
+  "/:id/status",
   authenticateUser,
-
-  requireAdmin,
-
   async (req, res) => {
 
     try {
 
-      const orderId =
-        Number(
-          req.params.orderId
-        );
+      const role =
+        String(
+          req.user.role || ""
+        )
+          .trim()
+          .toLowerCase();
 
 
-      const status =
-        req.body.status;
+      if (role !== "admin") {
 
-
-      if (!orderId) {
-
-        return res.status(400).json({
+        return res.status(403).json({
 
           success: false,
 
           message:
-            "Invalid order ID",
+            "Admin access required",
 
         });
 
       }
+
+
+      const {
+        status,
+      } = req.body;
 
 
       const allowedStatuses = [
@@ -865,9 +927,7 @@ router.put(
 
 
       if (
-        !allowedStatuses.includes(
-          status
-        )
+        !allowedStatuses.includes(status)
       ) {
 
         return res.status(400).json({
@@ -884,17 +944,21 @@ router.put(
 
       const [result] =
         await db.query(
+
           `
           UPDATE orders
-
           SET status = ?
-
           WHERE id = ?
           `,
+
           [
+
             status,
-            orderId,
+
+            req.params.id,
+
           ]
+
         );
 
 
@@ -923,6 +987,7 @@ router.put(
 
       });
 
+
     } catch (error) {
 
       console.error(
@@ -936,7 +1001,7 @@ router.put(
         success: false,
 
         message:
-          "Failed to update order",
+          "Failed to update order status",
 
       });
 
@@ -945,9 +1010,5 @@ router.put(
   }
 );
 
-
-// ==================================================
-// EXPORT
-// ==================================================
 
 module.exports = router;
