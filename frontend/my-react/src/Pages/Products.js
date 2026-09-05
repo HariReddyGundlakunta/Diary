@@ -1,6 +1,7 @@
 import React, {
   useCallback,
   useEffect,
+  useMemo,
   useState,
 } from "react";
 
@@ -13,84 +14,22 @@ import {
 
 
 // ==================================================
-// PRODUCT FALLBACK IMAGES
+// API URL
 // ==================================================
 
-const productImages = {
-
-  "fresh cow milk":
-    "https://images.unsplash.com/photo-1550583724-b2692b85b150?auto=format&fit=crop&w=800&q=80",
-
-  "buffalo milk":
-    "https://images.unsplash.com/photo-1550583724-b2692b85b150?auto=format&fit=crop&w=800&q=80",
-
-  "a2 cow milk":
-    "https://images.unsplash.com/photo-1550583724-b2692b85b150?auto=format&fit=crop&w=800&q=80",
-
-  "fresh curd":
-    "https://images.unsplash.com/photo-1571212515416-fca3251f4f2d?auto=format&fit=crop&w=800&q=80",
-
-  "buttermilk":
-    "https://images.unsplash.com/photo-1628088062854-d1870b4553da?auto=format&fit=crop&w=800&q=80",
-
-  "paneer":
-    "https://images.unsplash.com/photo-1625944525533-473f1a3d54e7?auto=format&fit=crop&w=800&q=80",
-
-  "fresh cheese":
-    "https://images.unsplash.com/photo-1486297678162-eb2a19b0a32d?auto=format&fit=crop&w=800&q=80",
-
-  "butter":
-    "https://images.unsplash.com/photo-1589985270826-4b7bb135bc9d?auto=format&fit=crop&w=800&q=80",
-
-  "pure cow ghee":
-    "https://images.unsplash.com/photo-1601050690597-df0568f70950?auto=format&fit=crop&w=800&q=80",
-
-  "buffalo ghee":
-    "https://images.unsplash.com/photo-1601050690597-df0568f70950?auto=format&fit=crop&w=800&q=80",
-
-  "fresh cream":
-    "https://images.unsplash.com/photo-1563636619-e9143da7973b?auto=format&fit=crop&w=800&q=80",
-
-  "flavored milk":
-    "https://images.unsplash.com/photo-1550583724-b2692b85b150?auto=format&fit=crop&w=800&q=80",
-
-  "mango lassi":
-    "https://images.unsplash.com/photo-1621506289937-a8e4df240d0b?auto=format&fit=crop&w=800&q=80",
-
-  "sweet lassi":
-    "https://images.unsplash.com/photo-1621506289937-a8e4df240d0b?auto=format&fit=crop&w=800&q=80",
-
-  "khoa":
-    "https://images.unsplash.com/photo-1571115764595-644a1f56a55c?auto=format&fit=crop&w=800&q=80",
-
-  "kulfi":
-    "https://images.unsplash.com/photo-1563805042-7684c019e1cb?auto=format&fit=crop&w=800&q=80",
-
-  "rabri":
-    "https://images.unsplash.com/photo-1551024506-0bccd828d307?auto=format&fit=crop&w=800&q=80",
-
-  "milkshake":
-    "https://images.unsplash.com/photo-1572490122747-3968b75cc699?auto=format&fit=crop&w=800&q=80",
-
-};
+const API_URL =
+  process.env.REACT_APP_API_URL ||
+  "https://diary-88q0.onrender.com";
 
 
 // ==================================================
-// COMPONENT
+// PRODUCTS
 // ==================================================
 
 function Products() {
 
-  const navigate = useNavigate();
-
-
-  // ==================================================
-  // API URL
-  // ==================================================
-
-  const API_URL =
-    process.env.REACT_APP_API_URL ||
-    "http://localhost:5000";
+  const navigate =
+    useNavigate();
 
 
   // ==================================================
@@ -103,45 +42,47 @@ function Products() {
   const [loading, setLoading] =
     useState(true);
 
-  const [message, setMessage] =
-    useState("");
-
   const [error, setError] =
     useState("");
 
-  const [addingProductId, setAddingProductId] =
-    useState(null);
+  const [message, setMessage] =
+    useState("");
 
 
   // ==================================================
-  // GET LOGGED-IN USER
+  // PRODUCT IMAGES
   // ==================================================
 
-  const getLoggedInUser = () => {
+  const productImages = useMemo(
+    () => ({
 
-    try {
+      milk:
+        "https://images.unsplash.com/photo-1563636619-e9143da7973b?auto=format&fit=crop&w=800&q=80",
 
-      const user =
-        localStorage.getItem("user");
+      cowmilk:
+        "https://images.unsplash.com/photo-1550583724-b2692b85b150?auto=format&fit=crop&w=800&q=80",
 
-      if (!user) {
-        return null;
-      }
+      curd:
+        "https://images.unsplash.com/photo-1488477181946-6428a0291777?auto=format&fit=crop&w=800&q=80",
 
-      return JSON.parse(user);
+      yogurt:
+        "https://images.unsplash.com/photo-1571212515416-fef01fc43637?auto=format&fit=crop&w=800&q=80",
 
-    } catch (error) {
+      butter:
+        "https://images.unsplash.com/photo-1589985270826-4b7bb135bc9d?auto=format&fit=crop&w=800&q=80",
 
-      console.error(
-        "User parsing error:",
-        error
-      );
+      cheese:
+        "https://images.unsplash.com/photo-1624806992066-5ffcf7ca186b?auto=format&fit=crop&w=800&q=80",
 
-      return null;
+      paneer:
+        "https://images.unsplash.com/photo-1631452180519-c014fe946bc7?auto=format&fit=crop&w=800&q=80",
 
-    }
+      ghee:
+        "https://images.unsplash.com/photo-1601050690597-df0568f70950?auto=format&fit=crop&w=800&q=80",
 
-  };
+    }),
+    []
+  );
 
 
   // ==================================================
@@ -150,9 +91,98 @@ function Products() {
 
   const getToken = () => {
 
-    return localStorage.getItem("token");
+    return (
+      localStorage.getItem("token") ||
+      ""
+    );
 
   };
+
+
+  // ==================================================
+  // GET IMAGE
+  // ==================================================
+
+  const getProductImage =
+    useCallback(
+      (product) => {
+
+        // ----------------------------------------------
+        // DATABASE IMAGE
+        // ----------------------------------------------
+
+        if (
+          product.image &&
+          product.image.trim() !== ""
+        ) {
+
+          // Full URL
+
+          if (
+            product.image.startsWith("http://") ||
+            product.image.startsWith("https://")
+          ) {
+
+            return product.image;
+
+          }
+
+
+          // Uploaded backend image
+
+          return `${API_URL}/uploads/${product.image}`;
+
+        }
+
+
+        // ----------------------------------------------
+        // DEFAULT IMAGE BASED ON PRODUCT NAME
+        // ----------------------------------------------
+
+        const name =
+          product.name
+            .toLowerCase()
+            .replace(/\s/g, "");
+
+
+        if (name.includes("milk")) {
+          return productImages.milk;
+        }
+
+        if (name.includes("curd")) {
+          return productImages.curd;
+        }
+
+        if (name.includes("yogurt")) {
+          return productImages.yogurt;
+        }
+
+        if (name.includes("butter")) {
+          return productImages.butter;
+        }
+
+        if (name.includes("cheese")) {
+          return productImages.cheese;
+        }
+
+        if (name.includes("paneer")) {
+          return productImages.paneer;
+        }
+
+        if (name.includes("ghee")) {
+          return productImages.ghee;
+        }
+
+
+        // Default dairy image
+
+        return productImages.milk;
+
+      },
+      [
+        productImages,
+      ]
+    );
 
 
   // ==================================================
@@ -160,136 +190,67 @@ function Products() {
   // ==================================================
 
   const fetchProducts =
-    useCallback(async () => {
+    useCallback(
+      async () => {
 
-      try {
+        try {
 
-        setLoading(true);
+          setLoading(true);
 
-        setError("");
+          setError("");
 
-        const response =
-          await axios.get(
-            `${API_URL}/api/products`
+
+          const response =
+            await axios.get(
+              `${API_URL}/api/products`
+            );
+
+
+          setProducts(
+            Array.isArray(response.data)
+              ? response.data
+              : []
           );
 
 
-        setProducts(
+        } catch (error) {
 
-          Array.isArray(response.data)
-            ? response.data
-            : []
+          console.error(
+            "FETCH PRODUCTS ERROR:",
+            error
+          );
 
-        );
 
-      } catch (error) {
+          setError(
+            "Failed to load products"
+          );
 
-        console.error(
-          "GET PRODUCTS ERROR:",
-          error
-        );
 
-        setError(
+        } finally {
 
-          error.response?.data?.message ||
-          "Failed to load products"
+          setLoading(false);
 
-        );
+        }
 
-      } finally {
-
-        setLoading(false);
-
-      }
-
-    }, [API_URL]);
+      },
+      []
+    );
 
 
   // ==================================================
   // LOAD PRODUCTS
   // ==================================================
 
-  useEffect(() => {
+  useEffect(
+    () => {
 
-    fetchProducts();
+      fetchProducts();
 
-  }, [fetchProducts]);
-
-
-  // ==================================================
-  // GET PRODUCT IMAGE
-  // ==================================================
-
-  const getProductImage =
-    (product) => {
-
-      // ----------------------------------------------
-      // 1. DATABASE IMAGE
-      // ----------------------------------------------
-
-      if (
-        product.image &&
-        String(product.image).trim() !== ""
-      ) {
-
-        const image =
-          String(product.image).trim();
-
-
-        // Full external URL
-
-        if (
-          image.startsWith("http://") ||
-          image.startsWith("https://")
-        ) {
-
-          return image;
-
-        }
-
-
-        // Uploaded backend image
-
-        if (
-          image.startsWith("/")
-        ) {
-
-          return `${API_URL}${image}`;
-
-        }
-
-
-        return `${API_URL}/uploads/${image}`;
-
-      }
-
-
-      // ----------------------------------------------
-      // 2. FALLBACK IMAGE BY PRODUCT NAME
-      // ----------------------------------------------
-
-      const productName =
-        String(product.name || "")
-          .toLowerCase()
-          .trim();
-
-
-      if (
-        productImages[productName]
-      ) {
-
-        return productImages[productName];
-
-      }
-
-
-      // ----------------------------------------------
-      // 3. GENERIC DAIRY IMAGE
-      // ----------------------------------------------
-
-      return "https://images.unsplash.com/photo-1550583724-b2692b85b150?auto=format&fit=crop&w=800&q=80";
-
-    };
+    },
+    [
+      fetchProducts,
+    ]
+  );
 
 
   // ==================================================
@@ -306,30 +267,21 @@ function Products() {
         setError("");
 
 
+        const token =
+          getToken();
+
+
         // ----------------------------------------------
         // CHECK LOGIN
         // ----------------------------------------------
 
-        const token =
-          getToken();
+        if (!token) {
 
-        const user =
-          getLoggedInUser();
-
-
-        if (!token || !user) {
-
-          setError(
-            "Please login to add products to your cart."
+          alert(
+            "Please login before adding products to cart"
           );
 
-
-          setTimeout(() => {
-
-            navigate("/login");
-
-          }, 1200);
-
+          navigate("/login");
 
           return;
 
@@ -337,16 +289,7 @@ function Products() {
 
 
         // ----------------------------------------------
-        // LOADING BUTTON
-        // ----------------------------------------------
-
-        setAddingProductId(
-          product.id
-        );
-
-
-        // ----------------------------------------------
-        // ADD PRODUCT TO CART
+        // ADD TO CART
         // ----------------------------------------------
 
         const response =
@@ -355,7 +298,7 @@ function Products() {
             `${API_URL}/api/cart`,
 
             {
-              product_id:
+              productId:
                 product.id,
 
               quantity:
@@ -364,13 +307,8 @@ function Products() {
 
             {
               headers: {
-
                 Authorization:
                   `Bearer ${token}`,
-
-                "Content-Type":
-                  "application/json",
-
               },
             }
 
@@ -378,21 +316,24 @@ function Products() {
 
 
         console.log(
-          "ADD TO CART RESPONSE:",
+          "ADD CART RESPONSE:",
           response.data
         );
 
 
         setMessage(
-          `${product.name} added to cart successfully! 🛒`
+          `${product.name} added to cart successfully!`
         );
 
 
-        setTimeout(() => {
+        setTimeout(
+          () => {
 
-          setMessage("");
+            setMessage("");
 
-        }, 2500);
+          },
+          3000
+        );
 
 
       } catch (error) {
@@ -403,31 +344,31 @@ function Products() {
         );
 
 
+        console.error(
+          "SERVER RESPONSE:",
+          error.response?.data
+        );
+
+
+        // ----------------------------------------------
+        // TOKEN EXPIRED
+        // ----------------------------------------------
+
         if (
-          error.response?.status === 401 ||
-          error.response?.status === 403
+          error.response?.status === 401
         ) {
 
-          localStorage.removeItem(
-            "token"
-          );
+          localStorage.removeItem("token");
 
-          localStorage.removeItem(
-            "user"
-          );
+          localStorage.removeItem("user");
 
 
-          setError(
-            "Your login session expired. Please login again."
+          alert(
+            "Your login session has expired. Please login again."
           );
 
 
-          setTimeout(() => {
-
-            navigate("/login");
-
-          }, 1500);
-
+          navigate("/login");
 
           return;
 
@@ -438,15 +379,8 @@ function Products() {
 
           error.response?.data?.message ||
 
-          "Unable to add product to cart"
+          "Failed to add product to cart"
 
-        );
-
-
-      } finally {
-
-        setAddingProductId(
-          null
         );
 
       }
@@ -455,27 +389,22 @@ function Products() {
 
 
   // ==================================================
-  // IMAGE ERROR HANDLER
+  // LOGOUT
   // ==================================================
 
-  const handleImageError =
-    (event, product) => {
+  const handleLogout =
+    () => {
 
-      const fallbackImage =
-        "https://images.unsplash.com/photo-1550583724-b2692b85b150?auto=format&fit=crop&w=800&q=80";
+      localStorage.removeItem(
+        "token"
+      );
+
+      localStorage.removeItem(
+        "user"
+      );
 
 
-      // Prevent infinite image error loop
-
-      if (
-        event.currentTarget.src !==
-        fallbackImage
-      ) {
-
-        event.currentTarget.src =
-          fallbackImage;
-
-      }
+      navigate("/login");
 
     };
 
@@ -490,7 +419,7 @@ function Products() {
 
       <div style={styles.loading}>
 
-        Loading products... 🥛
+        Loading products...
 
       </div>
 
@@ -500,7 +429,7 @@ function Products() {
 
 
   // ==================================================
-  // PAGE
+  // UI
   // ==================================================
 
   return (
@@ -508,7 +437,9 @@ function Products() {
     <div style={styles.page}>
 
 
+      {/* ============================================ */}
       {/* NAVBAR */}
+      {/* ============================================ */}
 
       <nav style={styles.navbar}>
 
@@ -530,7 +461,9 @@ function Products() {
             to="/home"
             style={styles.navLink}
           >
+
             Home
+
           </Link>
 
 
@@ -538,7 +471,9 @@ function Products() {
             to="/products"
             style={styles.navLink}
           >
+
             Products
+
           </Link>
 
 
@@ -546,16 +481,30 @@ function Products() {
             to="/cart"
             style={styles.navLink}
           >
+
             🛒 Cart
+
           </Link>
 
 
           <Link
-            to="/orders"
+            to="/my-orders"
             style={styles.navLink}
           >
+
             📦 My Orders
+
           </Link>
+
+
+          <button
+            onClick={handleLogout}
+            style={styles.logout}
+          >
+
+            Logout
+
+          </button>
 
 
         </div>
@@ -563,59 +512,40 @@ function Products() {
       </nav>
 
 
+      {/* ============================================ */}
       {/* MAIN */}
+      {/* ============================================ */}
 
       <main style={styles.main}>
 
 
-        {/* HEADER */}
-
         <div style={styles.header}>
 
 
-          <div>
+          <h1>
 
-            <p style={styles.subtitle}>
-              Fresh From Our Farm
-            </p>
+            🥛 Our Fresh Products
 
-
-            <h1 style={styles.title}>
-              Our Dairy Products 🥛
-            </h1>
+          </h1>
 
 
-            <p style={styles.description}>
+          <p>
 
-              Fresh, healthy and high-quality
-              dairy products directly from
-              HARI FARMS.
+            Fresh dairy products directly from HARI FARMS
 
-            </p>
-
-          </div>
-
-
-          <Link
-            to="/cart"
-            style={styles.cartButton}
-          >
-
-            🛒 View Cart
-
-          </Link>
+          </p>
 
 
         </div>
 
 
-        {/* SUCCESS */}
+        {/* MESSAGE */}
 
         {message && (
 
           <div style={styles.success}>
 
-            ✅ {message}
+            {message}
 
           </div>
 
@@ -628,125 +558,115 @@ function Products() {
 
           <div style={styles.error}>
 
-            ❌ {error}
+            {error}
 
           </div>
 
         )}
 
 
+        {/* ============================================ */}
         {/* PRODUCTS */}
+        {/* ============================================ */}
 
         {products.length === 0 ? (
 
           <div style={styles.empty}>
 
-            <h2>
-              No Products Available
-            </h2>
-
-            <p>
-              Products will appear here soon.
-            </p>
+            No products available.
 
           </div>
 
         ) : (
 
-          <div style={styles.productsGrid}>
+          <div style={styles.grid}>
 
 
-            {products.map((product) => {
-
-              const imageUrl =
-                getProductImage(product);
-
-
-              return (
+            {products.map(
+              (product) => (
 
                 <div
                   key={product.id}
-                  style={styles.productCard}
+                  style={styles.card}
                 >
 
 
-                  {/* PRODUCT IMAGE */}
+                  {/* IMAGE */}
 
                   <div
                     style={styles.imageContainer}
                   >
 
                     <img
-
-                      src={imageUrl}
-
-                      alt={product.name}
-
-                      style={styles.productImage}
-
-                      onError={(event) =>
-                        handleImageError(
-                          event,
-                          product
-                        )
+                      src={
+                        getProductImage(product)
                       }
+
+                      alt={
+                        product.name
+                      }
+
+                      style={styles.image}
+
+                      onError={(event) => {
+
+                        event.currentTarget.src =
+                          productImages.milk;
+
+                      }}
 
                     />
 
                   </div>
 
 
-                  {/* PRODUCT DETAILS */}
+                  {/* CONTENT */}
 
-                  <div style={styles.cardContent}>
-
-
-                    <h2
-                      style={styles.productName}
-                    >
-
-                      {product.name}
-
-                    </h2>
+                  <div style={styles.content}>
 
 
-                    <p
-                      style={
-                        styles.productDescription
-                      }
-                    >
+                    <div style={styles.titleRow}>
 
-                      {
-                        product.description ||
-                        "Fresh dairy product from HARI FARMS."
-                      }
+
+                      <h2 style={styles.productName}>
+
+                        {product.emoji}{" "}
+
+                        {product.name}
+
+                      </h2>
+
+
+                    </div>
+
+
+                    <p style={styles.description}>
+
+                      {product.description ||
+                        "Fresh dairy product from HARI FARMS"}
 
                     </p>
 
 
-                    <div style={styles.productInfo}>
+                    <div style={styles.details}>
 
 
-                      <span
-                        style={styles.price}
-                      >
+                      <span style={styles.price}>
 
-                        ₹{
-                          Number(
-                            product.price
-                          ).toFixed(2)
-                        }
+                        ₹{product.price}
 
                       </span>
 
 
-                      <span
-                        style={styles.unit}
-                      >
+                      {product.unit && (
 
-                        {product.unit || "Fresh"}
+                        <span style={styles.unit}>
 
-                      </span>
+                          / {product.unit}
+
+                        </span>
+
+                      )}
 
 
                     </div>
@@ -754,47 +674,26 @@ function Products() {
 
                     <p style={styles.stock}>
 
-                      📦 Stock:{" "}
+
+                      Available Stock:{" "}
 
                       {product.stock ?? 0}
+
 
                     </p>
 
 
                     <button
 
-                      style={
-
-                        addingProductId === product.id
-
-                          ? {
-                              ...styles.addButton,
-                              ...styles.disabledButton,
-                            }
-
-                          : styles.addButton
-
-                      }
-
-                      disabled={
-                        addingProductId === product.id
-                      }
-
                       onClick={() =>
                         handleAddToCart(product)
                       }
 
+                      style={styles.cartButton}
+
                     >
 
-                      {
-
-                        addingProductId === product.id
-
-                          ? "Adding..."
-
-                          : "🛒 Add to Cart"
-
-                      }
+                      🛒 Add to Cart
 
                     </button>
 
@@ -803,37 +702,44 @@ function Products() {
 
                 </div>
 
-              );
-
-            })}
+              )
+            )}
 
 
           </div>
 
         )}
 
-
       </main>
 
 
+      {/* ============================================ */}
       {/* FOOTER */}
+      {/* ============================================ */}
 
       <footer style={styles.footer}>
 
         <h3>
+
           🥛 HARI FARMS
+
         </h3>
 
+
         <p>
+
           Fresh From Farm • Pure For Family
+
         </p>
 
+
         <small>
+
           © 2026 HARI FARMS
+
         </small>
 
       </footer>
-
 
     </div>
 
@@ -848,7 +754,6 @@ function Products() {
 
 const styles = {
 
-
   page: {
     minHeight: "100vh",
     background: "#f5faf5",
@@ -858,22 +763,19 @@ const styles = {
 
 
   navbar: {
-    minHeight: "68px",
     background: "#2e7d32",
+    padding: "18px 40px",
     display: "flex",
     justifyContent: "space-between",
     alignItems: "center",
-    padding: "0 40px",
-    gap: "20px",
-    flexWrap: "wrap",
   },
 
 
   logo: {
-    color: "#ffffff",
+    color: "#fff",
     textDecoration: "none",
-    fontSize: "22px",
     fontWeight: "800",
+    fontSize: "22px",
   },
 
 
@@ -881,70 +783,47 @@ const styles = {
     display: "flex",
     alignItems: "center",
     gap: "20px",
-    flexWrap: "wrap",
   },
 
 
   navLink: {
-    color: "#ffffff",
+    color: "#fff",
     textDecoration: "none",
     fontWeight: "600",
   },
 
 
+  logout: {
+    background: "#e53935",
+    border: "none",
+    color: "#fff",
+    padding: "9px 18px",
+    borderRadius: "20px",
+    cursor: "pointer",
+    fontWeight: "700",
+  },
+
+
   main: {
     maxWidth: "1200px",
-    margin: "0 auto",
-    padding: "40px 25px 70px",
+    margin: "auto",
+    padding: "40px 20px 70px",
   },
 
 
   header: {
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "center",
-    gap: "20px",
-    marginBottom: "30px",
-    flexWrap: "wrap",
-  },
-
-
-  subtitle: {
-    color: "#43a047",
-    fontWeight: "700",
-    marginBottom: "5px",
-  },
-
-
-  title: {
-    fontSize: "38px",
-    color: "#205b26",
-    margin: "5px 0",
-  },
-
-
-  description: {
-    color: "#607066",
-    fontSize: "16px",
-  },
-
-
-  cartButton: {
-    background: "#2e7d32",
-    color: "#ffffff",
-    padding: "14px 22px",
-    borderRadius: "25px",
-    textDecoration: "none",
-    fontWeight: "700",
+    textAlign: "center",
+    marginBottom: "35px",
   },
 
 
   success: {
     background: "#dff5e1",
     color: "#1b5e20",
-    padding: "15px 20px",
-    borderRadius: "12px",
-    marginBottom: "25px",
+    padding: "15px",
+    borderRadius: "10px",
+    marginBottom: "20px",
+    textAlign: "center",
     fontWeight: "600",
   },
 
@@ -952,14 +831,14 @@ const styles = {
   error: {
     background: "#ffebee",
     color: "#c62828",
-    padding: "15px 20px",
-    borderRadius: "12px",
-    marginBottom: "25px",
-    fontWeight: "600",
+    padding: "15px",
+    borderRadius: "10px",
+    marginBottom: "20px",
+    textAlign: "center",
   },
 
 
-  productsGrid: {
+  grid: {
     display: "grid",
     gridTemplateColumns:
       "repeat(auto-fit, minmax(260px, 1fr))",
@@ -967,23 +846,23 @@ const styles = {
   },
 
 
-  productCard: {
-    background: "#ffffff",
-    borderRadius: "20px",
+  card: {
+    background: "#fff",
+    borderRadius: "18px",
     overflow: "hidden",
     boxShadow:
-      "0 8px 25px rgba(0,0,0,0.08)",
+      "0 8px 25px rgba(0,0,0,0.10)",
   },
 
 
   imageContainer: {
-    height: "200px",
-    background: "#edf7ee",
+    width: "100%",
+    height: "210px",
     overflow: "hidden",
   },
 
 
-  productImage: {
+  image: {
     width: "100%",
     height: "100%",
     objectFit: "cover",
@@ -991,59 +870,58 @@ const styles = {
   },
 
 
-  cardContent: {
+  content: {
     padding: "20px",
   },
 
 
+  titleRow: {
+    minHeight: "55px",
+  },
+
+
   productName: {
+    margin: 0,
     color: "#205b26",
-    margin: "0 0 10px",
     fontSize: "21px",
   },
 
 
-  productDescription: {
-    color: "#68756d",
+  description: {
+    color: "#666",
     minHeight: "45px",
-    lineHeight: "1.5",
   },
 
 
-  productInfo: {
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "center",
+  details: {
     marginTop: "15px",
   },
 
 
   price: {
-    color: "#2e7d32",
     fontSize: "22px",
     fontWeight: "800",
+    color: "#2e7d32",
   },
 
 
   unit: {
-    background: "#edf7ee",
-    color: "#2e7d32",
-    padding: "5px 10px",
-    borderRadius: "12px",
-    fontSize: "13px",
+    color: "#777",
+    marginLeft: "5px",
   },
 
 
   stock: {
-    color: "#68756d",
+    color: "#666",
+    fontSize: "14px",
   },
 
 
-  addButton: {
+  cartButton: {
     width: "100%",
     border: "none",
     background: "#2e7d32",
-    color: "#ffffff",
+    color: "#fff",
     padding: "13px",
     borderRadius: "10px",
     fontSize: "15px",
@@ -1052,17 +930,11 @@ const styles = {
   },
 
 
-  disabledButton: {
-    opacity: 0.6,
-    cursor: "not-allowed",
-  },
-
-
   empty: {
-    background: "#ffffff",
     textAlign: "center",
     padding: "60px",
-    borderRadius: "20px",
+    background: "#fff",
+    borderRadius: "15px",
   },
 
 
@@ -1071,13 +943,13 @@ const styles = {
     display: "flex",
     justifyContent: "center",
     alignItems: "center",
-    fontSize: "20px",
+    fontSize: "22px",
   },
 
 
   footer: {
     background: "#173d1b",
-    color: "#ffffff",
+    color: "#fff",
     textAlign: "center",
     padding: "35px",
   },

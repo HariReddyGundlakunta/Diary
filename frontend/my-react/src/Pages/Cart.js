@@ -14,7 +14,8 @@ import {
 
 function Cart() {
 
-  const navigate = useNavigate();
+  const navigate =
+    useNavigate();
 
 
   // ==================================================
@@ -23,27 +24,30 @@ function Cart() {
 
   const API_URL =
     process.env.REACT_APP_API_URL ||
-    "http://localhost:5000";
+    "https://diary-88q0.onrender.com";
 
 
   // ==================================================
-  // STATES
+  // STATE
   // ==================================================
 
   const [cartItems, setCartItems] =
     useState([]);
 
+  const [total, setTotal] =
+    useState(0);
+
   const [loading, setLoading] =
     useState(true);
-
-  const [error, setError] =
-    useState("");
 
   const [message, setMessage] =
     useState("");
 
-  const [updatingId, setUpdatingId] =
-    useState(null);
+  const [error, setError] =
+    useState("");
+
+  const [checkingOut, setCheckingOut] =
+    useState(false);
 
 
   // ==================================================
@@ -53,6 +57,29 @@ function Cart() {
   const getToken = () => {
 
     return localStorage.getItem("token");
+
+  };
+
+
+  // ==================================================
+  // AUTH HEADERS
+  // ==================================================
+
+  const getHeaders = () => {
+
+    const token =
+      getToken();
+
+    return {
+
+      headers: {
+
+        Authorization:
+          `Bearer ${token}`,
+
+      },
+
+    };
 
   };
 
@@ -74,42 +101,21 @@ function Cart() {
           getToken();
 
 
-        // ----------------------------------------------
-        // CHECK LOGIN
-        // ----------------------------------------------
-
         if (!token) {
 
-          setCartItems([]);
-
-          setLoading(false);
-
-          setError(
-            "Please login to view your cart."
-          );
+          navigate("/login");
 
           return;
 
         }
 
 
-        // ----------------------------------------------
-        // GET CART
-        // ----------------------------------------------
-
         const response =
           await axios.get(
 
             `${API_URL}/api/cart`,
 
-            {
-              headers: {
-
-                Authorization:
-                  `Bearer ${token}`,
-
-              },
-            }
+            getHeaders()
 
           );
 
@@ -120,57 +126,17 @@ function Cart() {
         );
 
 
-        // ----------------------------------------------
-        // HANDLE DIFFERENT RESPONSE FORMATS
-        // ----------------------------------------------
+        if (response.data.success) {
 
-        let items = [];
+          setCartItems(
+            response.data.cartItems || []
+          );
 
-
-        if (
-          Array.isArray(response.data)
-        ) {
-
-          items =
-            response.data;
+          setTotal(
+            Number(response.data.total || 0)
+          );
 
         }
-
-        else if (
-          Array.isArray(
-            response.data.cartItems
-          )
-        ) {
-
-          items =
-            response.data.cartItems;
-
-        }
-
-        else if (
-          Array.isArray(
-            response.data.items
-          )
-        ) {
-
-          items =
-            response.data.items;
-
-        }
-
-        else if (
-          Array.isArray(
-            response.data.cart
-          )
-        ) {
-
-          items =
-            response.data.cart;
-
-        }
-
-
-        setCartItems(items);
 
 
       } catch (error) {
@@ -182,25 +148,14 @@ function Cart() {
 
 
         if (
-          error.response?.status === 401 ||
-          error.response?.status === 403
+          error.response?.status === 401
         ) {
 
-          localStorage.removeItem(
-            "token"
-          );
+          localStorage.removeItem("token");
 
-          localStorage.removeItem(
-            "user"
-          );
+          localStorage.removeItem("user");
 
-
-          setError(
-            "Your login session expired. Please login again."
-          );
-
-
-          setCartItems([]);
+          navigate("/login");
 
           return;
 
@@ -208,11 +163,8 @@ function Cart() {
 
 
         setError(
-
           error.response?.data?.message ||
-
           "Failed to load cart"
-
         );
 
 
@@ -222,7 +174,10 @@ function Cart() {
 
       }
 
-    }, [API_URL]);
+    }, [
+      API_URL,
+      navigate,
+    ]);
 
 
   // ==================================================
@@ -233,7 +188,9 @@ function Cart() {
 
     fetchCart();
 
-  }, [fetchCart]);
+  }, [
+    fetchCart,
+  ]);
 
 
   // ==================================================
@@ -241,55 +198,48 @@ function Cart() {
   // ==================================================
 
   const updateQuantity =
-    async (item, newQuantity) => {
+    async (
+      productId,
+      quantity
+    ) => {
 
       try {
 
-        if (newQuantity < 1) {
+        if (
+          !productId ||
+          Number(productId) <= 0
+        ) {
+
+          console.error(
+            "Invalid Product ID:",
+            productId
+          );
 
           return;
 
         }
 
 
-        const token =
-          getToken();
-
-
-        if (!token) {
-
-          navigate("/login");
+        if (
+          quantity < 1
+        ) {
 
           return;
 
         }
-
-
-        setUpdatingId(
-          item.id
-        );
 
 
         await axios.put(
 
-          `${API_URL}/api/cart/${item.id}`,
+          `${API_URL}/api/cart/${productId}`,
 
           {
-            quantity:
-              newQuantity,
+
+            quantity,
+
           },
 
-          {
-            headers: {
-
-              Authorization:
-                `Bearer ${token}`,
-
-              "Content-Type":
-                "application/json",
-
-            },
-          }
+          getHeaders()
 
         );
 
@@ -306,17 +256,8 @@ function Cart() {
 
 
         setError(
-
           error.response?.data?.message ||
-
           "Failed to update cart"
-
-        );
-
-      } finally {
-
-        setUpdatingId(
-          null
         );
 
       }
@@ -325,61 +266,48 @@ function Cart() {
 
 
   // ==================================================
-  // REMOVE FROM CART
+  // REMOVE ITEM
   // ==================================================
 
-  const removeFromCart =
-    async (item) => {
+  const removeItem =
+    async (productId) => {
 
       try {
 
-        const token =
-          getToken();
+        if (
+          !productId ||
+          Number(productId) <= 0
+        ) {
 
+          console.error(
+            "REMOVE ERROR: Invalid product ID:",
+            productId
+          );
 
-        if (!token) {
-
-          navigate("/login");
+          setError(
+            "Invalid product ID"
+          );
 
           return;
 
         }
 
 
-        setUpdatingId(
-          item.id
-        );
-
-
         await axios.delete(
 
-          `${API_URL}/api/cart/${item.id}`,
+          `${API_URL}/api/cart/${productId}`,
 
-          {
-            headers: {
-
-              Authorization:
-                `Bearer ${token}`,
-
-            },
-          }
+          getHeaders()
 
         );
 
 
         setMessage(
-          "Product removed from cart."
+          "Product removed from cart"
         );
 
 
         await fetchCart();
-
-
-        setTimeout(() => {
-
-          setMessage("");
-
-        }, 2000);
 
 
       } catch (error) {
@@ -391,17 +319,8 @@ function Cart() {
 
 
         setError(
-
           error.response?.data?.message ||
-
           "Failed to remove product"
-
-        );
-
-      } finally {
-
-        setUpdatingId(
-          null
         );
 
       }
@@ -413,223 +332,68 @@ function Cart() {
   // CHECKOUT
   // ==================================================
 
-  const handleCheckout =
-    async () => {
+  const handleCheckout = async () => {
+  try {
+    const token = localStorage.getItem("token");
 
-      try {
+    if (!token) {
+      alert("Please login before checkout");
+      navigate("/login");
+      return;
+    }
 
-        setError("");
-
-        setMessage("");
-
-
-        const token =
-          getToken();
-
-
-        if (!token) {
-
-          setError(
-            "Please login before checkout."
-          );
-
-
-          setTimeout(() => {
-
-            navigate("/login");
-
-          }, 1000);
-
-
-          return;
-
-        }
-
-
-        if (
-          cartItems.length === 0
-        ) {
-
-          setError(
-            "Your cart is empty."
-          );
-
-          return;
-
-        }
-
-
-        const response =
-          await axios.post(
-
-            `${API_URL}/api/orders/checkout`,
-
-            {},
-
-            {
-              headers: {
-
-                Authorization:
-                  `Bearer ${token}`,
-
-                "Content-Type":
-                  "application/json",
-
-              },
-            }
-
-          );
-
-
-        console.log(
-          "CHECKOUT RESPONSE:",
-          response.data
-        );
-
-
-        setMessage(
-          "🎉 Order placed successfully!"
-        );
-
-
-        setCartItems([]);
-
-
-        setTimeout(() => {
-
-          navigate("/orders");
-
-        }, 1500);
-
-
-      } catch (error) {
-
-        console.error(
-          "CHECKOUT ERROR:",
-          error
-        );
-
-
-        if (
-          error.response?.status === 401 ||
-          error.response?.status === 403
-        ) {
-
-          localStorage.removeItem(
-            "token"
-          );
-
-          localStorage.removeItem(
-            "user"
-          );
-
-
-          setError(
-            "Your login session expired. Please login again."
-          );
-
-
-          setTimeout(() => {
-
-            navigate("/login");
-
-          }, 1500);
-
-
-          return;
-
-        }
-
-
-        setError(
-
-          error.response?.data?.message ||
-
-          "Failed to place order"
-
-        );
-
+    const response = await axios.post(
+      `${API_URL}/api/orders/checkout`,
+      {},
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
       }
-
-    };
-
-
-  // ==================================================
-  // TOTAL
-  // ==================================================
-
-  const getItemPrice =
-    (item) => {
-
-      return Number(
-
-        item.price ||
-
-        item.product_price ||
-
-        0
-
-      );
-
-    };
-
-
-  const total =
-    cartItems.reduce(
-
-      (sum, item) => {
-
-        const price =
-          getItemPrice(item);
-
-        const quantity =
-          Number(item.quantity || 1);
-
-
-        return (
-          sum +
-          price * quantity
-        );
-
-      },
-
-      0
-
     );
 
+    console.log("CHECKOUT RESPONSE:", response.data);
+
+    if (response.data.success) {
+      alert("Order placed successfully!");
+
+      // Refresh cart
+      fetchCart();
+
+      // Go to My Orders page
+      navigate("/orders");
+    }
+
+  } catch (error) {
+    console.error("CHECKOUT ERROR:", error);
+
+    console.log(
+      "SERVER RESPONSE:",
+      error.response?.data
+    );
+
+    alert(
+      error.response?.data?.message ||
+      "Failed to place order"
+    );
+  }
+};
+
 
   // ==================================================
-  // IMAGE URL
+  // LOGOUT
   // ==================================================
 
-  const getProductImage =
-    (item) => {
+  const handleLogout = () => {
 
-      const image =
-        item.image ||
-        item.product_image ||
-        "";
+    localStorage.removeItem("token");
 
+    localStorage.removeItem("user");
 
-      if (!image) {
+    navigate("/login");
 
-        return null;
-
-      }
-
-
-      if (
-        image.startsWith("http")
-      ) {
-
-        return image;
-
-      }
-
-
-      return `${API_URL}${image}`;
-
-    };
+  };
 
 
   // ==================================================
@@ -642,7 +406,7 @@ function Cart() {
 
       <div style={styles.loading}>
 
-        Loading your cart... 🛒
+        Loading your cart...
 
       </div>
 
@@ -660,12 +424,9 @@ function Cart() {
     <div style={styles.page}>
 
 
-      {/* ============================================== */}
       {/* NAVBAR */}
-      {/* ============================================== */}
 
       <nav style={styles.navbar}>
-
 
         <Link
           to="/home"
@@ -679,14 +440,11 @@ function Cart() {
 
         <div style={styles.navLinks}>
 
-
           <Link
             to="/home"
             style={styles.navLink}
           >
-
             Home
-
           </Link>
 
 
@@ -694,40 +452,39 @@ function Cart() {
             to="/products"
             style={styles.navLink}
           >
-
             Products
+          </Link>
 
+
+          <Link
+            to="/my-orders"
+            style={styles.navLink}
+          >
+            My Orders
           </Link>
 
 
           <Link
             to="/cart"
-            style={styles.navLink}
+            style={styles.cartButton}
           >
-
             🛒 Cart
-
           </Link>
 
 
-          <Link
-            to="/orders"
-            style={styles.navLink}
+          <button
+            onClick={handleLogout}
+            style={styles.logout}
           >
-
-            📦 My Orders
-
-          </Link>
-
+            Logout
+          </button>
 
         </div>
 
       </nav>
 
 
-      {/* ============================================== */}
       {/* MAIN */}
-      {/* ============================================== */}
 
       <main style={styles.main}>
 
@@ -739,7 +496,7 @@ function Cart() {
         </h1>
 
 
-        {/* SUCCESS */}
+        {/* MESSAGE */}
 
         {message && (
 
@@ -752,13 +509,11 @@ function Cart() {
         )}
 
 
-        {/* ERROR */}
-
         {error && (
 
           <div style={styles.error}>
 
-            ❌ {error}
+            {error}
 
           </div>
 
@@ -770,7 +525,6 @@ function Cart() {
         {cartItems.length === 0 ? (
 
           <div style={styles.emptyCart}>
-
 
             <div style={styles.emptyIcon}>
 
@@ -799,239 +553,181 @@ function Cart() {
               style={styles.shopButton}
             >
 
-              🥛 Shop Products
+              Browse Products
 
             </Link>
-
 
           </div>
 
         ) : (
 
+
           <div style={styles.cartLayout}>
 
 
-            {/* ======================================== */}
             {/* CART ITEMS */}
-            {/* ======================================== */}
 
-            <section style={styles.cartItems}>
-
-
-              {cartItems.map(
-                (item) => {
-
-                  const imageUrl =
-                    getProductImage(item);
+            <div style={styles.itemsSection}>
 
 
-                  const productName =
-                    item.name ||
-                    item.product_name ||
-                    "Product";
+              {cartItems.map((item) => (
+
+                <div
+                  key={
+                    item.cart_id ||
+                    item.product_id
+                  }
+                  style={styles.cartItem}
+                >
 
 
-                  const price =
-                    getItemPrice(item);
+                  {/* PRODUCT IMAGE */}
+
+                  <div style={styles.imageBox}>
+
+                    {item.image ? (
+
+                      <img
+                        src={
+                          item.image.startsWith("http")
+                            ? item.image
+                            : `${API_URL}${item.image.startsWith("/") ? "" : "/"}${item.image}`
+                        }
+                        alt={item.name}
+                        style={styles.image}
+                        onError={(event) => {
+
+                          event.currentTarget.style.display =
+                            "none";
+
+                        }}
+                      />
+
+                    ) : (
+
+                      <div style={styles.emoji}>
+
+                        {item.emoji || "🥛"}
+
+                      </div>
+
+                    )}
+
+                  </div>
 
 
-                  return (
+                  {/* PRODUCT DETAILS */}
 
-                    <div
-                      key={item.id}
-                      style={styles.cartItem}
+                  <div style={styles.details}>
+
+                    <h3 style={styles.productName}>
+
+                      {item.name}
+
+                    </h3>
+
+
+                    <p style={styles.unit}>
+
+                      {item.unit}
+
+                    </p>
+
+
+                    <p style={styles.price}>
+
+                      ₹{Number(item.price).toFixed(2)}
+
+                    </p>
+
+                  </div>
+
+
+                  {/* QUANTITY */}
+
+                  <div style={styles.quantityBox}>
+
+                    <button
+                      style={styles.quantityButton}
+                      onClick={() =>
+                        updateQuantity(
+                          item.product_id,
+                          Number(item.quantity) - 1
+                        )
+                      }
+                      disabled={
+                        Number(item.quantity) <= 1
+                      }
                     >
 
+                      −
 
-                      {/* IMAGE */}
+                    </button>
 
-                      <div
-                        style={styles.imageBox}
-                      >
 
-                        {imageUrl ? (
+                    <span style={styles.quantity}>
 
-                          <img
+                      {item.quantity}
 
-                            src={imageUrl}
+                    </span>
 
-                            alt={productName}
 
-                            style={styles.image}
+                    <button
+                      style={styles.quantityButton}
+                      onClick={() =>
+                        updateQuantity(
+                          item.product_id,
+                          Number(item.quantity) + 1
+                        )
+                      }
+                    >
 
-                            onError={(event) => {
+                      +
 
-                              event.currentTarget.style.display =
-                                "none";
+                    </button>
 
-                            }}
+                  </div>
 
-                          />
 
-                        ) : (
+                  {/* TOTAL */}
 
-                          <div
-                            style={styles.emoji}
-                          >
+                  <div style={styles.itemTotal}>
 
-                            {
-                              item.emoji ||
-                              item.product_emoji ||
-                              "🥛"
-                            }
+                    ₹
+                    {(
+                      Number(item.price) *
+                      Number(item.quantity)
+                    ).toFixed(2)}
 
-                          </div>
+                  </div>
 
-                        )}
 
-                      </div>
+                  {/* REMOVE */}
 
+                  <button
+                    style={styles.removeButton}
+                    onClick={() =>
+                      removeItem(
+                        item.product_id
+                      )
+                    }
+                  >
 
-                      {/* DETAILS */}
+                    Remove
 
-                      <div
-                        style={styles.itemDetails}
-                      >
+                  </button>
 
 
-                        <h3>
+                </div>
 
-                          {productName}
+              ))}
 
-                        </h3>
+            </div>
 
 
-                        <p>
-
-                          ₹{price.toFixed(2)}
-
-                        </p>
-
-
-                        {/* QUANTITY */}
-
-                        <div
-                          style={styles.quantityBox}
-                        >
-
-
-                          <button
-
-                            disabled={
-                              updatingId === item.id
-                            }
-
-                            style={styles.quantityButton}
-
-                            onClick={() =>
-                              updateQuantity(
-                                item,
-                                Number(item.quantity) - 1
-                              )
-                            }
-
-                          >
-
-                            −
-
-                          </button>
-
-
-                          <span
-                            style={styles.quantity}
-                          >
-
-                            {item.quantity}
-
-                          </span>
-
-
-                          <button
-
-                            disabled={
-                              updatingId === item.id
-                            }
-
-                            style={styles.quantityButton}
-
-                            onClick={() =>
-                              updateQuantity(
-                                item,
-                                Number(item.quantity) + 1
-                              )
-                            }
-
-                          >
-
-                            +
-
-                          </button>
-
-
-                        </div>
-
-
-                      </div>
-
-
-                      {/* SUBTOTAL */}
-
-                      <div
-                        style={styles.itemRight}
-                      >
-
-
-                        <strong>
-
-                          ₹
-                          {
-                            (
-                              price *
-                              Number(item.quantity || 1)
-                            ).toFixed(2)
-                          }
-
-                        </strong>
-
-
-                        <button
-
-                          disabled={
-                            updatingId === item.id
-                          }
-
-                          style={styles.removeButton}
-
-                          onClick={() =>
-                            removeFromCart(item)
-                          }
-
-                        >
-
-                          🗑 Remove
-
-                        </button>
-
-
-                      </div>
-
-
-                    </div>
-
-                  );
-
-                }
-              )}
-
-
-            </section>
-
-
-            {/* ======================================== */}
             {/* ORDER SUMMARY */}
-            {/* ======================================== */}
 
-            <aside style={styles.summary}>
+            <div style={styles.summary}>
 
 
               <h2>
@@ -1059,18 +755,19 @@ function Cart() {
               </div>
 
 
-              <div style={styles.summaryRow}>
+              <div style={styles.line} />
 
-                <span>
+
+              <div style={styles.totalRow}>
+
+                <strong>
 
                   Total
 
-                </span>
+                </strong>
 
 
-                <strong
-                  style={styles.total}
-                >
+                <strong style={styles.totalPrice}>
 
                   ₹{total.toFixed(2)}
 
@@ -1080,21 +777,34 @@ function Cart() {
 
 
               <button
-
-                style={styles.checkoutButton}
-
                 onClick={handleCheckout}
+                disabled={checkingOut}
+                style={{
+                  ...styles.checkoutButton,
 
+                  opacity:
+                    checkingOut
+                      ? 0.7
+                      : 1,
+
+                  cursor:
+                    checkingOut
+                      ? "not-allowed"
+                      : "pointer",
+
+                }}
               >
 
-                Proceed to Checkout →
+                {checkingOut
+                  ? "Placing Order..."
+                  : "Proceed to Checkout →"}
 
               </button>
 
 
               <Link
                 to="/products"
-                style={styles.continueShopping}
+                style={styles.continue}
               >
 
                 ← Continue Shopping
@@ -1102,7 +812,7 @@ function Cart() {
               </Link>
 
 
-            </aside>
+            </div>
 
 
           </div>
@@ -1117,11 +827,7 @@ function Cart() {
 
       <footer style={styles.footer}>
 
-        🥛 <strong>
-
-          HARI FARMS
-
-        </strong>
+        🥛 <strong>HARI FARMS</strong>
 
         <p>
 
@@ -1151,7 +857,6 @@ function Cart() {
 
 const styles = {
 
-
   page: {
     minHeight: "100vh",
     background: "#f5faf5",
@@ -1159,18 +864,25 @@ const styles = {
       "'Segoe UI', Arial, sans-serif",
   },
 
-
-  navbar: {
-    minHeight: "68px",
-    background: "#2e7d32",
+  loading: {
+    minHeight: "100vh",
     display: "flex",
-    justifyContent: "space-between",
     alignItems: "center",
-    padding: "0 40px",
-    gap: "20px",
-    flexWrap: "wrap",
+    justifyContent: "center",
+    fontSize: "22px",
+    fontWeight: "600",
   },
 
+  navbar: {
+    background: "#2e7d32",
+    minHeight: "68px",
+    padding: "0 40px",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    flexWrap: "wrap",
+    gap: "15px",
+  },
 
   logo: {
     color: "#ffffff",
@@ -1179,13 +891,12 @@ const styles = {
     fontWeight: "800",
   },
 
-
   navLinks: {
     display: "flex",
-    gap: "20px",
+    alignItems: "center",
+    gap: "18px",
     flexWrap: "wrap",
   },
-
 
   navLink: {
     color: "#ffffff",
@@ -1193,191 +904,53 @@ const styles = {
     fontWeight: "600",
   },
 
+  cartButton: {
+    color: "#2e7d32",
+    background: "#ffffff",
+    padding: "9px 16px",
+    borderRadius: "20px",
+    textDecoration: "none",
+    fontWeight: "700",
+  },
+
+  logout: {
+    background: "#e53935",
+    color: "#ffffff",
+    border: "none",
+    padding: "9px 18px",
+    borderRadius: "20px",
+    cursor: "pointer",
+    fontWeight: "700",
+  },
 
   main: {
     maxWidth: "1200px",
     margin: "0 auto",
-    padding: "40px 25px 70px",
+    padding: "40px 20px 70px",
   },
-
 
   title: {
     color: "#205b26",
     marginBottom: "30px",
   },
 
-
   success: {
     background: "#dff5e1",
-    color: "#1b5e20",
+    color: "#176b24",
     padding: "15px",
     borderRadius: "10px",
     marginBottom: "20px",
     fontWeight: "600",
   },
-
 
   error: {
-    background: "#ffebee",
-    color: "#c62828",
+    background: "#ffe0e0",
+    color: "#b71c1c",
     padding: "15px",
     borderRadius: "10px",
     marginBottom: "20px",
-  },
-
-
-  cartLayout: {
-    display: "grid",
-    gridTemplateColumns:
-      "2fr 1fr",
-    gap: "30px",
-    alignItems: "start",
-  },
-
-
-  cartItems: {
-    display: "flex",
-    flexDirection: "column",
-    gap: "18px",
-  },
-
-
-  cartItem: {
-    background: "#ffffff",
-    borderRadius: "18px",
-    padding: "20px",
-    display: "flex",
-    alignItems: "center",
-    gap: "20px",
-    boxShadow:
-      "0 7px 25px rgba(0,0,0,0.07)",
-  },
-
-
-  imageBox: {
-    width: "100px",
-    height: "100px",
-    borderRadius: "14px",
-    background: "#edf7ee",
-    overflow: "hidden",
-    display: "flex",
-    justifyContent: "center",
-    alignItems: "center",
-    flexShrink: 0,
-  },
-
-
-  image: {
-    width: "100%",
-    height: "100%",
-    objectFit: "cover",
-  },
-
-
-  emoji: {
-    fontSize: "50px",
-  },
-
-
-  itemDetails: {
-    flex: 1,
-  },
-
-
-  quantityBox: {
-    display: "flex",
-    alignItems: "center",
-    gap: "12px",
-    marginTop: "12px",
-  },
-
-
-  quantityButton: {
-    width: "32px",
-    height: "32px",
-    border: "none",
-    borderRadius: "8px",
-    background: "#2e7d32",
-    color: "#ffffff",
-    fontSize: "20px",
-    cursor: "pointer",
-  },
-
-
-  quantity: {
-    fontWeight: "700",
-    minWidth: "20px",
-    textAlign: "center",
-  },
-
-
-  itemRight: {
-    display: "flex",
-    flexDirection: "column",
-    alignItems: "flex-end",
-    gap: "15px",
-  },
-
-
-  removeButton: {
-    border: "none",
-    background: "#ffebee",
-    color: "#c62828",
-    padding: "8px 12px",
-    borderRadius: "8px",
-    cursor: "pointer",
-  },
-
-
-  summary: {
-    background: "#ffffff",
-    padding: "25px",
-    borderRadius: "18px",
-    boxShadow:
-      "0 7px 25px rgba(0,0,0,0.07)",
-    position: "sticky",
-    top: "20px",
-  },
-
-
-  summaryRow: {
-    display: "flex",
-    justifyContent: "space-between",
-    padding: "15px 0",
-    borderBottom:
-      "1px solid #eeeeee",
-  },
-
-
-  total: {
-    color: "#2e7d32",
-    fontSize: "22px",
-  },
-
-
-  checkoutButton: {
-    width: "100%",
-    marginTop: "25px",
-    border: "none",
-    background: "#2e7d32",
-    color: "#ffffff",
-    padding: "15px",
-    borderRadius: "10px",
-    fontWeight: "700",
-    cursor: "pointer",
-    fontSize: "16px",
-  },
-
-
-  continueShopping: {
-    display: "block",
-    textAlign: "center",
-    marginTop: "18px",
-    color: "#2e7d32",
-    textDecoration: "none",
     fontWeight: "600",
   },
-
 
   emptyCart: {
     background: "#ffffff",
@@ -1385,42 +958,185 @@ const styles = {
     borderRadius: "20px",
     textAlign: "center",
     boxShadow:
-      "0 7px 25px rgba(0,0,0,0.07)",
+      "0 5px 25px rgba(0,0,0,0.08)",
   },
-
 
   emptyIcon: {
     fontSize: "70px",
   },
 
-
   shopButton: {
     display: "inline-block",
-    marginTop: "15px",
+    marginTop: "20px",
     background: "#2e7d32",
     color: "#ffffff",
-    padding: "13px 22px",
-    borderRadius: "25px",
     textDecoration: "none",
+    padding: "13px 25px",
+    borderRadius: "25px",
     fontWeight: "700",
   },
 
+  cartLayout: {
+    display: "grid",
+    gridTemplateColumns:
+      "minmax(0, 2fr) minmax(300px, 1fr)",
+    gap: "25px",
+  },
 
-  loading: {
-    minHeight: "100vh",
+  itemsSection: {
     display: "flex",
-    justifyContent: "center",
+    flexDirection: "column",
+    gap: "15px",
+  },
+
+  cartItem: {
+    background: "#ffffff",
+    padding: "18px",
+    borderRadius: "16px",
+    display: "flex",
     alignItems: "center",
+    gap: "18px",
+    boxShadow:
+      "0 5px 20px rgba(0,0,0,0.07)",
+  },
+
+  imageBox: {
+    width: "90px",
+    height: "90px",
+    borderRadius: "12px",
+    overflow: "hidden",
+    background: "#eef7ee",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    flexShrink: 0,
+  },
+
+  image: {
+    width: "100%",
+    height: "100%",
+    objectFit: "cover",
+    display: "block",
+  },
+
+  emoji: {
+    fontSize: "45px",
+  },
+
+  details: {
+    flex: 1,
+  },
+
+  productName: {
+    margin: "0 0 6px",
+    color: "#26352a",
+  },
+
+  unit: {
+    margin: "4px 0",
+    color: "#777777",
+  },
+
+  price: {
+    margin: "5px 0",
+    color: "#2e7d32",
+    fontWeight: "700",
+  },
+
+  quantityBox: {
+    display: "flex",
+    alignItems: "center",
+    gap: "10px",
+  },
+
+  quantityButton: {
+    width: "32px",
+    height: "32px",
+    borderRadius: "50%",
+    border: "none",
+    background: "#e8f5e9",
+    color: "#2e7d32",
+    fontSize: "20px",
+    cursor: "pointer",
+  },
+
+  quantity: {
+    fontWeight: "700",
+    minWidth: "25px",
+    textAlign: "center",
+  },
+
+  itemTotal: {
+    fontWeight: "800",
+    color: "#205b26",
+    minWidth: "90px",
+  },
+
+  removeButton: {
+    background: "transparent",
+    color: "#e53935",
+    border: "none",
+    cursor: "pointer",
+    fontWeight: "700",
+  },
+
+  summary: {
+    background: "#ffffff",
+    padding: "28px",
+    borderRadius: "20px",
+    height: "fit-content",
+    boxShadow:
+      "0 5px 25px rgba(0,0,0,0.08)",
+  },
+
+  summaryRow: {
+    display: "flex",
+    justifyContent: "space-between",
+    marginTop: "20px",
+  },
+
+  line: {
+    height: "1px",
+    background: "#e5e5e5",
+    margin: "20px 0",
+  },
+
+  totalRow: {
+    display: "flex",
+    justifyContent: "space-between",
     fontSize: "20px",
   },
 
+  totalPrice: {
+    color: "#2e7d32",
+  },
+
+  checkoutButton: {
+    width: "100%",
+    marginTop: "25px",
+    padding: "15px",
+    background: "#2e7d32",
+    color: "#ffffff",
+    border: "none",
+    borderRadius: "10px",
+    fontSize: "16px",
+    fontWeight: "700",
+  },
+
+  continue: {
+    display: "block",
+    textAlign: "center",
+    marginTop: "20px",
+    color: "#2e7d32",
+    textDecoration: "none",
+    fontWeight: "600",
+  },
 
   footer: {
     background: "#173d1b",
     color: "#ffffff",
     textAlign: "center",
     padding: "35px",
-    marginTop: "40px",
   },
 
 };

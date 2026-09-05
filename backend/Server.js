@@ -12,11 +12,8 @@ const db = require("./db");
 // ==================================================
 
 const authRoutes = require("./routes/AuthRoutes");
-
 const productRoutes = require("./routes/ProductRoutes");
-
 const cartRoutes = require("./routes/CartRoutes");
-
 const orderRoutes = require("./routes/OrderRoutes");
 
 // ==================================================
@@ -31,17 +28,14 @@ const PORT = process.env.PORT || 5000;
 // CREATE UPLOADS DIRECTORY
 // ==================================================
 
-const uploadsPath = path.join(
-  __dirname,
-  "uploads"
-);
+const uploadsPath = path.join(__dirname, "uploads");
 
 if (!fs.existsSync(uploadsPath)) {
   fs.mkdirSync(uploadsPath, {
     recursive: true,
   });
 
-  console.log("✅ uploads folder created");
+  console.log("✅ Uploads folder created");
 }
 
 // ==================================================
@@ -57,7 +51,8 @@ const allowedOrigins = [
 app.use(
   cors({
     origin: function (origin, callback) {
-      // Allow Postman and server-to-server requests
+      // Allow Postman, Render health checks,
+      // and server-to-server requests
       if (!origin) {
         return callback(null, true);
       }
@@ -66,10 +61,7 @@ app.use(
         return callback(null, true);
       }
 
-      console.log(
-        "⚠️ CORS blocked origin:",
-        origin
-      );
+      console.log("⚠️ CORS blocked:", origin);
 
       return callback(
         new Error("Not allowed by CORS")
@@ -80,8 +72,8 @@ app.use(
       "GET",
       "POST",
       "PUT",
-      "DELETE",
       "PATCH",
+      "DELETE",
       "OPTIONS",
     ],
 
@@ -112,15 +104,15 @@ app.use(
 );
 
 // ==================================================
-// PRODUCT IMAGE STATIC FILES
+// STATIC PRODUCT IMAGES
 // ==================================================
 
 // Example:
 //
-// File:
 // backend/uploads/milk.jpg
 //
-// URL:
+// Available at:
+//
 // http://localhost:5000/uploads/milk.jpg
 
 app.use(
@@ -147,7 +139,7 @@ app.use((req, res, next) => {
 app.get("/", (req, res) => {
   return res.status(200).json({
     success: true,
-    message: "HARI FARMS API is running",
+    message: "🥛 HARI FARMS API is running successfully",
   });
 });
 
@@ -155,75 +147,64 @@ app.get("/", (req, res) => {
 // HEALTH CHECK
 // ==================================================
 
-app.get(
-  "/api/health",
-  async (req, res) => {
-    try {
-      await db.query("SELECT 1");
+app.get("/api/health", async (req, res) => {
+  try {
+    await db.query("SELECT 1");
 
-      return res.status(200).json({
-        success: true,
-        message:
-          "Server and database are healthy",
-      });
+    return res.status(200).json({
+      success: true,
+      message: "Server and database are healthy",
+    });
 
-    } catch (error) {
-      console.error(
-        "❌ HEALTH CHECK DATABASE ERROR:",
-        error.message
-      );
+  } catch (error) {
+    console.error(
+      "❌ HEALTH CHECK ERROR:",
+      error.message
+    );
 
-      return res.status(500).json({
-        success: false,
-        message:
-          "Database is not available",
-        error:
-          process.env.NODE_ENV === "production"
-            ? "Database connection failed"
-            : error.message,
-      });
-    }
+    return res.status(500).json({
+      success: false,
+      message: "Database is not available",
+      error:
+        process.env.NODE_ENV === "production"
+          ? "Database connection failed"
+          : error.message,
+    });
   }
-);
+});
 
 // ==================================================
 // TEST DATABASE
 // ==================================================
 
-app.get(
-  "/api/test-db",
-  async (req, res) => {
-    try {
-      const [result] =
-        await db.query(
-          "SELECT 1 AS test"
-        );
+app.get("/api/test-db", async (req, res) => {
+  try {
+    const [result] = await db.query(
+      "SELECT 1 AS test"
+    );
 
-      return res.status(200).json({
-        success: true,
-        message:
-          "Database connected successfully",
-        result,
-      });
+    return res.status(200).json({
+      success: true,
+      message: "Database connected successfully",
+      result,
+    });
 
-    } catch (error) {
-      console.error(
-        "❌ DATABASE ERROR:",
-        error.message
-      );
+  } catch (error) {
+    console.error(
+      "❌ DATABASE ERROR:",
+      error.message
+    );
 
-      return res.status(500).json({
-        success: false,
-        message:
-          "Database connection failed",
-        error:
-          process.env.NODE_ENV === "production"
-            ? "Database connection failed"
-            : error.message,
-      });
-    }
+    return res.status(500).json({
+      success: false,
+      message: "Database connection failed",
+      error:
+        process.env.NODE_ENV === "production"
+          ? "Database connection failed"
+          : error.message,
+    });
   }
-);
+});
 
 // ==================================================
 // API ROUTES
@@ -271,46 +252,49 @@ app.use((req, res) => {
 // GLOBAL ERROR HANDLER
 // ==================================================
 
-app.use(
-  (error, req, res, next) => {
-    console.error(
-      "================================="
-    );
+app.use((error, req, res, next) => {
+  console.error(
+    "================================="
+  );
 
-    console.error(
-      "❌ GLOBAL SERVER ERROR"
-    );
+  console.error(
+    "❌ GLOBAL SERVER ERROR"
+  );
 
-    console.error(
-      "Message:",
-      error.message
-    );
+  console.error(
+    "Message:",
+    error.message
+  );
 
-    console.error(
-      "================================="
-    );
+  console.error(
+    "Stack:",
+    error.stack
+  );
 
-    if (
-      error.message ===
-      "Not allowed by CORS"
-    ) {
-      return res.status(403).json({
-        success: false,
-        message:
-          "CORS policy blocked this request",
-      });
-    }
+  console.error(
+    "================================="
+  );
 
-    return res.status(
-      error.status || 500
-    ).json({
+  // CORS ERROR
+
+  if (
+    error.message === "Not allowed by CORS"
+  ) {
+    return res.status(403).json({
       success: false,
-      message:
-        error.message ||
-        "Internal server error",
+      message: "CORS policy blocked this request",
     });
   }
-);
+
+  return res.status(
+    error.status || 500
+  ).json({
+    success: false,
+    message:
+      error.message ||
+      "Internal server error",
+  });
+});
 
 // ==================================================
 // START SERVER
@@ -318,54 +302,53 @@ app.use(
 
 const startServer = async () => {
   try {
-    // Test database connection
+    // Test database before starting
+
     await db.query("SELECT 1");
 
     console.log(
       "✅ Database connection successful"
     );
 
-    // Start Express server
-    app.listen(
-      PORT,
-      () => {
-        console.log(
-          "================================="
-        );
+    // Start server
 
-        console.log(
-          "🚀 HARI FARMS SERVER STARTED"
-        );
+    app.listen(PORT, () => {
+      console.log(
+        "================================="
+      );
 
-        console.log(
-          `🌐 Server: http://localhost:${PORT}`
-        );
+      console.log(
+        "🚀 HARI FARMS SERVER STARTED"
+      );
 
-        console.log(
-          `🖼️ Images: http://localhost:${PORT}/uploads`
-        );
+      console.log(
+        `🌐 Server running on port ${PORT}`
+      );
 
-        console.log(
-          `🔐 Auth: /api/auth`
-        );
+      console.log(
+        `📦 Products: /api/products`
+      );
 
-        console.log(
-          `📦 Products: /api/products`
-        );
+      console.log(
+        `🛒 Cart: /api/cart`
+      );
 
-        console.log(
-          `🛒 Cart: /api/cart`
-        );
+      console.log(
+        `📋 Orders: /api/orders`
+      );
 
-        console.log(
-          `📋 Orders: /api/orders`
-        );
+      console.log(
+        `🖼️ Images: /uploads`
+      );
 
-        console.log(
-          "================================="
-        );
-      }
-    );
+      console.log(
+        `🔐 Authentication: /api/auth`
+      );
+
+      console.log(
+        "================================="
+      );
+    });
 
   } catch (error) {
     console.error(
