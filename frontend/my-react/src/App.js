@@ -13,16 +13,21 @@ import UserDashboardPage from "./Pages/UserDashboardPage";
 import AdminDashboard from "./Pages/AdminDashboard";
 import Products from "./Pages/Products";
 import Cart from "./Pages/Cart";
+import Orders from "./Pages/Orders";
 
 import ProtectedRoute from "./ProtectedRoute";
 
+
 function App() {
+
   return (
+
     <BrowserRouter>
 
       <Routes>
 
-        {/* Website opens with Register */}
+        {/* HOME */}
+
         <Route
           path="/"
           element={
@@ -33,19 +38,25 @@ function App() {
           }
         />
 
-        {/* Register */}
+
+        {/* REGISTER */}
+
         <Route
           path="/register"
           element={<Register />}
         />
 
-        {/* Login */}
+
+        {/* LOGIN */}
+
         <Route
           path="/login"
           element={<Login />}
         />
 
-        {/* User Dashboard */}
+
+        {/* USER DASHBOARD */}
+
         <Route
           path="/user-dashboard"
           element={
@@ -55,7 +66,9 @@ function App() {
           }
         />
 
-        {/* Products */}
+
+        {/* PRODUCTS */}
+
         <Route
           path="/products"
           element={
@@ -65,7 +78,9 @@ function App() {
           }
         />
 
-        {/* Cart */}
+
+        {/* CART */}
+
         <Route
           path="/cart"
           element={
@@ -75,7 +90,21 @@ function App() {
           }
         />
 
-        {/* Admin Dashboard */}
+
+        {/* MY ORDERS */}
+
+        <Route
+          path="/orders"
+          element={
+            <ProtectedRoute>
+              <Orders />
+            </ProtectedRoute>
+          }
+        />
+
+
+        {/* ADMIN DASHBOARD */}
+
         <Route
           path="/admin-dashboard"
           element={
@@ -85,12 +114,14 @@ function App() {
           }
         />
 
-        {/* Unknown URL */}
+
+        {/* UNKNOWN ROUTES */}
+
         <Route
           path="*"
           element={
             <Navigate
-              to="/register"
+              to="/login"
               replace
             />
           }
@@ -99,7 +130,10 @@ function App() {
       </Routes>
 
     </BrowserRouter>
+
   );
+
 }
+
 
 export default App;

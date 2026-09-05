@@ -1,32 +1,32 @@
 import React from "react";
-import { Navigate } from "react-router-dom";
+
+import {
+  Navigate,
+} from "react-router-dom";
+
 
 function ProtectedRoute({
+
   children,
+
   adminOnly = false,
+
 }) {
+
+
   const token =
     localStorage.getItem("token");
+
 
   const storedUser =
     localStorage.getItem("user");
 
-  if (!token || !storedUser) {
-    return (
-      <Navigate
-        to="/login"
-        replace
-      />
-    );
-  }
 
-  let user;
+  // ================================================
+  // CHECK LOGIN TOKEN
+  // ================================================
 
-  try {
-    user = JSON.parse(storedUser);
-  } catch (error) {
-    localStorage.removeItem("token");
-    localStorage.removeItem("user");
+  if (!token) {
 
     return (
       <Navigate
@@ -34,28 +34,73 @@ function ProtectedRoute({
         replace
       />
     );
+
   }
 
-  const role = String(
-    user?.role || "user"
-  )
-    .trim()
-    .toLowerCase();
 
-  // Admin dashboard is ONLY for admins
-  if (
-    adminOnly &&
-    role !== "admin"
-  ) {
-    return (
-      <Navigate
-        to="/user-dashboard"
-        replace
-      />
-    );
+  // ================================================
+  // GET USER DATA
+  // ================================================
+
+  let user = null;
+
+
+  if (storedUser) {
+
+    try {
+
+      user =
+        JSON.parse(storedUser);
+
+    } catch (error) {
+
+      console.error(
+        "Invalid stored user data:",
+        error
+      );
+
+      localStorage.removeItem("user");
+
+    }
+
   }
+
+
+  // ================================================
+  // ADMIN ONLY ACCESS
+  // ================================================
+
+  if (adminOnly) {
+
+    const role =
+      String(
+        user?.role || ""
+      )
+        .trim()
+        .toLowerCase();
+
+
+    if (role !== "admin") {
+
+      return (
+        <Navigate
+          to="/user-dashboard"
+          replace
+        />
+      );
+
+    }
+
+  }
+
+
+  // ================================================
+  // ALLOW ACCESS
+  // ================================================
 
   return children;
+
 }
+
 
 export default ProtectedRoute;

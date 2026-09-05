@@ -1,5 +1,4 @@
 import React, {
-  useCallback,
   useEffect,
   useState,
 } from "react";
@@ -7,53 +6,53 @@ import React, {
 import axios from "axios";
 
 import {
-  Link,
   useNavigate,
 } from "react-router-dom";
 
+
 function Orders() {
 
-  const navigate = useNavigate();
+  const navigate =
+    useNavigate();
+
 
   const API_URL =
     process.env.REACT_APP_API_URL ||
     "http://localhost:5000";
 
+
   const [orders, setOrders] =
     useState([]);
+
 
   const [loading, setLoading] =
     useState(true);
 
+
   const [error, setError] =
     useState("");
+
 
   // ==================================================
   // FETCH ORDERS
   // ==================================================
 
-  const fetchOrders = useCallback(
-    async () => {
+  useEffect(() => {
+
+    const fetchOrders = async () => {
 
       try {
 
         setLoading(true);
+
         setError("");
 
-        // ==============================================
-        // GET USER
-        // ==============================================
-
-        const storedUser =
-          localStorage.getItem("user");
 
         const token =
           localStorage.getItem("token");
 
-        if (
-          !storedUser ||
-          !token
-        ) {
+
+        if (!token) {
 
           navigate(
             "/login",
@@ -65,87 +64,15 @@ function Orders() {
           return;
         }
 
-        let user;
-
-        try {
-
-          user =
-            JSON.parse(
-              storedUser
-            );
-
-        } catch (parseError) {
-
-          console.error(
-            "USER JSON ERROR:",
-            parseError
-          );
-
-          localStorage.removeItem(
-            "user"
-          );
-
-          localStorage.removeItem(
-            "token"
-          );
-
-          navigate(
-            "/login",
-            {
-              replace: true,
-            }
-          );
-
-          return;
-        }
-
-        if (
-          !user ||
-          !user.id
-        ) {
-
-          localStorage.removeItem(
-            "user"
-          );
-
-          localStorage.removeItem(
-            "token"
-          );
-
-          navigate(
-            "/login",
-            {
-              replace: true,
-            }
-          );
-
-          return;
-        }
 
         console.log(
-          "================================="
+          "Fetching my orders..."
         );
 
-        console.log(
-          "GETTING ORDERS"
-        );
-
-        console.log(
-          "USER ID:",
-          user.id
-        );
-
-        console.log(
-          "================================="
-        );
-
-        // ==============================================
-        // GET ORDERS FROM BACKEND
-        // ==============================================
 
         const response =
           await axios.get(
-            `${API_URL}/api/orders/${user.id}`,
+            `${API_URL}/api/orders/my-orders`,
             {
               headers: {
                 Authorization:
@@ -154,70 +81,52 @@ function Orders() {
             }
           );
 
+
         console.log(
-          "ORDERS RESPONSE:",
+          "MY ORDERS RESPONSE:",
           response.data
         );
 
-        // ==============================================
-        // SUCCESS
-        // ==============================================
 
-        if (
-          response.data.success
-        ) {
-
-          const orderData =
-            Array.isArray(
-              response.data.orders
-            )
-              ? response.data.orders
-              : [];
+        if (response.data.success) {
 
           setOrders(
-            orderData
+            Array.isArray(response.data.orders)
+              ? response.data.orders
+              : []
           );
 
         } else {
 
           setError(
             response.data.message ||
-            "Failed to load orders."
+            "Failed to fetch orders"
           );
 
         }
 
-      } catch (err) {
+      } catch (error) {
 
         console.error(
-          "================================="
+          "FETCH ORDERS ERROR:",
+          error
         );
 
-        console.error(
-          "GET ORDERS ERROR:",
-          err
-        );
 
-        console.error(
+        console.log(
           "SERVER RESPONSE:",
-          err.response?.data
+          error.response?.data
         );
 
-        console.error(
-          "================================="
-        );
 
         if (
-          err.response?.status === 401
+          error.response?.status === 401
         ) {
 
-          localStorage.removeItem(
-            "token"
-          );
+          localStorage.removeItem("token");
 
-          localStorage.removeItem(
-            "user"
-          );
+          localStorage.removeItem("user");
+
 
           navigate(
             "/login",
@@ -229,9 +138,10 @@ function Orders() {
           return;
         }
 
+
         setError(
-          err.response?.data?.message ||
-          "Unable to connect to the server."
+          error.response?.data?.message ||
+          "Failed to fetch your orders"
         );
 
       } finally {
@@ -240,47 +150,73 @@ function Orders() {
 
       }
 
-    },
-    [API_URL, navigate]
-  );
+    };
 
-  // ==================================================
-  // LOAD ORDERS
-  // ==================================================
-
-  useEffect(() => {
 
     fetchOrders();
 
-  }, [fetchOrders]);
+  }, [API_URL, navigate]);
+
 
   // ==================================================
-  // LOADING
+  // LOGOUT
   // ==================================================
 
-  if (loading) {
+  const handleLogout = () => {
 
-    return (
+    localStorage.removeItem("token");
 
-      <div
-        style={styles.center}
-      >
+    localStorage.removeItem("user");
 
-        <div
-          style={styles.loadingIcon}
-        >
-          📦
-        </div>
 
-        <h2>
-          Loading your orders...
-        </h2>
-
-      </div>
-
+    navigate(
+      "/login",
+      {
+        replace: true,
+      }
     );
 
-  }
+  };
+
+
+  // ==================================================
+  // RETRY
+  // ==================================================
+
+  const handleRetry = () => {
+
+    window.location.reload();
+
+  };
+
+
+  // ==================================================
+  // FORMAT DATE
+  // ==================================================
+
+  const formatDate = (date) => {
+
+    if (!date) {
+      return "Not available";
+    }
+
+    const parsedDate =
+      new Date(date);
+
+
+    if (
+      Number.isNaN(
+        parsedDate.getTime()
+      )
+    ) {
+      return "Not available";
+    }
+
+
+    return parsedDate.toLocaleString();
+
+  };
+
 
   // ==================================================
   // PAGE
@@ -289,721 +225,558 @@ function Orders() {
   return (
 
     <div
-      style={styles.page}
+      style={{
+        minHeight: "100vh",
+        background: "#f5f7f5",
+        padding: "30px",
+        fontFamily:
+          "Arial, sans-serif",
+      }}
     >
 
-      {/* ==============================================
-          NAVBAR
-      ============================================== */}
 
-      <nav
-        style={styles.navbar}
+      {/* ============================================ */}
+      {/* NAVBAR */}
+      {/* ============================================ */}
+
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          flexWrap: "wrap",
+          gap: "15px",
+
+          background: "#ffffff",
+
+          padding: "20px",
+
+          borderRadius: "12px",
+
+          marginBottom: "30px",
+
+          boxShadow:
+            "0 2px 10px rgba(0,0,0,0.08)",
+        }}
       >
 
-        <Link
-          to="/home"
-          style={styles.logo}
+
+        <h2
+          style={{
+            margin: 0,
+            color: "#2e7d32",
+          }}
         >
-          🥛 HARI FARMS
-        </Link>
+          🌿 HARI FARMS
+        </h2>
+
 
         <div
-          style={styles.navLinks}
+          style={{
+            display: "flex",
+            gap: "10px",
+            flexWrap: "wrap",
+          }}
         >
 
-          <Link
-            to="/home"
-            style={styles.navLink}
-          >
-            Home
-          </Link>
 
-          <Link
-            to="/products"
-            style={styles.navLink}
+          <button
+            onClick={() =>
+              navigate("/user-dashboard")
+            }
+            style={{
+              padding:
+                "10px 16px",
+
+              border: "none",
+
+              borderRadius: "8px",
+
+              cursor: "pointer",
+
+              background:
+                "#e8f5e9",
+
+              color:
+                "#2e7d32",
+
+              fontWeight:
+                "bold",
+            }}
+          >
+            Dashboard
+          </button>
+
+
+          <button
+            onClick={() =>
+              navigate("/products")
+            }
+            style={{
+              padding:
+                "10px 16px",
+
+              border: "none",
+
+              borderRadius: "8px",
+
+              cursor: "pointer",
+
+              background:
+                "#e8f5e9",
+
+              color:
+                "#2e7d32",
+
+              fontWeight:
+                "bold",
+            }}
           >
             Products
-          </Link>
+          </button>
 
-          <Link
-            to="/cart"
-            style={styles.navLink}
+
+          <button
+            onClick={() =>
+              navigate("/cart")
+            }
+            style={{
+              padding:
+                "10px 16px",
+
+              border: "none",
+
+              borderRadius: "8px",
+
+              cursor: "pointer",
+
+              background:
+                "#fff3e0",
+
+              color:
+                "#ef6c00",
+
+              fontWeight:
+                "bold",
+            }}
           >
             🛒 Cart
-          </Link>
+          </button>
 
-          <span
-            style={styles.activeLink}
+
+          <button
+            onClick={handleLogout}
+            style={{
+              padding:
+                "10px 16px",
+
+              border: "none",
+
+              borderRadius: "8px",
+
+              cursor: "pointer",
+
+              background:
+                "#ffebee",
+
+              color:
+                "#c62828",
+
+              fontWeight:
+                "bold",
+            }}
           >
-            📦 My Orders
-          </span>
+            Logout
+          </button>
+
 
         </div>
 
-      </nav>
+      </div>
 
-      {/* ==============================================
-          MAIN
-      ============================================== */}
 
-      <main
-        style={styles.container}
+      {/* ============================================ */}
+      {/* TITLE */}
+      {/* ============================================ */}
+
+      <div
+        style={{
+          marginBottom: "25px",
+        }}
       >
 
-        <div
-          style={styles.header}
+        <h1
+          style={{
+            marginBottom: "8px",
+            color: "#1b5e20",
+          }}
         >
+          📦 My Orders
+        </h1>
 
-          <div>
 
-            <h1>
-              📦 My Orders
-            </h1>
+        <p
+          style={{
+            color: "#666",
+          }}
+        >
+          View all your orders and their current status.
+        </p>
 
-            <p
-              style={styles.subtitle}
-            >
-              View your order history
+      </div>
+
+
+      {/* ============================================ */}
+      {/* LOADING */}
+      {/* ============================================ */}
+
+      {
+        loading && (
+
+          <div
+            style={{
+              background: "#ffffff",
+
+              padding: "30px",
+
+              borderRadius: "12px",
+
+              boxShadow:
+                "0 2px 10px rgba(0,0,0,0.08)",
+
+              textAlign: "center",
+            }}
+          >
+
+            <h3>
+              Loading your orders...
+            </h3>
+
+            <p>
+              Please wait while we fetch your orders.
             </p>
 
           </div>
 
-          <button
-            type="button"
-            onClick={() =>
-              navigate("/home")
-            }
-            style={styles.backButton}
-          >
-            ← Back to Home
-          </button>
+        )
+      }
 
-        </div>
 
-        {/* ==========================================
-            ERROR
-        =========================================== */}
+      {/* ============================================ */}
+      {/* ERROR */}
+      {/* ============================================ */}
 
-        {error && (
+      {
+        !loading &&
+        error && (
 
           <div
-            style={styles.error}
+            style={{
+              background: "#fff3f3",
+
+              color: "#d32f2f",
+
+              padding: "25px",
+
+              borderRadius: "12px",
+
+              marginTop: "20px",
+
+              boxShadow:
+                "0 2px 10px rgba(0,0,0,0.08)",
+            }}
           >
 
-            <strong>
-              ⚠️ Error:
-            </strong>
+            <h3>
+              Unable to load orders
+            </h3>
 
-            {" "}
 
-            {error}
+            <p>
+              {error}
+            </p>
+
 
             <button
-              type="button"
-              onClick={fetchOrders}
-              style={
-                styles.retryButton
-              }
+              onClick={handleRetry}
+              style={{
+                padding:
+                  "10px 20px",
+
+                border: "none",
+
+                borderRadius: "8px",
+
+                cursor: "pointer",
+
+                background:
+                  "#d32f2f",
+
+                color:
+                  "#ffffff",
+
+                fontWeight:
+                  "bold",
+              }}
             >
               Try Again
             </button>
 
           </div>
 
-        )}
+        )
+      }
 
-        {/* ==========================================
-            NO ORDERS
-        =========================================== */}
 
-        {!error &&
-          orders.length === 0 && (
+      {/* ============================================ */}
+      {/* EMPTY ORDERS */}
+      {/* ============================================ */}
+
+      {
+        !loading &&
+        !error &&
+        orders.length === 0 && (
+
+          <div
+            style={{
+              background: "#ffffff",
+
+              padding: "40px",
+
+              borderRadius: "12px",
+
+              textAlign: "center",
+
+              marginTop: "20px",
+
+              boxShadow:
+                "0 2px 10px rgba(0,0,0,0.08)",
+            }}
+          >
 
             <div
-              style={styles.empty}
+              style={{
+                fontSize: "60px",
+              }}
             >
-
-              <div
-                style={styles.emptyIcon}
-              >
-                📦
-              </div>
-
-              <h2>
-                No Orders Yet
-              </h2>
-
-              <p>
-                You haven't placed
-                any orders yet.
-              </p>
-
-              <button
-                type="button"
-                onClick={() =>
-                  navigate(
-                    "/products"
-                  )
-                }
-                style={
-                  styles.shopButton
-                }
-              >
-                Start Shopping
-              </button>
-
+              📦
             </div>
 
-          )}
 
-        {/* ==========================================
-            ORDERS
-        =========================================== */}
+            <h2>
+              No orders found
+            </h2>
 
-        {!error &&
-          orders.map(
-            (
-              order,
-              orderIndex
-            ) => {
 
-              const orderId =
-                order.id ||
-                order.order_id ||
-                orderIndex + 1;
+            <p
+              style={{
+                color: "#666",
+              }}
+            >
+              You haven't placed any orders yet.
+            </p>
 
-              const total =
-                Number(
-                  order.total ||
-                  order.total_amount ||
-                  order.amount ||
-                  0
-                );
 
-              const status =
-                order.status ||
-                order.order_status ||
-                "Confirmed";
+            <button
+              onClick={() =>
+                navigate("/products")
+              }
+              style={{
+                padding:
+                  "12px 25px",
 
-              const payment =
-                order.payment ||
-                order.payment_method ||
-                "Cash on Delivery";
+                border: "none",
 
-              const orderDate =
-                order.order_date ||
-                order.orderDate ||
-                order.created_at ||
-                order.date;
+                borderRadius: "8px",
 
-              const items =
-                Array.isArray(
-                  order.items
-                )
-                  ? order.items
-                  : [];
+                cursor: "pointer",
 
-              return (
+                background:
+                  "#2e7d32",
 
-                <div
-                  key={orderId}
-                  style={styles.orderCard}
-                >
+                color:
+                  "#ffffff",
 
-                  {/* ==================================
-                      ORDER HEADER
-                  =================================== */}
+                fontWeight:
+                  "bold",
+
+                fontSize:
+                  "16px",
+              }}
+            >
+              Start Shopping
+            </button>
+
+          </div>
+
+        )
+      }
+
+
+      {/* ============================================ */}
+      {/* ORDERS */}
+      {/* ============================================ */}
+
+      {
+        !loading &&
+        !error &&
+        orders.length > 0 && (
+
+          <div
+            style={{
+              display: "grid",
+
+              gridTemplateColumns:
+                "repeat(auto-fit, minmax(280px, 1fr))",
+
+              gap: "20px",
+            }}
+          >
+
+            {
+              orders.map(
+                (order) => (
 
                   <div
-                    style={
-                      styles.orderHeader
+
+                    key={
+                      order.id ||
+                      `${order.user_id}-${order.created_at}`
                     }
+
+                    style={{
+
+                      background:
+                        "#ffffff",
+
+                      padding:
+                        "25px",
+
+                      borderRadius:
+                        "12px",
+
+                      boxShadow:
+                        "0 2px 10px rgba(0,0,0,0.08)",
+
+                      borderLeft:
+                        "5px solid #2e7d32",
+
+                    }}
+
                   >
 
-                    <div>
 
-                      <h2
-                        style={
-                          styles.orderTitle
+                    <h3
+                      style={{
+                        marginTop: 0,
+                        color: "#1b5e20",
+                      }}
+                    >
+
+                      📦 Order #{order.id}
+
+                    </h3>
+
+
+                    <div
+                      style={{
+                        marginTop: "20px",
+                      }}
+                    >
+
+                      <p>
+
+                        <strong>
+                          💰 Total:
+                        </strong>
+
+                        {" "}
+
+                        ₹{
+                          Number(
+                            order.total || 0
+                          ).toFixed(2)
                         }
-                      >
-                        Order #{orderId}
-                      </h2>
 
-                      <p
-                        style={
-                          styles.date
+                      </p>
+
+
+                      <p>
+
+                        <strong>
+                          📋 Status:
+                        </strong>
+
+                        {" "}
+
+                        <span
+                          style={{
+                            background:
+                              "#e8f5e9",
+
+                            color:
+                              "#2e7d32",
+
+                            padding:
+                              "5px 10px",
+
+                            borderRadius:
+                              "20px",
+
+                            fontSize:
+                              "13px",
+
+                            fontWeight:
+                              "bold",
+                          }}
+                        >
+
+                          {
+                            order.status ||
+                            "Pending"
+                          }
+
+                        </span>
+
+                      </p>
+
+
+                      <p>
+
+                        <strong>
+                          📅 Ordered On:
+                        </strong>
+
+                        <br />
+
+                        {
+                          formatDate(
+                            order.created_at
+                          )
                         }
-                      >
-
-                        {orderDate
-                          ? new Date(
-                              orderDate
-                            ).toLocaleString()
-                          : "Date not available"}
 
                       </p>
 
                     </div>
 
-                    <div
-                      style={
-                        styles.orderRight
-                      }
-                    >
-
-                      <div
-                        style={
-                          styles.orderTotal
-                        }
-                      >
-                        ₹
-                        {total.toFixed(
-                          2
-                        )}
-                      </div>
-
-                      <span
-                        style={
-                          styles.status
-                        }
-                      >
-                        {status}
-                      </span>
-
-                    </div>
 
                   </div>
 
-                  <hr />
-
-                  {/* ==================================
-                      PAYMENT
-                  =================================== */}
-
-                  <div
-                    style={
-                      styles.paymentRow
-                    }
-                  >
-
-                    <span>
-                      Payment
-                    </span>
-
-                    <strong>
-                      {payment}
-                    </strong>
-
-                  </div>
-
-                  {/* ==================================
-                      ITEMS
-                  =================================== */}
-
-                  <h3
-                    style={
-                      styles.itemsTitle
-                    }
-                  >
-                    Ordered Products
-                  </h3>
-
-                  {items.length === 0 ? (
-
-                    <div
-                      style={
-                        styles.noItems
-                      }
-                    >
-                      Order items are not
-                      available.
-                    </div>
-
-                  ) : (
-
-                    <div>
-
-                      {items.map(
-                        (
-                          item,
-                          itemIndex
-                        ) => {
-
-                          const name =
-                            item.product_name ||
-                            item.name ||
-                            "Product";
-
-                          const quantity =
-                            Number(
-                              item.quantity ||
-                              item.qty ||
-                              1
-                            );
-
-                          const price =
-                            Number(
-                              item.price ||
-                              item.unit_price ||
-                              0
-                            );
-
-                          const itemTotal =
-                            Number(
-                              item.total ||
-                              item.subtotal ||
-                              price *
-                                quantity
-                            );
-
-                          return (
-
-                            <div
-                              key={
-                                item.id ||
-                                itemIndex
-                              }
-                              style={
-                                styles.item
-                              }
-                            >
-
-                              <div
-                                style={
-                                  styles.itemName
-                                }
-                              >
-
-                                <span
-                                  style={
-                                    styles.productIcon
-                                  }
-                                >
-                                  🥛
-                                </span>
-
-                                <div>
-
-                                  <strong>
-                                    {name}
-                                  </strong>
-
-                                  <p
-                                    style={
-                                      styles.quantityText
-                                    }
-                                  >
-                                    Quantity:
-                                    {" "}
-                                    {quantity}
-                                  </p>
-
-                                </div>
-
-                              </div>
-
-                              <div
-                                style={
-                                  styles.itemPrice
-                                }
-                              >
-
-                                ₹
-                                {price.toFixed(
-                                  2
-                                )}
-
-                                {" × "}
-
-                                {quantity}
-
-                                {" = "}
-
-                                <strong>
-                                  ₹
-                                  {itemTotal.toFixed(
-                                    2
-                                  )}
-                                </strong>
-
-                              </div>
-
-                            </div>
-
-                          );
-
-                        }
-                      )}
-
-                    </div>
-
-                  )}
-
-                </div>
-
-              );
-
+                )
+              )
             }
-          )}
 
-      </main>
+          </div>
+
+        )
+      }
+
 
     </div>
 
   );
+
 }
 
-// ==================================================
-// STYLES
-// ==================================================
-
-const styles = {
-
-  page: {
-    minHeight: "100vh",
-    background: "#f5f8f4",
-  },
-
-  navbar: {
-    display: "flex",
-    justifyContent:
-      "space-between",
-    alignItems: "center",
-    padding:
-      "18px 50px",
-    background: "#ffffff",
-    boxShadow:
-      "0 2px 10px rgba(0,0,0,0.08)",
-    flexWrap: "wrap",
-    gap: "15px",
-  },
-
-  logo: {
-    textDecoration: "none",
-    color: "#2e7d32",
-    fontSize: "22px",
-    fontWeight: "bold",
-  },
-
-  navLinks: {
-    display: "flex",
-    alignItems: "center",
-    gap: "20px",
-    flexWrap: "wrap",
-  },
-
-  navLink: {
-    textDecoration: "none",
-    color: "#333",
-    fontSize: "15px",
-  },
-
-  activeLink: {
-    color: "#2e7d32",
-    fontWeight: "bold",
-    fontSize: "15px",
-  },
-
-  container: {
-    maxWidth: "1000px",
-    margin: "auto",
-    padding:
-      "40px 20px",
-  },
-
-  header: {
-    display: "flex",
-    justifyContent:
-      "space-between",
-    alignItems: "center",
-    marginBottom: "30px",
-    flexWrap: "wrap",
-    gap: "15px",
-  },
-
-  subtitle: {
-    color: "#666",
-    marginTop: "5px",
-  },
-
-  backButton: {
-    background: "#ffffff",
-    color: "#2e7d32",
-    border:
-      "1px solid #2e7d32",
-    padding:
-      "10px 18px",
-    borderRadius: "8px",
-    cursor: "pointer",
-    fontWeight: "bold",
-  },
-
-  orderCard: {
-    background: "#ffffff",
-    padding: "25px",
-    marginBottom: "20px",
-    borderRadius: "15px",
-    boxShadow:
-      "0 5px 15px rgba(0,0,0,0.07)",
-  },
-
-  orderHeader: {
-    display: "flex",
-    justifyContent:
-      "space-between",
-    alignItems: "center",
-    flexWrap: "wrap",
-    gap: "20px",
-  },
-
-  orderTitle: {
-    margin: 0,
-  },
-
-  date: {
-    color: "#777",
-    margin:
-      "7px 0 0",
-    fontSize: "14px",
-  },
-
-  orderRight: {
-    textAlign: "right",
-  },
-
-  orderTotal: {
-    fontSize: "22px",
-    fontWeight: "bold",
-    marginBottom: "8px",
-  },
-
-  status: {
-    display: "inline-block",
-    background: "#dff5e1",
-    color: "#2e7d32",
-    padding:
-      "7px 14px",
-    borderRadius: "20px",
-    fontWeight: "bold",
-    fontSize: "13px",
-  },
-
-  paymentRow: {
-    display: "flex",
-    justifyContent:
-      "space-between",
-    background: "#f7f7f7",
-    padding: "12px 15px",
-    borderRadius: "8px",
-    margin:
-      "15px 0",
-  },
-
-  itemsTitle: {
-    marginTop: "20px",
-    marginBottom: "10px",
-  },
-
-  item: {
-    display: "flex",
-    justifyContent:
-      "space-between",
-    alignItems: "center",
-    padding:
-      "15px 0",
-    borderBottom:
-      "1px solid #eeeeee",
-    gap: "20px",
-    flexWrap: "wrap",
-  },
-
-  itemName: {
-    display: "flex",
-    alignItems: "center",
-    gap: "12px",
-  },
-
-  productIcon: {
-    fontSize: "28px",
-  },
-
-  quantityText: {
-    color: "#777",
-    margin:
-      "5px 0 0",
-    fontSize: "13px",
-  },
-
-  itemPrice: {
-    color: "#555",
-  },
-
-  noItems: {
-    padding: "20px",
-    textAlign: "center",
-    background: "#f8f8f8",
-    color: "#777",
-    borderRadius: "8px",
-  },
-
-  empty: {
-    background: "#ffffff",
-    padding: "60px 30px",
-    textAlign: "center",
-    borderRadius: "15px",
-    boxShadow:
-      "0 5px 15px rgba(0,0,0,0.06)",
-  },
-
-  emptyIcon: {
-    fontSize: "65px",
-  },
-
-  shopButton: {
-    marginTop: "20px",
-    background: "#2e7d32",
-    color: "#ffffff",
-    border: "none",
-    padding:
-      "13px 25px",
-    borderRadius: "8px",
-    cursor: "pointer",
-    fontSize: "16px",
-  },
-
-  error: {
-    background: "#ffebee",
-    color: "#c62828",
-    padding: "15px",
-    borderRadius: "10px",
-    marginBottom: "20px",
-  },
-
-  retryButton: {
-    marginLeft: "15px",
-    border: "none",
-    background: "#c62828",
-    color: "white",
-    padding:
-      "7px 12px",
-    borderRadius: "6px",
-    cursor: "pointer",
-  },
-
-  center: {
-    minHeight: "100vh",
-    display: "flex",
-    flexDirection: "column",
-    justifyContent: "center",
-    alignItems: "center",
-    background: "#f5f8f4",
-  },
-
-  loadingIcon: {
-    fontSize: "60px",
-  },
-
-};
 
 export default Orders;

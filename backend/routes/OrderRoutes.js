@@ -2,6 +2,7 @@ const express = require("express");
 const jwt = require("jsonwebtoken");
 
 const router = express.Router();
+
 const db = require("../db");
 
 // ==================================================
@@ -20,8 +21,8 @@ const authenticateUser = (req, res, next) => {
     }
 
     const token = authHeader.startsWith("Bearer ")
-      ? authHeader.substring(7)
-      : authHeader;
+      ? authHeader.substring(7).trim()
+      : authHeader.trim();
 
     if (!token) {
       return res.status(401).json({
@@ -37,14 +38,11 @@ const authenticateUser = (req, res, next) => {
 
     req.user = decoded;
 
-    console.log("✅ AUTHENTICATED USER:", decoded);
-
     next();
 
   } catch (error) {
-
     console.error(
-      "❌ ORDER AUTH ERROR:",
+      "ORDER AUTH ERROR:",
       error.message
     );
 
@@ -57,11 +55,10 @@ const authenticateUser = (req, res, next) => {
 
 
 // ==================================================
-// GET USER ID FROM JWT TOKEN
+// GET USER ID
 // ==================================================
 
 const getUserId = (req) => {
-
   if (!req.user) {
     return null;
   }
@@ -70,14 +67,121 @@ const getUserId = (req) => {
     req.user.id ||
     req.user.userId ||
     req.user.user_id ||
+    req.user.userID ||
     null
   );
-
 };
 
 
 // ==================================================
-// CHECKOUT
+// GET MY ORDERS
+// IMPORTANT:
+// This route MUST come before "/:id"
+// ==================================================
+
+router.get(
+  "/my-orders",
+  authenticateUser,
+  async (req, res) => {
+    try {
+
+      const userId = getUserId(req);
+
+      console.log(
+        "================================="
+      );
+
+      console.log(
+        "GET MY ORDERS"
+      );
+
+      console.log(
+        "TOKEN USER:",
+        req.user
+      );
+
+      console.log(
+        "USER ID:",
+        userId
+      );
+
+      console.log(
+        "================================="
+      );
+
+
+      if (!userId) {
+        return res.status(401).json({
+          success: false,
+          message: "User ID not found in login token",
+        });
+      }
+
+
+      // ==============================================
+      // GET ORDERS
+      // ==============================================
+
+      const [orders] = await db.query(
+        `
+        SELECT
+          id,
+          user_id,
+          total,
+          status,
+          created_at
+        FROM orders
+        WHERE user_id = ?
+        ORDER BY created_at DESC
+        `,
+        [userId]
+      );
+
+
+      return res.status(200).json({
+        success: true,
+        orders: orders || [],
+      });
+
+    } catch (error) {
+
+      console.error(
+        "================================="
+      );
+
+      console.error(
+        "GET MY ORDERS ERROR"
+      );
+
+      console.error(
+        error
+      );
+
+      console.error(
+        "MESSAGE:",
+        error.message
+      );
+
+      console.error(
+        "================================="
+      );
+
+
+      return res.status(500).json({
+        success: false,
+        message: "Failed to fetch orders",
+        error:
+          process.env.NODE_ENV === "production"
+            ? undefined
+            : error.message,
+      });
+    }
+  }
+);
+
+
+// ==================================================
+// CHECKOUT / CREATE ORDER
 // ==================================================
 
 router.post(
@@ -89,110 +193,58 @@ router.post(
 
     try {
 
-      console.log(
-        "================================="
-      );
-
-      console.log(
-        "🛒 CHECKOUT REQUEST RECEIVED"
-      );
-
       const userId = getUserId(req);
 
       console.log(
-        "USER ID:",
+        "CHECKOUT USER:",
+        req.user
+      );
+
+      console.log(
+        "CHECKOUT USER ID:",
         userId
       );
 
 
-      // ==============================================
-      // CHECK USER
-      // ==============================================
-
       if (!userId) {
-
-        return res.status(400).json({
+        return res.status(401).json({
           success: false,
-          message:
-            "User ID not found in login token",
+          message: "User ID not found in login token",
         });
-
       }
-
-
-      // ==============================================
-      // GET DATABASE CONNECTION
-      // ==============================================
-
-      connection =
-        await db.getConnection();
-
-
-      await connection.beginTransaction();
 
 
       // ==============================================
       // GET CART ITEMS
       // ==============================================
 
-      const [cartItems] =
-        await connection.query(
+      const [cartItems] = await db.query(
+        `
+        SELECT
+          cart_items.id AS cart_id,
+          cart_items.product_id,
+          cart_items.quantity,
 
-          `
-          SELECT
+          products.name,
+          products.price,
+          products.stock
 
-            cart_items.id AS cart_id,
+        FROM cart_items
 
-            cart_items.product_id,
+        INNER JOIN products
+          ON products.id = cart_items.product_id
 
-            cart_items.quantity,
-
-            products.name,
-
-            products.price,
-
-            products.emoji,
-
-            products.stock
-
-          FROM cart_items
-
-          INNER JOIN products
-
-          ON cart_items.product_id =
-             products.id
-
-          WHERE cart_items.user_id = ?
-          `,
-
-          [userId]
-
-        );
-
-
-      console.log(
-        "CART ITEMS:",
-        cartItems
+        WHERE cart_items.user_id = ?
+        `,
+        [userId]
       );
 
 
-      // ==============================================
-      // CHECK EMPTY CART
-      // ==============================================
-
-      if (
-        !cartItems ||
-        cartItems.length === 0
-      ) {
-
-        await connection.rollback();
-
+      if (!cartItems || cartItems.length === 0) {
         return res.status(400).json({
           success: false,
-          message:
-            "Your cart is empty",
+          message: "Your cart is empty",
         });
-
       }
 
 
@@ -200,23 +252,19 @@ router.post(
       // CALCULATE TOTAL
       // ==============================================
 
-      let total = 0;
+      const total = cartItems.reduce(
+        (sum, item) => {
 
+          const price =
+            Number(item.price) || 0;
 
-      for (const item of cartItems) {
+          const quantity =
+            Number(item.quantity) || 0;
 
-        total +=
+          return sum + price * quantity;
 
-          Number(item.price || 0) *
-
-          Number(item.quantity || 0);
-
-      }
-
-
-      console.log(
-        "ORDER TOTAL:",
-        total
+        },
+        0
       );
 
 
@@ -224,162 +272,54 @@ router.post(
       // CREATE ORDER
       // ==============================================
 
-      const [orderResult] =
-        await connection.query(
-
-          `
-          INSERT INTO orders
-          (
-            user_id,
-            total,
-            status
-          )
-
-          VALUES (?, ?, ?)
-          `,
-
-          [
-            userId,
-            total,
-            "Pending",
-          ]
-
-        );
+      const [orderResult] = await db.query(
+        `
+        INSERT INTO orders
+        (
+          user_id,
+          total,
+          status
+        )
+        VALUES (?, ?, ?)
+        `,
+        [
+          userId,
+          total,
+          "Pending",
+        ]
+      );
 
 
       const orderId =
         orderResult.insertId;
 
 
-      console.log(
-        "✅ ORDER CREATED:",
-        orderId
-      );
-
-
-      // ==============================================
-      // INSERT ORDER ITEMS
-      // ==============================================
-
-      for (const item of cartItems) {
-
-        await connection.query(
-
-          `
-          INSERT INTO order_items
-          (
-            order_id,
-            product_id,
-            product_name,
-            price,
-            quantity,
-            emoji
-          )
-
-          VALUES (?, ?, ?, ?, ?, ?)
-          `,
-
-          [
-            orderId,
-
-            item.product_id,
-
-            item.name,
-
-            item.price,
-
-            item.quantity,
-
-            item.emoji || "🥛",
-          ]
-
-        );
-
-
-        // ============================================
-        // UPDATE STOCK
-        // ============================================
-
-        await connection.query(
-
-          `
-          UPDATE products
-
-          SET stock =
-            GREATEST(
-              stock - ?,
-              0
-            )
-
-          WHERE id = ?
-          `,
-
-          [
-            Number(item.quantity),
-
-            item.product_id,
-          ]
-
-        );
-
-      }
-
-
       // ==============================================
       // CLEAR CART
       // ==============================================
 
-      await connection.query(
-
+      await db.query(
         `
         DELETE FROM cart_items
-
         WHERE user_id = ?
         `,
-
         [userId]
-
-      );
-
-
-      // ==============================================
-      // COMMIT
-      // ==============================================
-
-      await connection.commit();
-
-
-      console.log(
-        "================================="
-      );
-
-      console.log(
-        "✅ CHECKOUT SUCCESSFUL"
-      );
-
-      console.log(
-        "ORDER ID:",
-        orderId
-      );
-
-      console.log(
-        "================================="
       );
 
 
       return res.status(201).json({
-
         success: true,
 
         message:
           "Order placed successfully",
 
-        orderId,
-
-        total,
-
+        order: {
+          id: orderId,
+          user_id: userId,
+          total,
+          status: "Pending",
+        },
       });
-
 
     } catch (error) {
 
@@ -388,172 +328,7 @@ router.post(
       );
 
       console.error(
-        "❌ CHECKOUT ERROR"
-      );
-
-      console.error(error);
-
-      console.error(
-        "================================="
-      );
-
-
-      if (connection) {
-
-        try {
-
-          await connection.rollback();
-
-        } catch (rollbackError) {
-
-          console.error(
-            "ROLLBACK ERROR:",
-            rollbackError.message
-          );
-
-        }
-
-      }
-
-
-      return res.status(500).json({
-
-        success: false,
-
-        message:
-          "Failed to place order",
-
-        error:
-          error.message,
-
-      });
-
-
-    } finally {
-
-      if (connection) {
-
-        connection.release();
-
-      }
-
-    }
-
-  }
-);
-
-
-// ==================================================
-// GET MY ORDERS
-// IMPORTANT: THIS MUST COME BEFORE "/:orderId"
-// ==================================================
-
-router.get(
-  "/my-orders",
-  authenticateUser,
-  async (req, res) => {
-
-    try {
-
-      console.log(
-        "================================="
-      );
-
-      console.log(
-        "📦 FETCHING MY ORDERS"
-      );
-
-
-      const userId =
-        getUserId(req);
-
-
-      console.log(
-        "USER ID:",
-        userId
-      );
-
-
-      // ==============================================
-      // CHECK USER ID
-      // ==============================================
-
-      if (!userId) {
-
-        return res.status(400).json({
-
-          success: false,
-
-          message:
-            "User ID not found in login token",
-
-        });
-
-      }
-
-
-      // ==============================================
-      // FETCH ORDERS
-      // ==============================================
-
-      const [orders] =
-        await db.query(
-
-          `
-          SELECT
-
-            id,
-
-            user_id,
-
-            total,
-
-            status,
-
-            created_at
-
-          FROM orders
-
-          WHERE user_id = ?
-
-          ORDER BY created_at DESC, id DESC
-          `,
-
-          [userId]
-
-        );
-
-
-      console.log(
-        "ORDERS FOUND:",
-        orders.length
-      );
-
-
-      return res.status(200).json({
-
-        success: true,
-
-        orders:
-          Array.isArray(orders)
-            ? orders
-            : [],
-
-      });
-
-
-    } catch (error) {
-
-      console.error(
-        "================================="
-      );
-
-      console.error(
-        "❌ GET MY ORDERS ERROR"
-      );
-
-      console.error(
-        error.message
+        "CHECKOUT ERROR:"
       );
 
       console.error(error);
@@ -564,19 +339,11 @@ router.get(
 
 
       return res.status(500).json({
-
         success: false,
-
-        message:
-          "Failed to fetch orders",
-
-        error:
-          error.message,
-
+        message: "Failed to place order",
+        error: error.message,
       });
-
     }
-
   }
 );
 
@@ -586,7 +353,7 @@ router.get(
 // ==================================================
 
 router.get(
-  "/:orderId",
+  "/:id",
   authenticateUser,
   async (req, res) => {
 
@@ -595,135 +362,75 @@ router.get(
       const userId =
         getUserId(req);
 
-
       const orderId =
-        Number(req.params.orderId);
+        Number(req.params.id);
 
-
-      // ==============================================
-      // VALIDATE
-      // ==============================================
 
       if (!userId) {
-
         return res.status(401).json({
-
           success: false,
-
           message:
             "User ID not found",
-
         });
-
       }
 
 
       if (!orderId) {
-
         return res.status(400).json({
-
           success: false,
-
           message:
             "Invalid order ID",
-
         });
-
       }
 
 
-      // ==============================================
-      // GET ORDER
-      // ==============================================
-
       const [orders] =
         await db.query(
-
           `
-          SELECT *
-
+          SELECT
+            id,
+            user_id,
+            total,
+            status,
+            created_at
           FROM orders
-
           WHERE id = ?
           AND user_id = ?
           `,
-
           [
             orderId,
             userId,
           ]
-
         );
 
 
       if (orders.length === 0) {
-
         return res.status(404).json({
-
           success: false,
-
           message:
             "Order not found",
-
         });
-
       }
 
 
-      // ==============================================
-      // GET ORDER ITEMS
-      // ==============================================
-
-      const [items] =
-        await db.query(
-
-          `
-          SELECT *
-
-          FROM order_items
-
-          WHERE order_id = ?
-          `,
-
-          [orderId]
-
-        );
-
-
       return res.status(200).json({
-
         success: true,
-
-        order:
-          orders[0],
-
-        items,
-
+        order: orders[0],
       });
-
 
     } catch (error) {
 
       console.error(
-        "❌ GET SINGLE ORDER ERROR:",
+        "GET ORDER ERROR:",
         error
       );
 
-
       return res.status(500).json({
-
         success: false,
-
         message:
           "Failed to fetch order",
-
-        error:
-          error.message,
-
       });
-
     }
-
   }
 );
 
