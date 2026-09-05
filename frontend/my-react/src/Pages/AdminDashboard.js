@@ -7,25 +7,15 @@ import React, {
 import axios from "axios";
 
 import {
-  Link,
   useNavigate,
 } from "react-router-dom";
 
 
-
 function AdminDashboard() {
 
+  const navigate =
+    useNavigate();
 
-  // ==================================================
-  // NAVIGATION
-  // ==================================================
-
-  const navigate = useNavigate();
-
-
-  // ==================================================
-  // API URL
-  // ==================================================
 
   const API_URL =
     process.env.REACT_APP_API_URL ||
@@ -40,8 +30,8 @@ function AdminDashboard() {
     useState({
       totalProducts: 0,
       totalOrders: 0,
+      totalRevenue: 0,
       totalCustomers: 0,
-      revenue: 0,
     });
 
 
@@ -58,299 +48,245 @@ function AdminDashboard() {
 
 
   // ==================================================
-  // LOGOUT
+  // GET TOKEN
   // ==================================================
 
-  const handleLogout = () => {
+  const getToken = () => {
 
-    localStorage.removeItem("token");
-
-    localStorage.removeItem("user");
-
-    navigate("/login");
+    return localStorage.getItem(
+      "token"
+    );
 
   };
 
 
   // ==================================================
-  // FORMAT API DATA
+  // AUTH CONFIG
   // ==================================================
 
-  const getArrayFromResponse =
-    (data) => {
+  const getAuthConfig =
+    useCallback(() => {
 
-      if (
-        Array.isArray(data)
-      ) {
-
-        return data;
-
-      }
+      const token =
+        getToken();
 
 
-      if (
-        Array.isArray(data?.products)
-      ) {
+      return {
 
-        return data.products;
+        headers: {
 
-      }
+          Authorization:
+            `Bearer ${token}`,
 
+        },
 
-      if (
-        Array.isArray(data?.orders)
-      ) {
+      };
 
-        return data.orders;
-
-      }
-
-
-      if (
-        Array.isArray(data?.data)
-      ) {
-
-        return data.data;
-
-      }
-
-
-      return [];
-
-    };
+    }, []);
 
 
   // ==================================================
-  // LOAD DASHBOARD DATA
+  // FETCH ADMIN STATS
   // ==================================================
 
-  const loadDashboard =
-    useCallback(
+  const fetchAdminStats =
+    useCallback(async () => {
 
-      async () => {
+      try {
 
-        try {
+        setLoading(true);
 
-          setLoading(true);
-
-          setError("");
+        setError("");
 
 
-          const token =
-            localStorage.getItem("token");
+        const token =
+          getToken();
 
 
-          const headers =
-            token
-              ? {
-                  Authorization:
-                    `Bearer ${token}`,
-                }
-              : {};
+        if (!token) {
 
-
-          // ============================================
-          // GET PRODUCTS
-          // ============================================
-
-          const productsResponse =
-            await axios.get(
-
-              `${API_URL}/api/products`,
-
-              {
-                headers,
-              }
-
-            );
-
-
-          const products =
-            getArrayFromResponse(
-              productsResponse.data
-            );
-
-
-          // ============================================
-          // GET ORDERS
-          // ============================================
-
-          let orders = [];
-
-
-          try {
-
-            const ordersResponse =
-              await axios.get(
-
-                `${API_URL}/api/orders`,
-
-                {
-                  headers,
-                }
-
-              );
-
-
-            orders =
-              getArrayFromResponse(
-                ordersResponse.data
-              );
-
-
-          } catch (orderError) {
-
-            console.log(
-              "Orders could not be loaded:",
-              orderError.response?.data ||
-              orderError.message
-            );
-
-          }
-
-
-          // ============================================
-          // CALCULATE TOTAL CUSTOMERS
-          // ============================================
-
-          const customerIds =
-            new Set();
-
-
-          orders.forEach(
-            (order) => {
-
-              if (
-                order.user_id
-              ) {
-
-                customerIds.add(
-                  order.user_id
-                );
-
-              }
-
+          navigate(
+            "/login",
+            {
+              replace: true,
             }
           );
 
+          return;
 
-          // ============================================
-          // CALCULATE REVENUE
-          // ============================================
-
-          const revenue =
-            orders.reduce(
-
-              (total, order) => {
-
-                const amount =
-                  Number(
-                    order.total ||
-                    order.total_amount ||
-                    order.amount ||
-                    0
-                  );
+        }
 
 
-                return (
-                  total + amount
-                );
+        console.log(
+          "================================="
+        );
 
-              },
+        console.log(
+          "FETCHING ADMIN STATS"
+        );
 
-              0
+        console.log(
+          "API:",
+          `${API_URL}/api/orders/admin/stats`
+        );
 
-            );
+        console.log(
+          "================================="
+        );
 
 
-          // ============================================
-          // UPDATE STATS
-          // ============================================
+        const response =
+          await axios.get(
+
+            `${API_URL}/api/orders/admin/stats`,
+
+            getAuthConfig()
+
+          );
+
+
+        console.log(
+          "ADMIN STATS RESPONSE:",
+          response.data
+        );
+
+
+        if (
+          response.data.success
+        ) {
 
           setStats({
 
             totalProducts:
-              products.length,
+              Number(
+                response.data.totalProducts || 0
+              ),
 
             totalOrders:
-              orders.length,
+              Number(
+                response.data.totalOrders || 0
+              ),
+
+            totalRevenue:
+              Number(
+                response.data.totalRevenue || 0
+              ),
 
             totalCustomers:
-              customerIds.size,
-
-            revenue:
-              revenue,
+              Number(
+                response.data.totalCustomers || 0
+              ),
 
           });
 
 
-          // ============================================
-          // RECENT ORDERS
-          // ============================================
-
-          const sortedOrders =
-            [...orders]
-              .sort(
-                (a, b) => {
-
-                  const dateA =
-                    new Date(
-                      a.created_at ||
-                      a.createdAt ||
-                      0
-                    );
-
-
-                  const dateB =
-                    new Date(
-                      b.created_at ||
-                      b.createdAt ||
-                      0
-                    );
-
-
-                  return (
-                    dateB - dateA
-                  );
-
-                }
-              )
-              .slice(0, 5);
-
-
           setRecentOrders(
-            sortedOrders
+
+            Array.isArray(
+              response.data.recentOrders
+            )
+
+              ? response.data.recentOrders
+
+              : []
+
           );
 
-
-        } catch (error) {
-
-          console.error(
-            "DASHBOARD ERROR:",
-            error
-          );
-
+        } else {
 
           setError(
 
-            error.response?.data?.message ||
-
-            "Unable to load dashboard data. Please check your backend server."
+            response.data.message ||
+            "Failed to load dashboard"
 
           );
 
+        }
 
-        } finally {
+      } catch (error) {
 
-          setLoading(false);
+        console.error(
+          "ADMIN STATS ERROR:",
+          error
+        );
+
+
+        console.log(
+          "SERVER RESPONSE:",
+          error.response?.data
+        );
+
+
+        if (
+          error.response?.status === 401
+        ) {
+
+          localStorage.removeItem(
+            "token"
+          );
+
+          localStorage.removeItem(
+            "user"
+          );
+
+
+          navigate(
+            "/login",
+            {
+              replace: true,
+            }
+          );
+
+          return;
 
         }
 
-      },
 
-      [API_URL]
+        if (
+          error.response?.status === 403
+        ) {
 
-    );
+          setError(
+            "You do not have admin permission."
+          );
+
+          return;
+
+        }
+
+
+        if (
+          error.response?.status === 404
+        ) {
+
+          setError(
+            "Admin statistics route is not available. Please redeploy the updated backend."
+          );
+
+          return;
+
+        }
+
+
+        setError(
+
+          error.response?.data?.message ||
+
+          "Failed to load admin dashboard"
+
+        );
+
+      } finally {
+
+        setLoading(false);
+
+      }
+
+    }, [
+      API_URL,
+      getAuthConfig,
+      navigate,
+    ]);
 
 
   // ==================================================
@@ -359,321 +295,776 @@ function AdminDashboard() {
 
   useEffect(() => {
 
-    loadDashboard();
+    fetchAdminStats();
 
-  }, [loadDashboard]);
+  }, [
+    fetchAdminStats,
+  ]);
 
 
   // ==================================================
-  // PAGE
+  // LOGOUT
+  // ==================================================
+
+  const handleLogout =
+    () => {
+
+      localStorage.removeItem(
+        "token"
+      );
+
+      localStorage.removeItem(
+        "user"
+      );
+
+
+      navigate(
+        "/login",
+        {
+          replace: true,
+        }
+      );
+
+    };
+
+
+  // ==================================================
+  // NAVIGATION
+  // ==================================================
+
+  const handleManageProducts =
+    () => {
+
+      navigate("/products");
+
+    };
+
+
+  const handleOrders =
+    () => {
+
+      navigate("/orders");
+
+    };
+
+
+  // ==================================================
+  // RETURN
   // ==================================================
 
   return (
 
-    <div style={styles.page}>
+    <div
+      style={{
+        minHeight: "100vh",
+        background:
+          "#f3f6f3",
+        fontFamily:
+          "Arial, sans-serif",
+      }}
+    >
 
 
       {/* ============================================== */}
       {/* NAVBAR */}
       {/* ============================================== */}
 
-      <nav style={styles.navbar}>
+      <div
+        style={{
+          background:
+            "#ffffff",
+          padding:
+            "20px 35px",
+          display:
+            "flex",
+          justifyContent:
+            "space-between",
+          alignItems:
+            "center",
+          flexWrap:
+            "wrap",
+          gap:
+            "15px",
+          boxShadow:
+            "0 2px 10px rgba(0,0,0,0.08)",
+        }}
+      >
+
+        <div>
+
+          <h2
+            style={{
+              margin: 0,
+              color:
+                "#1f3d2b",
+            }}
+          >
+
+            🌿 HARI FARMS
+
+          </h2>
 
 
-        <Link
-          to="/home"
-          style={styles.logo}
+          <p
+            style={{
+              margin:
+                "5px 0 0",
+              color:
+                "#777",
+            }}
+          >
+
+            Admin Dashboard
+
+          </p>
+
+        </div>
+
+
+        <div
+          style={{
+            display:
+              "flex",
+            gap:
+              "10px",
+            flexWrap:
+              "wrap",
+          }}
         >
 
-          🥛 HARI FARMS
-
-        </Link>
-
-
-        <div style={styles.navLinks}>
-
-
-          <Link
-            to="/home"
-            style={styles.navLink}
+          <button
+            onClick={handleManageProducts}
+            style={{
+              padding:
+                "10px 16px",
+              border:
+                "none",
+              borderRadius:
+                "8px",
+              cursor:
+                "pointer",
+              fontWeight:
+                "bold",
+            }}
           >
 
-            Home
+            📦 Products
 
-          </Link>
-
-
-          <Link
-            to="/products"
-            style={styles.navLink}
-          >
-
-            Products
-
-          </Link>
+          </button>
 
 
           <button
-            onClick={loadDashboard}
-            style={styles.refreshButton}
+            onClick={handleOrders}
+            style={{
+              padding:
+                "10px 16px",
+              border:
+                "none",
+              borderRadius:
+                "8px",
+              cursor:
+                "pointer",
+              fontWeight:
+                "bold",
+            }}
           >
 
-            🔄 Refresh
+            📋 Orders
 
           </button>
 
 
           <button
             onClick={handleLogout}
-            style={styles.logout}
+            style={{
+              padding:
+                "10px 16px",
+              border:
+                "none",
+              borderRadius:
+                "8px",
+              cursor:
+                "pointer",
+              background:
+                "#c62828",
+              color:
+                "white",
+              fontWeight:
+                "bold",
+            }}
           >
 
             Logout
 
           </button>
 
-
         </div>
 
-      </nav>
+      </div>
 
 
       {/* ============================================== */}
       {/* MAIN */}
       {/* ============================================== */}
 
-      <main style={styles.main}>
+      <div
+        style={{
+          padding:
+            "35px",
+        }}
+      >
 
 
-        {/* ============================================ */}
-        {/* WELCOME */}
-        {/* ============================================ */}
+        {/* HEADER */}
 
-        <section style={styles.welcome}>
-
+        <div
+          style={{
+            display:
+              "flex",
+            justifyContent:
+              "space-between",
+            alignItems:
+              "center",
+            flexWrap:
+              "wrap",
+            marginBottom:
+              "30px",
+          }}
+        >
 
           <div>
 
+            <h1
+              style={{
+                margin: 0,
+                color:
+                  "#263238",
+              }}
+            >
 
-            <p style={styles.adminLabel}>
-
-              HARI FARMS • ADMIN
-
-            </p>
-
-
-            <h1 style={styles.welcomeTitle}>
-
-              Welcome to Admin Dashboard 👋
+              Welcome, Admin 👋
 
             </h1>
 
 
-            <p style={styles.description}>
+            <p
+              style={{
+                color:
+                  "#666",
+              }}
+            >
 
-              Manage your dairy farm products,
-              orders and store operations from one place.
+              Manage your HARI FARMS store from one place.
 
             </p>
 
-
           </div>
 
 
-          <div style={styles.cow}>
+          <button
+            onClick={fetchAdminStats}
+            style={{
+              background:
+                "#276738",
+              color:
+                "white",
+              padding:
+                "13px 22px",
+              border:
+                "none",
+              borderRadius:
+                "8px",
+              cursor:
+                "pointer",
+              fontWeight:
+                "bold",
+            }}
+          >
 
-            🐄
+            🔄 Refresh
 
-          </div>
+          </button>
 
-
-        </section>
+        </div>
 
 
         {/* ============================================ */}
         {/* ERROR */}
         {/* ============================================ */}
 
-        {error && (
+        {
+          error && (
 
-          <div style={styles.errorBox}>
-
-            ⚠️ {error}
-
-
-            <button
-              onClick={loadDashboard}
-              style={styles.errorRetry}
+            <div
+              style={{
+                background:
+                  "#fff5f5",
+                border:
+                  "1px solid #ffcaca",
+                color:
+                  "#c0392b",
+                padding:
+                  "20px",
+                borderRadius:
+                  "14px",
+                marginBottom:
+                  "25px",
+              }}
             >
 
-              Try Again
+              <strong>
+                Error:
+              </strong>
 
-            </button>
+              {" "}
 
-          </div>
+              {error}
 
-        )}
+
+              <br />
+
+
+              <button
+                onClick={fetchAdminStats}
+                style={{
+                  marginTop:
+                    "15px",
+                  padding:
+                    "10px 18px",
+                  border:
+                    "none",
+                  borderRadius:
+                    "7px",
+                  background:
+                    "#c0392b",
+                  color:
+                    "white",
+                  cursor:
+                    "pointer",
+                }}
+              >
+
+                Try Again
+
+              </button>
+
+            </div>
+
+          )
+        }
 
 
         {/* ============================================ */}
-        {/* STAT CARDS */}
+        {/* LOADING */}
         {/* ============================================ */}
 
-        <div style={styles.stats}>
+        {
+          loading && (
 
+            <div
+              style={{
+                textAlign:
+                  "center",
+                padding:
+                  "30px",
+              }}
+            >
 
-          {/* PRODUCTS */}
-
-          <div style={styles.statCard}>
-
-
-            <div style={styles.statIcon}>
-
-              🥛
-
-            </div>
-
-
-            <p style={styles.statLabel}>
-
-              Total Products
-
-            </p>
-
-
-            <h2 style={styles.statNumber}>
-
-              {loading
-                ? "..."
-                : stats.totalProducts}
-
-            </h2>
-
-
-          </div>
-
-
-          {/* ORDERS */}
-
-          <div style={styles.statCard}>
-
-
-            <div style={styles.statIcon}>
-
-              📦
+              Loading dashboard...
 
             </div>
 
-
-            <p style={styles.statLabel}>
-
-              Total Orders
-
-            </p>
+          )
+        }
 
 
-            <h2 style={styles.statNumber}>
+        {/* ============================================ */}
+        {/* STATISTICS */}
+        {/* ============================================ */}
 
-              {loading
-                ? "..."
-                : stats.totalOrders}
+        {
+          !loading && (
 
-            </h2>
+            <div
+              style={{
+                display:
+                  "grid",
+                gridTemplateColumns:
+                  "repeat(auto-fit, minmax(240px, 1fr))",
+                gap:
+                  "22px",
+                marginBottom:
+                  "40px",
+              }}
+            >
 
 
-          </div>
+              {/* PRODUCTS */}
+
+              <div
+                style={{
+                  background:
+                    "#ffffff",
+                  padding:
+                    "28px",
+                  borderRadius:
+                    "20px",
+                  boxShadow:
+                    "0 5px 20px rgba(0,0,0,0.08)",
+                }}
+              >
+
+                <div
+                  style={{
+                    display:
+                      "flex",
+                    justifyContent:
+                      "space-between",
+                  }}
+                >
+
+                  <div>
+
+                    <h4
+                      style={{
+                        margin: 0,
+                        color:
+                          "#666",
+                      }}
+                    >
+
+                      Total Products
+
+                    </h4>
 
 
-          {/* CUSTOMERS */}
+                    <h2>
 
-          <div style={styles.statCard}>
+                      {stats.totalProducts}
+
+                    </h2>
 
 
-            <div style={styles.statIcon}>
+                    <p
+                      style={{
+                        color:
+                          "#888",
+                      }}
+                    >
 
-              👥
+                      Products in your store
+
+                    </p>
+
+                  </div>
+
+
+                  <div
+                    style={{
+                      fontSize:
+                        "40px",
+                    }}
+                  >
+
+                    📦
+
+                  </div>
+
+                </div>
+
+              </div>
+
+
+              {/* ORDERS */}
+
+              <div
+                style={{
+                  background:
+                    "#ffffff",
+                  padding:
+                    "28px",
+                  borderRadius:
+                    "20px",
+                  boxShadow:
+                    "0 5px 20px rgba(0,0,0,0.08)",
+                }}
+              >
+
+                <div
+                  style={{
+                    display:
+                      "flex",
+                    justifyContent:
+                      "space-between",
+                  }}
+                >
+
+                  <div>
+
+                    <h4
+                      style={{
+                        margin: 0,
+                        color:
+                          "#666",
+                      }}
+                    >
+
+                      Total Orders
+
+                    </h4>
+
+
+                    <h2>
+
+                      {stats.totalOrders}
+
+                    </h2>
+
+
+                    <p
+                      style={{
+                        color:
+                          "#888",
+                      }}
+                    >
+
+                      Orders received
+
+                    </p>
+
+                  </div>
+
+
+                  <div
+                    style={{
+                      fontSize:
+                        "40px",
+                    }}
+                  >
+
+                    📋
+
+                  </div>
+
+                </div>
+
+              </div>
+
+
+              {/* REVENUE */}
+
+              <div
+                style={{
+                  background:
+                    "#ffffff",
+                  padding:
+                    "28px",
+                  borderRadius:
+                    "20px",
+                  boxShadow:
+                    "0 5px 20px rgba(0,0,0,0.08)",
+                }}
+              >
+
+                <div
+                  style={{
+                    display:
+                      "flex",
+                    justifyContent:
+                      "space-between",
+                  }}
+                >
+
+                  <div>
+
+                    <h4
+                      style={{
+                        margin: 0,
+                        color:
+                          "#666",
+                      }}
+                    >
+
+                      Total Revenue
+
+                    </h4>
+
+
+                    <h2>
+
+                      ₹{
+                        Number(
+                          stats.totalRevenue
+                        ).toFixed(2)
+                      }
+
+                    </h2>
+
+
+                    <p
+                      style={{
+                        color:
+                          "#888",
+                      }}
+                    >
+
+                      Total store revenue
+
+                    </p>
+
+                  </div>
+
+
+                  <div
+                    style={{
+                      fontSize:
+                        "40px",
+                    }}
+                  >
+
+                    💰
+
+                  </div>
+
+                </div>
+
+              </div>
+
+
+              {/* CUSTOMERS */}
+
+              <div
+                style={{
+                  background:
+                    "#ffffff",
+                  padding:
+                    "28px",
+                  borderRadius:
+                    "20px",
+                  boxShadow:
+                    "0 5px 20px rgba(0,0,0,0.08)",
+                }}
+              >
+
+                <div
+                  style={{
+                    display:
+                      "flex",
+                    justifyContent:
+                      "space-between",
+                  }}
+                >
+
+                  <div>
+
+                    <h4
+                      style={{
+                        margin: 0,
+                        color:
+                          "#666",
+                      }}
+                    >
+
+                      Total Customers
+
+                    </h4>
+
+
+                    <h2>
+
+                      {stats.totalCustomers}
+
+                    </h2>
+
+
+                    <p
+                      style={{
+                        color:
+                          "#888",
+                      }}
+                    >
+
+                      Registered customers
+
+                    </p>
+
+                  </div>
+
+
+                  <div
+                    style={{
+                      fontSize:
+                        "40px",
+                    }}
+                  >
+
+                    👥
+
+                  </div>
+
+                </div>
+
+              </div>
 
             </div>
 
-
-            <p style={styles.statLabel}>
-
-              Customers
-
-            </p>
-
-
-            <h2 style={styles.statNumber}>
-
-              {loading
-                ? "..."
-                : stats.totalCustomers}
-
-            </h2>
-
-
-          </div>
-
-
-          {/* REVENUE */}
-
-          <div style={styles.statCard}>
-
-
-            <div style={styles.statIcon}>
-
-              💰
-
-            </div>
-
-
-            <p style={styles.statLabel}>
-
-              Revenue
-
-            </p>
-
-
-            <h2 style={styles.statNumber}>
-
-              {loading
-                ? "..."
-                : `₹${Number(
-                    stats.revenue
-                  ).toFixed(2)}`}
-
-            </h2>
-
-
-          </div>
-
-
-        </div>
+          )
+        }
 
 
         {/* ============================================ */}
         {/* FARM MANAGEMENT */}
         {/* ============================================ */}
 
-        <h2 style={styles.sectionTitle}>
+        <h2
+          style={{
+            color:
+              "#294b35",
+            marginBottom:
+              "20px",
+          }}
+        >
 
           Farm Management
 
         </h2>
 
 
-        <div style={styles.operations}>
+        <div
+          style={{
+            display:
+              "grid",
+            gridTemplateColumns:
+              "repeat(auto-fit, minmax(280px, 1fr))",
+            gap:
+              "22px",
+            marginBottom:
+              "35px",
+          }}
+        >
 
 
           {/* ADD PRODUCT */}
 
-          <Link
-            to="/admin/products/add"
-            style={styles.operation}
+          <div
+            style={{
+              background:
+                "#ffffff",
+              padding:
+                "28px",
+              borderRadius:
+                "20px",
+              boxShadow:
+                "0 5px 20px rgba(0,0,0,0.08)",
+            }}
           >
 
-
-            <div style={styles.operationIcon}>
+            <div
+              style={{
+                fontSize:
+                  "38px",
+              }}
+            >
 
               ➕
 
@@ -689,31 +1080,56 @@ function AdminDashboard() {
 
             <p>
 
-              Add a new dairy product
-              to HARI FARMS.
+              Add a new dairy product to HARI FARMS.
 
             </p>
 
 
-            <span style={styles.operationLink}>
+            <button
+              onClick={handleManageProducts}
+              style={{
+                border:
+                  "none",
+                background:
+                  "transparent",
+                color:
+                  "#2e7d32",
+                fontWeight:
+                  "bold",
+                cursor:
+                  "pointer",
+                padding: 0,
+              }}
+            >
 
-              Add Product →
+              Manage Products →
 
-            </span>
+            </button>
 
-
-          </Link>
+          </div>
 
 
           {/* MANAGE PRODUCTS */}
 
-          <Link
-            to="/products"
-            style={styles.operation}
+          <div
+            style={{
+              background:
+                "#ffffff",
+              padding:
+                "28px",
+              borderRadius:
+                "20px",
+              boxShadow:
+                "0 5px 20px rgba(0,0,0,0.08)",
+            }}
           >
 
-
-            <div style={styles.operationIcon}>
+            <div
+              style={{
+                fontSize:
+                  "38px",
+              }}
+            >
 
               🥛
 
@@ -729,31 +1145,56 @@ function AdminDashboard() {
 
             <p>
 
-              View and edit all products
-              from the database.
+              View and edit all products from the database.
 
             </p>
 
 
-            <span style={styles.operationLink}>
+            <button
+              onClick={handleManageProducts}
+              style={{
+                border:
+                  "none",
+                background:
+                  "transparent",
+                color:
+                  "#2e7d32",
+                fontWeight:
+                  "bold",
+                cursor:
+                  "pointer",
+                padding: 0,
+              }}
+            >
 
               Manage Products →
 
-            </span>
+            </button>
+
+          </div>
 
 
-          </Link>
+          {/* MANAGE ORDERS */}
 
-
-          {/* ORDERS */}
-
-          <Link
-            to="/admin/orders"
-            style={styles.operation}
+          <div
+            style={{
+              background:
+                "#ffffff",
+              padding:
+                "28px",
+              borderRadius:
+                "20px",
+              boxShadow:
+                "0 5px 20px rgba(0,0,0,0.08)",
+            }}
           >
 
-
-            <div style={styles.operationIcon}>
+            <div
+              style={{
+                fontSize:
+                  "38px",
+              }}
+            >
 
               📦
 
@@ -769,34 +1210,66 @@ function AdminDashboard() {
 
             <p>
 
-              View and manage customer
-              orders.
+              View and manage customer orders.
 
             </p>
 
 
-            <span style={styles.operationLink}>
+            <button
+              onClick={handleOrders}
+              style={{
+                border:
+                  "none",
+                background:
+                  "transparent",
+                color:
+                  "#2e7d32",
+                fontWeight:
+                  "bold",
+                cursor:
+                  "pointer",
+                padding: 0,
+              }}
+            >
 
               View Orders →
 
-            </span>
+            </button>
 
-
-          </Link>
-
+          </div>
 
         </div>
 
 
         {/* ============================================ */}
-        {/* RECENT ACTIVITY */}
+        {/* RECENT ORDERS */}
         {/* ============================================ */}
 
-        <section style={styles.activity}>
+        <div
+          style={{
+            background:
+              "#ffffff",
+            padding:
+              "30px",
+            borderRadius:
+              "20px",
+            boxShadow:
+              "0 5px 20px rgba(0,0,0,0.08)",
+          }}
+        >
 
-
-          <div style={styles.activityHeader}>
-
+          <div
+            style={{
+              display:
+                "flex",
+              justifyContent:
+                "space-between",
+              alignItems:
+                "center",
+              marginBottom:
+                "20px",
+            }}
+          >
 
             <h2>
 
@@ -805,86 +1278,70 @@ function AdminDashboard() {
             </h2>
 
 
-            <span style={styles.activityBadge}>
+            <span
+              style={{
+                background:
+                  "#e8f5e9",
+                color:
+                  "#2e7d32",
+                padding:
+                  "10px 15px",
+                borderRadius:
+                  "20px",
+                fontWeight:
+                  "bold",
+              }}
+            >
 
               {recentOrders.length} Recent
 
             </span>
 
-
           </div>
 
 
-          {loading ? (
+          {
+            recentOrders.length === 0 ? (
 
-            <div style={styles.empty}>
+              <p
+                style={{
+                  textAlign:
+                    "center",
+                  padding:
+                    "30px",
+                  color:
+                    "#777",
+                }}
+              >
 
-              <div style={styles.emptyIcon}>
-
-                ⏳
-
-              </div>
-
-
-              <h3>
-
-                Loading...
-
-              </h3>
-
-
-              <p>
-
-                Loading recent activity.
+                No recent orders found.
 
               </p>
 
-            </div>
+            ) : (
 
-          ) : recentOrders.length === 0 ? (
-
-            <div style={styles.empty}>
-
-
-              <div style={styles.emptyIcon}>
-
-                📋
-
-              </div>
-
-
-              <h3>
-
-                No Recent Orders
-
-              </h3>
-
-
-              <p>
-
-                Customer orders will appear here.
-
-              </p>
-
-
-            </div>
-
-          ) : (
-
-            <div style={styles.ordersList}>
-
-
-              {recentOrders.map(
+              recentOrders.map(
                 (order) => (
 
                   <div
                     key={order.id}
-                    style={styles.orderItem}
+                    style={{
+                      padding:
+                        "15px",
+                      borderBottom:
+                        "1px solid #eeeeee",
+                      display:
+                        "flex",
+                      justifyContent:
+                        "space-between",
+                      flexWrap:
+                        "wrap",
+                      gap:
+                        "10px",
+                    }}
                   >
 
-
                     <div>
-
 
                       <strong>
 
@@ -893,595 +1350,57 @@ function AdminDashboard() {
                       </strong>
 
 
-                      <p style={styles.orderDate}>
+                      <p
+                        style={{
+                          margin:
+                            "5px 0",
+                        }}
+                      >
 
-                        {order.created_at
-                          ? new Date(
-                              order.created_at
-                            ).toLocaleString()
-                          : "Recently created"}
+                        {order.customer_name ||
+                          order.email ||
+                          "Customer"}
 
                       </p>
 
+                    </div>
+
+
+                    <div>
+
+                      ₹{
+                        Number(
+                          order.total || 0
+                        ).toFixed(2)
+                      }
 
                     </div>
 
 
-                    <div
-                      style={styles.orderRight}
-                    >
+                    <div>
 
-
-                      <strong
-                        style={styles.orderAmount}
-                      >
-
-                        ₹{Number(
-                          order.total ||
-                          order.total_amount ||
-                          0
-                        ).toFixed(2)}
-
-                      </strong>
-
-
-                      <span
-                        style={styles.orderStatus}
-                      >
-
-                        {order.status ||
-                          "Pending"}
-
-                      </span>
-
+                      {order.status ||
+                        "Pending"}
 
                     </div>
-
 
                   </div>
 
                 )
-              )}
+              )
 
+            )
+          }
 
-            </div>
+        </div>
 
-          )}
-
-
-        </section>
-
-
-      </main>
-
-
-      {/* ============================================== */}
-      {/* FOOTER */}
-      {/* ============================================== */}
-
-      <footer style={styles.footer}>
-
-
-        <h3>
-
-          🥛 HARI FARMS
-
-        </h3>
-
-
-        <p>
-
-          Fresh From Farm • Pure For Family
-
-        </p>
-
-
-        <small>
-
-          © 2026 HARI FARMS
-
-        </small>
-
-
-      </footer>
-
+      </div>
 
     </div>
 
   );
 
 }
-
-
-// ==================================================
-// STYLES
-// ==================================================
-
-const styles = {
-
-
-  page: {
-
-    minHeight: "100vh",
-
-    background: "#f5faf5",
-
-    fontFamily:
-      "'Segoe UI', Arial, sans-serif",
-
-  },
-
-
-  navbar: {
-
-    minHeight: "68px",
-
-    background: "#2e7d32",
-
-    display: "flex",
-
-    justifyContent: "space-between",
-
-    alignItems: "center",
-
-    padding: "0 40px",
-
-    boxShadow:
-      "0 3px 15px rgba(0,0,0,0.12)",
-
-  },
-
-
-  logo: {
-
-    color: "#fff",
-
-    textDecoration: "none",
-
-    fontSize: "23px",
-
-    fontWeight: "800",
-
-  },
-
-
-  navLinks: {
-
-    display: "flex",
-
-    alignItems: "center",
-
-    gap: "20px",
-
-  },
-
-
-  navLink: {
-
-    color: "#fff",
-
-    textDecoration: "none",
-
-    fontWeight: "600",
-
-  },
-
-
-  refreshButton: {
-
-    border: "none",
-
-    background: "#fff",
-
-    color: "#2e7d32",
-
-    padding: "10px 16px",
-
-    borderRadius: "20px",
-
-    fontWeight: "700",
-
-    cursor: "pointer",
-
-  },
-
-
-  logout: {
-
-    border: "none",
-
-    background: "#e53935",
-
-    color: "#fff",
-
-    padding: "10px 20px",
-
-    borderRadius: "20px",
-
-    fontWeight: "700",
-
-    cursor: "pointer",
-
-  },
-
-
-  main: {
-
-    maxWidth: "1200px",
-
-    margin: "auto",
-
-    padding: "40px 25px 70px",
-
-  },
-
-
-  welcome: {
-
-    background:
-      "linear-gradient(135deg,#1b5e20,#43a047)",
-
-    color: "#fff",
-
-    padding: "40px",
-
-    borderRadius: "25px",
-
-    display: "flex",
-
-    alignItems: "center",
-
-    justifyContent: "space-between",
-
-    boxShadow:
-      "0 15px 35px rgba(46,125,50,0.20)",
-
-  },
-
-
-  adminLabel: {
-
-    fontSize: "12px",
-
-    letterSpacing: "2px",
-
-    fontWeight: "700",
-
-  },
-
-
-  welcomeTitle: {
-
-    fontSize: "34px",
-
-    margin: "10px 0",
-
-  },
-
-
-  description: {
-
-    opacity: 0.9,
-
-    fontSize: "16px",
-
-    maxWidth: "600px",
-
-    lineHeight: "1.6",
-
-  },
-
-
-  cow: {
-
-    fontSize: "90px",
-
-  },
-
-
-  errorBox: {
-
-    marginTop: "25px",
-
-    padding: "18px",
-
-    background: "#ffebee",
-
-    color: "#c62828",
-
-    borderRadius: "12px",
-
-    display: "flex",
-
-    justifyContent: "space-between",
-
-    alignItems: "center",
-
-  },
-
-
-  errorRetry: {
-
-    border: "none",
-
-    background: "#c62828",
-
-    color: "#fff",
-
-    padding: "8px 15px",
-
-    borderRadius: "8px",
-
-    cursor: "pointer",
-
-  },
-
-
-  stats: {
-
-    display: "grid",
-
-    gridTemplateColumns:
-      "repeat(auto-fit, minmax(220px, 1fr))",
-
-    gap: "20px",
-
-    marginTop: "30px",
-
-  },
-
-
-  statCard: {
-
-    background: "#fff",
-
-    padding: "25px",
-
-    borderRadius: "18px",
-
-    boxShadow:
-      "0 7px 25px rgba(0,0,0,0.07)",
-
-    transition: "transform 0.2s",
-
-  },
-
-
-  statIcon: {
-
-    fontSize: "32px",
-
-    marginBottom: "12px",
-
-  },
-
-
-  statLabel: {
-
-    color: "#555",
-
-    fontSize: "16px",
-
-    margin: "0",
-
-  },
-
-
-  statNumber: {
-
-    fontSize: "27px",
-
-    color: "#1f2937",
-
-    marginBottom: "0",
-
-  },
-
-
-  sectionTitle: {
-
-    color: "#205b26",
-
-    marginTop: "45px",
-
-  },
-
-
-  operations: {
-
-    display: "grid",
-
-    gridTemplateColumns:
-      "repeat(auto-fit, minmax(260px, 1fr))",
-
-    gap: "20px",
-
-  },
-
-
-  operation: {
-
-    background: "#fff",
-
-    padding: "28px",
-
-    borderRadius: "20px",
-
-    textDecoration: "none",
-
-    color: "#26352a",
-
-    boxShadow:
-      "0 7px 25px rgba(0,0,0,0.07)",
-
-  },
-
-
-  operationIcon: {
-
-    fontSize: "35px",
-
-  },
-
-
-  operationLink: {
-
-    color: "#2e7d32",
-
-    fontWeight: "700",
-
-  },
-
-
-  activity: {
-
-    background: "#fff",
-
-    padding: "30px",
-
-    borderRadius: "20px",
-
-    marginTop: "35px",
-
-    boxShadow:
-      "0 7px 25px rgba(0,0,0,0.07)",
-
-  },
-
-
-  activityHeader: {
-
-    display: "flex",
-
-    justifyContent: "space-between",
-
-    alignItems: "center",
-
-  },
-
-
-  activityBadge: {
-
-    background: "#e8f5e9",
-
-    color: "#2e7d32",
-
-    padding: "7px 12px",
-
-    borderRadius: "20px",
-
-    fontWeight: "700",
-
-    fontSize: "13px",
-
-  },
-
-
-  empty: {
-
-    textAlign: "center",
-
-    color: "#78857b",
-
-    padding: "40px",
-
-  },
-
-
-  emptyIcon: {
-
-    fontSize: "45px",
-
-  },
-
-
-  ordersList: {
-
-    marginTop: "20px",
-
-  },
-
-
-  orderItem: {
-
-    display: "flex",
-
-    justifyContent: "space-between",
-
-    alignItems: "center",
-
-    padding: "18px",
-
-    marginBottom: "12px",
-
-    background: "#f7faf7",
-
-    borderRadius: "12px",
-
-  },
-
-
-  orderDate: {
-
-    margin: "7px 0 0",
-
-    color: "#777",
-
-    fontSize: "13px",
-
-  },
-
-
-  orderRight: {
-
-    textAlign: "right",
-
-    display: "flex",
-
-    flexDirection: "column",
-
-    gap: "7px",
-
-  },
-
-
-  orderAmount: {
-
-    color: "#2e7d32",
-
-  },
-
-
-  orderStatus: {
-
-    background: "#fff3cd",
-
-    padding: "5px 10px",
-
-    borderRadius: "15px",
-
-    fontSize: "12px",
-
-    fontWeight: "700",
-
-  },
-
-
-  footer: {
-
-    background: "#173d1b",
-
-    color: "#fff",
-
-    textAlign: "center",
-
-    padding: "35px",
-
-    marginTop: "20px",
-
-  },
-
-};
 
 
 export default AdminDashboard;

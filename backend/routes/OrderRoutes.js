@@ -5,51 +5,69 @@ const router = express.Router();
 
 const db = require("../db");
 
+
 // ==================================================
 // AUTHENTICATE USER
 // ==================================================
 
 const authenticateUser = (req, res, next) => {
   try {
-    const authHeader = req.headers.authorization;
+
+    const authHeader =
+      req.headers.authorization;
+
 
     if (!authHeader) {
+
       return res.status(401).json({
         success: false,
         message: "Authorization token is required",
       });
+
     }
 
-    const token = authHeader.startsWith("Bearer ")
-      ? authHeader.substring(7).trim()
-      : authHeader.trim();
+
+    const token =
+      authHeader.startsWith("Bearer ")
+        ? authHeader.substring(7)
+        : authHeader;
+
 
     if (!token) {
+
       return res.status(401).json({
         success: false,
         message: "Invalid authorization token",
       });
+
     }
 
-    const decoded = jwt.verify(
-      token,
-      process.env.JWT_SECRET
-    );
+
+    const decoded =
+      jwt.verify(
+        token,
+        process.env.JWT_SECRET
+      );
+
 
     req.user = decoded;
+
 
     next();
 
   } catch (error) {
+
     console.error(
-      "ORDER AUTH ERROR:",
+      "AUTH ERROR:",
       error.message
     );
+
 
     return res.status(401).json({
       success: false,
       message: "Invalid or expired login token",
     });
+
   }
 };
 
@@ -59,192 +77,505 @@ const authenticateUser = (req, res, next) => {
 // ==================================================
 
 const getUserId = (req) => {
-  if (!req.user) {
-    return null;
-  }
 
   return (
-    req.user.id ||
-    req.user.userId ||
-    req.user.user_id ||
-    req.user.userID ||
-    null
+    req.user?.id ||
+    req.user?.userId ||
+    req.user?.user_id
   );
+
 };
 
 
 // ==================================================
-// GET MY ORDERS
+// CHECK ADMIN
+// ==================================================
+
+const requireAdmin = (
+  req,
+  res,
+  next
+) => {
+
+  const role =
+    String(
+      req.user?.role ||
+      ""
+    )
+      .trim()
+      .toLowerCase();
+
+
+  if (role !== "admin") {
+
+    return res.status(403).json({
+      success: false,
+      message:
+        "Admin access required",
+    });
+
+  }
+
+
+  next();
+
+};
+
+
+// ==================================================
+// ADMIN DASHBOARD STATS
 // IMPORTANT:
-// This route MUST come before "/:id"
+// THIS ROUTE MUST BE BEFORE /:id
 // ==================================================
 
 router.get(
-  "/my-orders",
+  "/admin/stats",
+
   authenticateUser,
+
+  requireAdmin,
+
   async (req, res) => {
+
     try {
 
-      const userId = getUserId(req);
-
       console.log(
-        "================================="
+        "📊 ADMIN STATS REQUEST RECEIVED"
       );
-
-      console.log(
-        "GET MY ORDERS"
-      );
-
-      console.log(
-        "TOKEN USER:",
-        req.user
-      );
-
-      console.log(
-        "USER ID:",
-        userId
-      );
-
-      console.log(
-        "================================="
-      );
-
-
-      if (!userId) {
-        return res.status(401).json({
-          success: false,
-          message: "User ID not found in login token",
-        });
-      }
 
 
       // ==============================================
-      // GET ORDERS
+      // TOTAL PRODUCTS
       // ==============================================
 
-      const [orders] = await db.query(
+      const [
+        productResult
+      ] = await db.query(
         `
         SELECT
-          id,
-          user_id,
-          total,
-          status,
-          created_at
+          COUNT(*) AS totalProducts
+        FROM products
+        `
+      );
+
+
+      // ==============================================
+      // TOTAL ORDERS
+      // ==============================================
+
+      const [
+        orderResult
+      ] = await db.query(
+        `
+        SELECT
+          COUNT(*) AS totalOrders
         FROM orders
-        WHERE user_id = ?
-        ORDER BY created_at DESC
-        `,
-        [userId]
+        `
+      );
+
+
+      // ==============================================
+      // TOTAL CUSTOMERS
+      // ==============================================
+
+      const [
+        customerResult
+      ] = await db.query(
+        `
+        SELECT
+          COUNT(*) AS totalCustomers
+        FROM users
+        WHERE LOWER(role) != 'admin'
+        `
+      );
+
+
+      // ==============================================
+      // TOTAL REVENUE
+      // ==============================================
+
+      const [
+        revenueResult
+      ] = await db.query(
+        `
+        SELECT
+          COALESCE(
+            SUM(total),
+            0
+          ) AS totalRevenue
+        FROM orders
+        `
+      );
+
+
+      // ==============================================
+      // RECENT ORDERS
+      // ==============================================
+
+      const [
+        recentOrders
+      ] = await db.query(
+        `
+        SELECT
+          orders.id,
+          orders.user_id,
+          orders.total,
+          orders.status,
+          orders.created_at,
+
+          users.name AS customer_name,
+          users.email AS customer_email
+
+        FROM orders
+
+        LEFT JOIN users
+          ON orders.user_id = users.id
+
+        ORDER BY
+          orders.created_at DESC
+
+        LIMIT 5
+        `
+      );
+
+
+      const stats = {
+
+        totalProducts:
+          Number(
+            productResult[0]
+              ?.totalProducts || 0
+          ),
+
+        totalOrders:
+          Number(
+            orderResult[0]
+              ?.totalOrders || 0
+          ),
+
+        totalCustomers:
+          Number(
+            customerResult[0]
+              ?.totalCustomers || 0
+          ),
+
+        totalRevenue:
+          Number(
+            revenueResult[0]
+              ?.totalRevenue || 0
+          ),
+
+      };
+
+
+      console.log(
+        "✅ ADMIN STATS:",
+        stats
       );
 
 
       return res.status(200).json({
+
         success: true,
-        orders: orders || [],
+
+        stats,
+
+        recentOrders,
+
       });
 
     } catch (error) {
 
       console.error(
-        "================================="
-      );
-
-      console.error(
-        "GET MY ORDERS ERROR"
-      );
-
-      console.error(
-        error
-      );
-
-      console.error(
-        "MESSAGE:",
+        "❌ ADMIN STATS ERROR:",
         error.message
       );
 
-      console.error(
-        "================================="
-      );
+
+      console.error(error);
 
 
       return res.status(500).json({
+
         success: false,
-        message: "Failed to fetch orders",
+
+        message:
+          "Failed to fetch admin statistics",
+
         error:
-          process.env.NODE_ENV === "production"
-            ? undefined
-            : error.message,
+          error.message,
+
       });
+
     }
+
   }
 );
 
 
 // ==================================================
-// CHECKOUT / CREATE ORDER
+// GET ALL ORDERS FOR ADMIN
+// ==================================================
+
+router.get(
+  "/admin/all",
+
+  authenticateUser,
+
+  requireAdmin,
+
+  async (req, res) => {
+
+    try {
+
+      const [orders] =
+        await db.query(
+          `
+          SELECT
+
+            orders.id,
+            orders.user_id,
+            orders.total,
+            orders.status,
+            orders.created_at,
+
+            users.name AS customer_name,
+            users.email AS customer_email
+
+          FROM orders
+
+          LEFT JOIN users
+            ON orders.user_id = users.id
+
+          ORDER BY
+            orders.created_at DESC
+          `
+        );
+
+
+      return res.status(200).json({
+
+        success: true,
+
+        orders,
+
+      });
+
+    } catch (error) {
+
+      console.error(
+        "GET ADMIN ORDERS ERROR:",
+        error.message
+      );
+
+
+      return res.status(500).json({
+
+        success: false,
+
+        message:
+          "Failed to fetch orders",
+
+        error:
+          error.message,
+
+      });
+
+    }
+
+  }
+);
+
+
+// ==================================================
+// GET MY ORDERS
+// ==================================================
+
+router.get(
+  "/my-orders",
+
+  authenticateUser,
+
+  async (req, res) => {
+
+    try {
+
+      const userId =
+        getUserId(req);
+
+
+      if (!userId) {
+
+        return res.status(401).json({
+
+          success: false,
+
+          message:
+            "User ID not found in login token",
+
+        });
+
+      }
+
+
+      console.log(
+        "📦 FETCHING ORDERS FOR USER:",
+        userId
+      );
+
+
+      const [orders] =
+        await db.query(
+          `
+          SELECT
+
+            id,
+
+            user_id,
+
+            total,
+
+            status,
+
+            created_at
+
+          FROM orders
+
+          WHERE user_id = ?
+
+          ORDER BY
+            created_at DESC
+          `,
+          [userId]
+        );
+
+
+      return res.status(200).json({
+
+        success: true,
+
+        orders,
+
+      });
+
+    } catch (error) {
+
+      console.error(
+        "❌ MY ORDERS ERROR:",
+        error.message
+      );
+
+
+      console.error(error);
+
+
+      return res.status(500).json({
+
+        success: false,
+
+        message:
+          "Failed to fetch orders",
+
+        error:
+          error.message,
+
+      });
+
+    }
+
+  }
+);
+
+
+// ==================================================
+// CHECKOUT
 // ==================================================
 
 router.post(
   "/checkout",
+
   authenticateUser,
+
   async (req, res) => {
 
     let connection;
 
     try {
 
-      const userId = getUserId(req);
-
-      console.log(
-        "CHECKOUT USER:",
-        req.user
-      );
-
-      console.log(
-        "CHECKOUT USER ID:",
-        userId
-      );
+      const userId =
+        getUserId(req);
 
 
       if (!userId) {
+
         return res.status(401).json({
+
           success: false,
-          message: "User ID not found in login token",
+
+          message:
+            "User ID not found",
+
         });
+
       }
+
+
+      connection =
+        await db.getConnection();
+
+
+      await connection.beginTransaction();
 
 
       // ==============================================
       // GET CART ITEMS
       // ==============================================
 
-      const [cartItems] = await db.query(
-        `
-        SELECT
-          cart_items.id AS cart_id,
-          cart_items.product_id,
-          cart_items.quantity,
+      const [cartItems] =
+        await connection.query(
+          `
+          SELECT
 
-          products.name,
-          products.price,
-          products.stock
+            cart_items.id,
+            cart_items.product_id,
+            cart_items.quantity,
 
-        FROM cart_items
+            products.name,
+            products.price,
+            products.stock
 
-        INNER JOIN products
-          ON products.id = cart_items.product_id
+          FROM cart_items
 
-        WHERE cart_items.user_id = ?
-        `,
-        [userId]
-      );
+          INNER JOIN products
+
+            ON cart_items.product_id =
+               products.id
+
+          WHERE
+            cart_items.user_id = ?
+          `,
+          [userId]
+        );
 
 
-      if (!cartItems || cartItems.length === 0) {
+      if (
+        cartItems.length === 0
+      ) {
+
+        await connection.rollback();
+
+        connection.release();
+
+
         return res.status(400).json({
+
           success: false,
-          message: "Your cart is empty",
+
+          message:
+            "Your cart is empty",
+
         });
+
       }
 
 
@@ -252,27 +583,59 @@ router.post(
       // CALCULATE TOTAL
       // ==============================================
 
-      const total = cartItems.reduce(
-        (sum, item) => {
+      let total = 0;
 
-          const price =
-            Number(item.price) || 0;
 
-          const quantity =
-            Number(item.quantity) || 0;
+      for (
+        const item of cartItems
+      ) {
 
-          return sum + price * quantity;
+        const price =
+          Number(item.price || 0);
 
-        },
-        0
-      );
+        const quantity =
+          Number(item.quantity || 0);
+
+
+        total +=
+          price * quantity;
+
+
+        // ============================================
+        // CHECK STOCK
+        // ============================================
+
+        if (
+          Number(item.stock) <
+          quantity
+        ) {
+
+          await connection.rollback();
+
+          connection.release();
+
+
+          return res.status(400).json({
+
+            success: false,
+
+            message:
+              `${item.name} does not have enough stock`,
+
+          });
+
+        }
+
+      }
 
 
       // ==============================================
       // CREATE ORDER
       // ==============================================
 
-      const [orderResult] = await db.query(
+      const [
+        orderResult
+      ] = await connection.query(
         `
         INSERT INTO orders
         (
@@ -280,7 +643,12 @@ router.post(
           total,
           status
         )
-        VALUES (?, ?, ?)
+        VALUES
+        (
+          ?,
+          ?,
+          ?
+        )
         `,
         [
           userId,
@@ -295,142 +663,285 @@ router.post(
 
 
       // ==============================================
+      // CREATE ORDER ITEMS
+      // ==============================================
+
+      for (
+        const item of cartItems
+      ) {
+
+        await connection.query(
+          `
+          INSERT INTO order_items
+          (
+            order_id,
+            product_id,
+            quantity,
+            price
+          )
+          VALUES
+          (
+            ?,
+            ?,
+            ?,
+            ?
+          )
+          `,
+          [
+            orderId,
+            item.product_id,
+            item.quantity,
+            item.price,
+          ]
+        );
+
+
+        // ============================================
+        // UPDATE PRODUCT STOCK
+        // ============================================
+
+        await connection.query(
+          `
+          UPDATE products
+
+          SET stock =
+            stock - ?
+
+          WHERE id = ?
+          `,
+          [
+            item.quantity,
+            item.product_id,
+          ]
+        );
+
+      }
+
+
+      // ==============================================
       // CLEAR CART
       // ==============================================
 
-      await db.query(
+      await connection.query(
         `
         DELETE FROM cart_items
+
         WHERE user_id = ?
         `,
         [userId]
       );
 
 
+      await connection.commit();
+
+      connection.release();
+
+
+      console.log(
+        "✅ ORDER CREATED:",
+        orderId
+      );
+
+
       return res.status(201).json({
+
         success: true,
 
         message:
           "Order placed successfully",
 
         order: {
-          id: orderId,
-          user_id: userId,
+
+          id:
+            orderId,
+
           total,
-          status: "Pending",
+
+          status:
+            "Pending",
+
         },
+
       });
 
     } catch (error) {
 
       console.error(
-        "================================="
+        "❌ CHECKOUT ERROR:",
+        error
       );
 
-      console.error(
-        "CHECKOUT ERROR:"
-      );
 
-      console.error(error);
+      if (connection) {
 
-      console.error(
-        "================================="
-      );
+        try {
+
+          await connection.rollback();
+
+          connection.release();
+
+        } catch (rollbackError) {
+
+          console.error(
+            "ROLLBACK ERROR:",
+            rollbackError.message
+          );
+
+        }
+
+      }
 
 
       return res.status(500).json({
+
         success: false,
-        message: "Failed to place order",
-        error: error.message,
+
+        message:
+          "Failed to place order",
+
+        error:
+          error.message,
+
       });
+
     }
+
   }
 );
 
 
 // ==================================================
-// GET SINGLE ORDER
+// UPDATE ORDER STATUS
 // ==================================================
 
-router.get(
-  "/:id",
+router.put(
+  "/admin/:orderId/status",
+
   authenticateUser,
+
+  requireAdmin,
+
   async (req, res) => {
 
     try {
 
-      const userId =
-        getUserId(req);
-
       const orderId =
-        Number(req.params.id);
+        Number(
+          req.params.orderId
+        );
 
 
-      if (!userId) {
-        return res.status(401).json({
-          success: false,
-          message:
-            "User ID not found",
-        });
-      }
+      const status =
+        req.body.status;
 
 
       if (!orderId) {
+
         return res.status(400).json({
+
           success: false,
+
           message:
             "Invalid order ID",
+
         });
+
       }
 
 
-      const [orders] =
+      const allowedStatuses = [
+
+        "Pending",
+
+        "Processing",
+
+        "Shipped",
+
+        "Delivered",
+
+        "Cancelled",
+
+      ];
+
+
+      if (
+        !allowedStatuses.includes(
+          status
+        )
+      ) {
+
+        return res.status(400).json({
+
+          success: false,
+
+          message:
+            "Invalid order status",
+
+        });
+
+      }
+
+
+      const [result] =
         await db.query(
           `
-          SELECT
-            id,
-            user_id,
-            total,
-            status,
-            created_at
-          FROM orders
+          UPDATE orders
+
+          SET status = ?
+
           WHERE id = ?
-          AND user_id = ?
           `,
           [
+            status,
             orderId,
-            userId,
           ]
         );
 
 
-      if (orders.length === 0) {
+      if (
+        result.affectedRows === 0
+      ) {
+
         return res.status(404).json({
+
           success: false,
+
           message:
             "Order not found",
+
         });
+
       }
 
 
       return res.status(200).json({
+
         success: true,
-        order: orders[0],
+
+        message:
+          "Order status updated successfully",
+
       });
 
     } catch (error) {
 
       console.error(
-        "GET ORDER ERROR:",
-        error
+        "UPDATE ORDER ERROR:",
+        error.message
       );
 
+
       return res.status(500).json({
+
         success: false,
+
         message:
-          "Failed to fetch order",
+          "Failed to update order",
+
       });
+
     }
+
   }
 );
 
