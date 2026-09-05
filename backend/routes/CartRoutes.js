@@ -1,636 +1,772 @@
 const express = require("express");
+const jwt = require("jsonwebtoken");
 
 const router = express.Router();
 
 const db = require("../db");
 
-const jwt = require("jsonwebtoken");
-
-
 // ==================================================
-// AUTHENTICATION MIDDLEWARE
+// AUTHENTICATE USER
 // ==================================================
 
-const authenticateToken = (req, res, next) => {
-
+const authenticateUser = (req, res, next) => {
   try {
+    const authHeader = req.headers.authorization;
 
-    const authHeader =
-      req.headers.authorization;
-
-
-    if (!authHeader) {
-
+    if (
+      !authHeader ||
+      !authHeader.startsWith("Bearer ")
+    ) {
       return res.status(401).json({
         success: false,
-        message: "Authorization token is required",
+        message:
+          "Authentication required. Please login.",
       });
-
     }
-
 
     const token =
-      authHeader.startsWith("Bearer ")
-        ? authHeader.substring(7)
-        : authHeader;
+      authHeader.split(" ")[1];
 
+    const decoded =
+      jwt.verify(
+        token,
+        process.env.JWT_SECRET
+      );
 
-    if (!token) {
+    const userId =
+      decoded.userId ||
+      decoded.id ||
+      decoded.user_id;
 
+    if (!userId) {
       return res.status(401).json({
         success: false,
-        message: "Invalid authorization token",
+        message: "Invalid user token",
       });
-
     }
 
-
-    const decoded = jwt.verify(
-      token,
-      process.env.JWT_SECRET
-    );
-
-
-    req.user = decoded;
-
+    req.userId = Number(userId);
 
     next();
 
   } catch (error) {
-
     console.error(
-      "❌ AUTHENTICATION ERROR:",
+      "AUTH ERROR:",
       error.message
     );
 
-
     return res.status(401).json({
       success: false,
-      message: "Invalid or expired token",
+      message:
+        "Invalid or expired token. Please login again.",
     });
-
   }
-
 };
 
 
 // ==================================================
-// GET USER ID SAFELY
-// ==================================================
-
-const getUserId = (req) => {
-
-  return (
-    req.user?.id ||
-    req.user?.userId ||
-    req.user?.user_id ||
-    null
-  );
-
-};
-
-
-// ==================================================
-// ADD PRODUCT TO CART
-// POST /api/cart/add
-// ==================================================
-
-router.post(
-  "/add",
-  authenticateToken,
-
-  async (req, res) => {
-
-    try {
-
-      console.log("=================================");
-      console.log("🛒 ADD TO CART REQUEST");
-      console.log("USER:", req.user);
-      console.log("BODY:", req.body);
-      console.log("=================================");
-
-
-      const userId =
-        getUserId(req);
-
-
-      // Accept different frontend formats
-
-      const productId =
-        req.body.product_id ||
-        req.body.productId ||
-        req.body.id;
-
-
-      const quantity =
-        Number(req.body.quantity || 1);
-
-
-      // ================================================
-      // VALIDATE USER
-      // ================================================
-
-      if (!userId) {
-
-        return res.status(400).json({
-          success: false,
-          message:
-            "User ID was not found in authentication token",
-        });
-
-      }
-
-
-      // ================================================
-      // VALIDATE PRODUCT
-      // ================================================
-
-      if (
-        !productId ||
-        Number(productId) <= 0
-      ) {
-
-        return res.status(400).json({
-          success: false,
-          message: "Valid product ID is required",
-        });
-
-      }
-
-
-      // ================================================
-      // VALIDATE QUANTITY
-      // ================================================
-
-      if (
-        !Number.isFinite(quantity) ||
-        quantity <= 0
-      ) {
-
-        return res.status(400).json({
-          success: false,
-          message:
-            "Quantity must be greater than zero",
-        });
-
-      }
-
-
-      // ================================================
-      // CHECK PRODUCT EXISTS
-      // ================================================
-
-      const [products] =
-        await db.query(
-
-          `
-          SELECT id, name, price
-          FROM products
-          WHERE id = ?
-          `,
-
-          [
-            Number(productId),
-          ]
-
-        );
-
-
-      if (products.length === 0) {
-
-        return res.status(404).json({
-          success: false,
-          message: "Product not found",
-        });
-
-      }
-
-
-      // ================================================
-      // CHECK EXISTING CART ITEM
-      // ================================================
-
-      const [existingItems] =
-        await db.query(
-
-          `
-          SELECT id, quantity
-          FROM cart
-          WHERE user_id = ?
-          AND product_id = ?
-          `,
-
-          [
-            Number(userId),
-            Number(productId),
-          ]
-
-        );
-
-
-      // ================================================
-      // UPDATE EXISTING ITEM
-      // ================================================
-
-      if (existingItems.length > 0) {
-
-        const existingItem =
-          existingItems[0];
-
-
-        const newQuantity =
-          Number(existingItem.quantity) +
-          quantity;
-
-
-        await db.query(
-
-          `
-          UPDATE cart
-          SET quantity = ?
-          WHERE id = ?
-          AND user_id = ?
-          `,
-
-          [
-            newQuantity,
-            existingItem.id,
-            Number(userId),
-          ]
-
-        );
-
-
-        return res.status(200).json({
-
-          success: true,
-
-          message:
-            "Cart quantity updated successfully",
-
-        });
-
-      }
-
-
-      // ================================================
-      // ADD NEW ITEM
-      // ================================================
-
-      const [result] =
-        await db.query(
-
-          `
-          INSERT INTO cart
-          (
-            user_id,
-            product_id,
-            quantity
-          )
-          VALUES (?, ?, ?)
-          `,
-
-          [
-            Number(userId),
-            Number(productId),
-            quantity,
-          ]
-
-        );
-
-
-      return res.status(201).json({
-
-        success: true,
-
-        message:
-          "Product added to cart successfully",
-
-        cartId:
-          result.insertId,
-
-      });
-
-
-    } catch (error) {
-
-      console.error("=================================");
-      console.error("❌ ADD TO CART ERROR");
-      console.error("MESSAGE:", error.message);
-      console.error("CODE:", error.code);
-      console.error("SQL MESSAGE:", error.sqlMessage);
-      console.error("=================================");
-
-
-      return res.status(500).json({
-
-        success: false,
-
-        message:
-          error.sqlMessage ||
-          error.message ||
-          "Failed to add product to cart",
-
-      });
-
-    }
-
-  }
-
-);
-
-
-// ==================================================
-// GET USER CART
+// GET LOGGED-IN USER CART
 // GET /api/cart
 // ==================================================
 
 router.get(
   "/",
-  authenticateToken,
+
+  authenticateUser,
 
   async (req, res) => {
-
     try {
-
-      console.log("=================================");
-      console.log("🛒 FETCH CART REQUEST");
-
-
-      const userId =
-        getUserId(req);
-
+      const userId = req.userId;
 
       console.log(
-        "USER ID:",
+        "================================="
+      );
+
+      console.log(
+        "GET CART FOR USER:",
         userId
       );
 
+      console.log(
+        "================================="
+      );
 
-      if (!userId) {
-
-        return res.status(400).json({
-
-          success: false,
-
-          message:
-            "User ID was not found in authentication token",
-
-        });
-
-      }
-
-
-      // ================================================
-      // FETCH CART WITH PRODUCT DETAILS
-      // ================================================
 
       const [cartItems] =
         await db.query(
-
           `
           SELECT
+            cart_items.id AS cart_id,
 
-            cart.id AS cart_id,
+            cart_items.user_id,
 
-            cart.product_id,
+            cart_items.product_id,
 
-            cart.quantity,
+            cart_items.quantity,
 
             products.name,
 
             products.price,
 
-            products.image
+            products.unit,
 
-          FROM cart
+            products.description,
 
-          LEFT JOIN products
+            products.emoji,
 
-            ON cart.product_id = products.id
+            products.image,
 
-          WHERE cart.user_id = ?
+            products.stock,
 
-          ORDER BY cart.id DESC
+            (
+              products.price *
+              cart_items.quantity
+            ) AS subtotal
+
+          FROM cart_items
+
+          INNER JOIN products
+
+          ON products.id =
+          cart_items.product_id
+
+          WHERE cart_items.user_id = ?
+
+          ORDER BY cart_items.id DESC
           `,
 
-          [
-            Number(userId),
-          ]
+          [userId]
+        );
 
+
+      const total =
+        cartItems.reduce(
+          (sum, item) =>
+            sum +
+            (
+              Number(item.price || 0) *
+              Number(item.quantity || 0)
+            ),
+
+          0
         );
 
 
       return res.status(200).json({
-
         success: true,
 
-        cart:
-          cartItems,
+        cartItems,
 
+        // Alternative names for frontend compatibility
+
+        items: cartItems,
+
+        cart: cartItems,
+
+        total:
+          Number(total.toFixed(2)),
       });
-
 
     } catch (error) {
 
-      console.error("=================================");
-      console.error("❌ FETCH CART ERROR");
-      console.error("MESSAGE:", error.message);
-      console.error("CODE:", error.code);
-      console.error("SQL MESSAGE:", error.sqlMessage);
-      console.error("=================================");
+      console.error(
+        "================================="
+      );
 
+      console.error(
+        "GET CART ERROR:"
+      );
+
+      console.error(error);
+
+      console.error(
+        "================================="
+      );
 
       return res.status(500).json({
-
         success: false,
 
         message:
-          error.sqlMessage ||
-          error.message ||
           "Failed to fetch cart",
 
+        error:
+          error.message,
       });
+    }
+  }
+);
 
+
+// ==================================================
+// ADD PRODUCT TO CART FUNCTION
+// ==================================================
+
+const addToCart = async (
+  req,
+  res
+) => {
+  try {
+
+    const userId =
+      req.userId;
+
+
+    // ==================================================
+    // SUPPORT BOTH:
+    //
+    // productId
+    // product_id
+    // ==================================================
+
+    const productId =
+      req.body.productId ||
+      req.body.product_id;
+
+
+    const quantity =
+      req.body.quantity || 1;
+
+
+    console.log(
+      "================================="
+    );
+
+    console.log(
+      "ADD TO CART"
+    );
+
+    console.log(
+      "USER ID:",
+      userId
+    );
+
+    console.log(
+      "PRODUCT ID:",
+      productId
+    );
+
+    console.log(
+      "QUANTITY:",
+      quantity
+    );
+
+    console.log(
+      "================================="
+    );
+
+
+    // ==================================================
+    // VALIDATE PRODUCT ID
+    // ==================================================
+
+    const numericProductId =
+      Number(productId);
+
+
+    if (
+      !numericProductId ||
+      !Number.isInteger(
+        numericProductId
+      )
+    ) {
+      return res.status(400).json({
+        success: false,
+
+        message:
+          "Valid Product ID is required",
+      });
     }
 
-  }
 
+    // ==================================================
+    // VALIDATE QUANTITY
+    // ==================================================
+
+    const productQuantity =
+      Number(quantity);
+
+
+    if (
+      !Number.isInteger(
+        productQuantity
+      ) ||
+      productQuantity <= 0
+    ) {
+      return res.status(400).json({
+        success: false,
+
+        message:
+          "Quantity must be greater than zero",
+      });
+    }
+
+
+    // ==================================================
+    // CHECK PRODUCT
+    // ==================================================
+
+    const [products] =
+      await db.query(
+        `
+        SELECT
+          id,
+          name,
+          stock,
+          price
+        FROM products
+        WHERE id = ?
+        `,
+
+        [numericProductId]
+      );
+
+
+    if (
+      products.length === 0
+    ) {
+      return res.status(404).json({
+        success: false,
+
+        message:
+          "Product not found",
+      });
+    }
+
+
+    const product =
+      products[0];
+
+
+    // ==================================================
+    // CHECK STOCK
+    // ==================================================
+
+    const availableStock =
+      Number(product.stock || 0);
+
+
+    if (
+      availableStock <= 0
+    ) {
+      return res.status(400).json({
+        success: false,
+
+        message:
+          "This product is out of stock",
+      });
+    }
+
+
+    if (
+      productQuantity >
+      availableStock
+    ) {
+      return res.status(400).json({
+        success: false,
+
+        message:
+          `Only ${availableStock} items are available`,
+      });
+    }
+
+
+    // ==================================================
+    // CHECK EXISTING CART ITEM
+    // ==================================================
+
+    const [existingItems] =
+      await db.query(
+        `
+        SELECT
+          id,
+          quantity
+
+        FROM cart_items
+
+        WHERE user_id = ?
+        AND product_id = ?
+        `,
+
+        [
+          userId,
+          numericProductId,
+        ]
+      );
+
+
+    // ==================================================
+    // PRODUCT ALREADY IN CART
+    // ==================================================
+
+    if (
+      existingItems.length > 0
+    ) {
+
+      const existingItem =
+        existingItems[0];
+
+
+      const newQuantity =
+        Number(
+          existingItem.quantity
+        ) +
+        productQuantity;
+
+
+      // ==================================================
+      // CHECK STOCK
+      // ==================================================
+
+      if (
+        newQuantity >
+        availableStock
+      ) {
+        return res.status(400).json({
+          success: false,
+
+          message:
+            `Only ${availableStock} items are available in stock`,
+        });
+      }
+
+
+      // ==================================================
+      // UPDATE QUANTITY
+      // ==================================================
+
+      await db.query(
+        `
+        UPDATE cart_items
+
+        SET quantity = ?
+
+        WHERE id = ?
+        AND user_id = ?
+        `,
+
+        [
+          newQuantity,
+          existingItem.id,
+          userId,
+        ]
+      );
+
+
+      console.log(
+        "✅ CART QUANTITY UPDATED"
+      );
+
+
+      return res.status(200).json({
+        success: true,
+
+        message:
+          "Product quantity updated in cart",
+      });
+    }
+
+
+    // ==================================================
+    // ADD NEW PRODUCT
+    // ==================================================
+
+    await db.query(
+      `
+      INSERT INTO cart_items
+      (
+        user_id,
+        product_id,
+        quantity
+      )
+
+      VALUES (?, ?, ?)
+      `,
+
+      [
+        userId,
+        numericProductId,
+        productQuantity,
+      ]
+    );
+
+
+    console.log(
+      "✅ PRODUCT ADDED TO CART"
+    );
+
+
+    return res.status(201).json({
+      success: true,
+
+      message:
+        "Product added to cart successfully",
+    });
+
+
+  } catch (error) {
+
+    console.error(
+      "================================="
+    );
+
+    console.error(
+      "ADD TO CART ERROR:"
+    );
+
+    console.error(error);
+
+    console.error(
+      "================================="
+    );
+
+
+    return res.status(500).json({
+      success: false,
+
+      message:
+        "Failed to add product to cart",
+
+      error:
+        error.message,
+    });
+  }
+};
+
+
+// ==================================================
+// ADD TO CART
+//
+// SUPPORT BOTH ROUTES:
+//
+// POST /api/cart
+// POST /api/cart/add
+// ==================================================
+
+router.post(
+  "/",
+
+  authenticateUser,
+
+  addToCart
+);
+
+
+router.post(
+  "/add",
+
+  authenticateUser,
+
+  addToCart
 );
 
 
 // ==================================================
 // UPDATE CART QUANTITY
-// PUT /api/cart/:id
+//
+// PUT /api/cart/:cartId
 // ==================================================
 
 router.put(
-  "/:id",
-  authenticateToken,
+  "/:cartId",
+
+  authenticateUser,
 
   async (req, res) => {
-
     try {
 
       const userId =
-        getUserId(req);
+        req.userId;
 
 
       const cartId =
-        Number(req.params.id);
+        Number(
+          req.params.cartId
+        );
 
 
       const quantity =
-        Number(req.body.quantity);
+        Number(
+          req.body.quantity
+        );
 
 
-      if (!userId) {
-
-        return res.status(400).json({
-          success: false,
-          message: "User ID not found",
-        });
-
-      }
-
+      // ==================================================
+      // VALIDATION
+      // ==================================================
 
       if (
-        !cartId ||
+        !Number.isInteger(cartId) ||
         cartId <= 0
       ) {
-
         return res.status(400).json({
           success: false,
-          message: "Invalid cart ID",
-        });
 
+          message:
+            "Invalid cart item ID",
+        });
       }
 
 
       if (
-        !Number.isFinite(quantity) ||
-        quantity < 1
+        !Number.isInteger(quantity) ||
+        quantity <= 0
       ) {
-
         return res.status(400).json({
           success: false,
-          message:
-            "Quantity must be at least 1",
-        });
 
+          message:
+            "Quantity must be greater than zero",
+        });
       }
 
 
-      const [result] =
+      // ==================================================
+      // GET CART ITEM
+      // ==================================================
+
+      const [cartItems] =
         await db.query(
-
           `
-          UPDATE cart
+          SELECT
+            cart_items.id,
 
-          SET quantity = ?
+            cart_items.product_id,
 
-          WHERE id = ?
+            products.stock
 
-          AND user_id = ?
+          FROM cart_items
+
+          INNER JOIN products
+
+          ON products.id =
+          cart_items.product_id
+
+          WHERE cart_items.id = ?
+
+          AND cart_items.user_id = ?
           `,
 
           [
-            quantity,
             cartId,
-            Number(userId),
+            userId,
           ]
-
         );
 
 
       if (
-        result.affectedRows === 0
+        cartItems.length === 0
       ) {
-
         return res.status(404).json({
-
           success: false,
 
           message:
             "Cart item not found",
-
         });
-
       }
 
 
-      return res.status(200).json({
+      const cartItem =
+        cartItems[0];
 
+
+      // ==================================================
+      // CHECK STOCK
+      // ==================================================
+
+      if (
+        quantity >
+        Number(cartItem.stock || 0)
+      ) {
+        return res.status(400).json({
+          success: false,
+
+          message:
+            `Only ${cartItem.stock} items are available`,
+        });
+      }
+
+
+      // ==================================================
+      // UPDATE CART
+      // ==================================================
+
+      await db.query(
+        `
+        UPDATE cart_items
+
+        SET quantity = ?
+
+        WHERE id = ?
+
+        AND user_id = ?
+        `,
+
+        [
+          quantity,
+          cartId,
+          userId,
+        ]
+      );
+
+
+      return res.status(200).json({
         success: true,
 
         message:
           "Cart updated successfully",
-
       });
 
 
     } catch (error) {
 
       console.error(
-        "❌ UPDATE CART ERROR:",
-        error.message
+        "UPDATE CART ERROR:",
+        error
       );
 
 
       return res.status(500).json({
-
         success: false,
 
         message:
-          error.sqlMessage ||
-          error.message ||
           "Failed to update cart",
 
+        error:
+          error.message,
       });
-
     }
-
   }
-
 );
 
 
 // ==================================================
 // REMOVE CART ITEM
-// DELETE /api/cart/:id
+//
+// DELETE /api/cart/:cartId
 // ==================================================
 
 router.delete(
-  "/:id",
-  authenticateToken,
+  "/:cartId",
+
+  authenticateUser,
 
   async (req, res) => {
-
     try {
 
       const userId =
-        getUserId(req);
+        req.userId;
 
 
       const cartId =
-        Number(req.params.id);
-
-
-      if (!userId) {
-
-        return res.status(400).json({
-          success: false,
-          message: "User ID not found",
-        });
-
-      }
+        Number(
+          req.params.cartId
+        );
 
 
       const [result] =
         await db.query(
-
           `
-          DELETE FROM cart
+          DELETE FROM cart_items
 
           WHERE id = ?
 
@@ -639,143 +775,114 @@ router.delete(
 
           [
             cartId,
-            Number(userId),
+            userId,
           ]
-
         );
 
 
       if (
         result.affectedRows === 0
       ) {
-
         return res.status(404).json({
-
           success: false,
 
           message:
             "Cart item not found",
-
         });
-
       }
 
 
       return res.status(200).json({
-
         success: true,
 
         message:
-          "Cart item removed successfully",
-
+          "Product removed from cart",
       });
 
 
     } catch (error) {
 
       console.error(
-        "❌ DELETE CART ERROR:",
-        error.message
+        "REMOVE CART ERROR:",
+        error
       );
 
 
       return res.status(500).json({
-
         success: false,
 
         message:
-          error.sqlMessage ||
-          error.message ||
-          "Failed to remove cart item",
+          "Failed to remove product from cart",
 
+        error:
+          error.message,
       });
-
     }
-
   }
-
 );
 
 
 // ==================================================
 // CLEAR USER CART
+//
 // DELETE /api/cart
 // ==================================================
 
 router.delete(
   "/",
-  authenticateToken,
+
+  authenticateUser,
 
   async (req, res) => {
-
     try {
 
       const userId =
-        getUserId(req);
-
-
-      if (!userId) {
-
-        return res.status(400).json({
-          success: false,
-          message: "User ID not found",
-        });
-
-      }
+        req.userId;
 
 
       await db.query(
-
         `
-        DELETE FROM cart
+        DELETE FROM cart_items
+
         WHERE user_id = ?
         `,
 
-        [
-          Number(userId),
-        ]
-
+        [userId]
       );
 
 
       return res.status(200).json({
-
         success: true,
 
         message:
           "Cart cleared successfully",
-
       });
 
 
     } catch (error) {
 
       console.error(
-        "❌ CLEAR CART ERROR:",
-        error.message
+        "CLEAR CART ERROR:",
+        error
       );
 
 
       return res.status(500).json({
-
         success: false,
 
         message:
-          error.sqlMessage ||
-          error.message ||
           "Failed to clear cart",
 
+        error:
+          error.message,
       });
-
     }
-
   }
-
 );
 
 
 // ==================================================
-// EXPORT ROUTER
+// EXPORT
 // ==================================================
 
 module.exports = router;
