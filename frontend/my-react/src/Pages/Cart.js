@@ -64,9 +64,7 @@ function Cart() {
           localStorage.getItem("token");
 
 
-        // ==============================================
         // CHECK LOGIN
-        // ==============================================
 
         if (!token) {
 
@@ -82,9 +80,7 @@ function Cart() {
         }
 
 
-        // ==============================================
         // GET CART
-        // ==============================================
 
         const response =
           await axios.get(
@@ -107,25 +103,28 @@ function Cart() {
         );
 
 
-        // ==============================================
-        // SUCCESS
-        // ==============================================
-
         if (response.data.success) {
 
           const items =
+
             Array.isArray(
               response.data.cartItems
             )
+
               ? response.data.cartItems
+
               : Array.isArray(
                   response.data.items
                 )
+
               ? response.data.items
+
               : Array.isArray(
                   response.data.cart
                 )
+
               ? response.data.cart
+
               : [];
 
 
@@ -133,13 +132,17 @@ function Cart() {
 
 
           const calculatedTotal =
+
             response.data.total !== undefined
+
               ? Number(response.data.total)
+
               : items.reduce(
                   (sum, item) => {
 
                     return (
                       sum +
+
                       (
                         Number(item.price || 0) *
                         Number(item.quantity || 0)
@@ -238,9 +241,7 @@ function Cart() {
         setMessage("");
 
 
-        if (
-          quantity < 1
-        ) {
+        if (quantity < 1) {
 
           return;
 
@@ -271,8 +272,13 @@ function Cart() {
 
             {
               headers: {
+
                 Authorization:
                   `Bearer ${token}`,
+
+                "Content-Type":
+                  "application/json",
+
               },
             }
 
@@ -353,8 +359,10 @@ function Cart() {
 
             {
               headers: {
+
                 Authorization:
                   `Bearer ${token}`,
+
               },
             }
 
@@ -367,12 +375,25 @@ function Cart() {
         );
 
 
-        setMessage(
-          "Product removed from cart successfully"
-        );
+        if (response.data.success) {
 
+          setMessage(
+            "Product removed from cart successfully"
+          );
 
-        await fetchCart();
+          await fetchCart();
+
+        } else {
+
+          setError(
+
+            response.data.message ||
+
+            "Failed to remove product"
+
+          );
+
+        }
 
 
       } catch (error) {
@@ -409,15 +430,17 @@ function Cart() {
         setMessage("");
 
 
-        // ==============================================
         // GET TOKEN
-        // ==============================================
 
         const token =
           localStorage.getItem("token");
 
 
         if (!token) {
+
+          alert(
+            "Please login first"
+          );
 
           navigate(
             "/login",
@@ -431,9 +454,7 @@ function Cart() {
         }
 
 
-        // ==============================================
         // CHECK CART
-        // ==============================================
 
         if (
           !Array.isArray(cartItems) ||
@@ -449,16 +470,14 @@ function Cart() {
         }
 
 
-        // ==============================================
         // CONFIRM ORDER
-        // ==============================================
 
         const confirmed =
           window.confirm(
 
-            `Are you sure you want to place this order?\n\nTotal: ₹${Number(
-              total
-            ).toFixed(2)}`
+            `Are you sure you want to place this order?
+
+Total: ₹${Number(total).toFixed(2)}`
 
           );
 
@@ -474,13 +493,11 @@ function Cart() {
 
 
         console.log(
-          "PLACING ORDER..."
+          "🛒 PLACING ORDER..."
         );
 
 
-        // ==============================================
         // PLACE ORDER
-        // ==============================================
 
         const response =
           await axios.post(
@@ -505,23 +522,21 @@ function Cart() {
 
 
         console.log(
-          "CHECKOUT RESPONSE:",
+          "✅ CHECKOUT RESPONSE:",
           response.data
         );
 
 
-        // ==============================================
         // SUCCESS
-        // ==============================================
 
-        if (
-          response.data.success
-        ) {
+        if (response.data.success) {
 
           setMessage(
 
             `Order placed successfully! Order ID: ${
+
               response.data.orderId || ""
+
             }`
 
           );
@@ -531,10 +546,6 @@ function Cart() {
 
           setTotal(0);
 
-
-          // ============================================
-          // REDIRECT TO ORDERS
-          // ============================================
 
           setTimeout(
             () => {
@@ -562,13 +573,13 @@ function Cart() {
       } catch (error) {
 
         console.error(
-          "CHECKOUT ERROR:",
+          "❌ CHECKOUT ERROR:",
           error
         );
 
 
-        console.log(
-          "SERVER RESPONSE:",
+        console.error(
+          "❌ SERVER RESPONSE:",
           error.response?.data
         );
 
@@ -628,9 +639,7 @@ function Cart() {
     >
 
 
-      {/* ============================================== */}
       {/* NAVBAR */}
-      {/* ============================================== */}
 
       <div
         style={{
@@ -709,9 +718,7 @@ function Cart() {
       </h1>
 
 
-      {/* ============================================== */}
       {/* SUCCESS MESSAGE */}
-      {/* ============================================== */}
 
       {
         message && (
@@ -734,9 +741,7 @@ function Cart() {
       }
 
 
-      {/* ============================================== */}
       {/* ERROR MESSAGE */}
-      {/* ============================================== */}
 
       {
         error && (
@@ -759,9 +764,7 @@ function Cart() {
       }
 
 
-      {/* ============================================== */}
       {/* LOADING */}
-      {/* ============================================== */}
 
       {
         loading && (
@@ -774,9 +777,7 @@ function Cart() {
       }
 
 
-      {/* ============================================== */}
       {/* EMPTY CART */}
-      {/* ============================================== */}
 
       {
         !loading &&
@@ -810,9 +811,7 @@ function Cart() {
       }
 
 
-      {/* ============================================== */}
       {/* CART ITEMS */}
-      {/* ============================================== */}
 
       {
         !loading &&
@@ -852,6 +851,7 @@ function Cart() {
                     }}
 
                   >
+
 
                     {/* PRODUCT */}
 
@@ -894,9 +894,7 @@ function Cart() {
                         }
 
                       >
-
                         −
-
                       </button>
 
 
@@ -908,9 +906,7 @@ function Cart() {
                             "bold",
                         }}
                       >
-
                         {item.quantity}
-
                       </span>
 
 
@@ -929,9 +925,7 @@ function Cart() {
                         }
 
                       >
-
                         +
-
                       </button>
 
                     </div>
@@ -970,10 +964,9 @@ function Cart() {
                       }
 
                     >
-
                       Remove
-
                     </button>
+
 
                   </div>
 
@@ -983,9 +976,7 @@ function Cart() {
             }
 
 
-            {/* ========================================== */}
             {/* TOTAL */}
-            {/* ========================================== */}
 
             <div
               style={{
@@ -1034,6 +1025,10 @@ function Cart() {
                     checkoutLoading
                       ? "not-allowed"
                       : "pointer",
+                  opacity:
+                    checkoutLoading
+                      ? 0.7
+                      : 1,
                 }}
 
               >
