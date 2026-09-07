@@ -13,30 +13,36 @@ import {
 
 function Cart() {
 
-  const navigate =
-    useNavigate();
+  const navigate = useNavigate();
 
+
+  // ==================================================
+  // API URL
+  // ==================================================
 
   const API_URL =
     process.env.REACT_APP_API_URL ||
     "http://localhost:5000";
 
 
+  // ==================================================
+  // STATES
+  // ==================================================
+
   const [cartItems, setCartItems] =
     useState([]);
-
 
   const [total, setTotal] =
     useState(0);
 
-
   const [loading, setLoading] =
     useState(true);
 
+  const [checkoutLoading, setCheckoutLoading] =
+    useState(false);
 
   const [error, setError] =
     useState("");
-
 
   const [message, setMessage] =
     useState("");
@@ -52,13 +58,15 @@ function Cart() {
       try {
 
         setLoading(true);
-
         setError("");
-
 
         const token =
           localStorage.getItem("token");
 
+
+        // ==============================================
+        // CHECK LOGIN
+        // ==============================================
 
         if (!token) {
 
@@ -74,6 +82,10 @@ function Cart() {
         }
 
 
+        // ==============================================
+        // GET CART
+        // ==============================================
+
         const response =
           await axios.get(
 
@@ -81,10 +93,8 @@ function Cart() {
 
             {
               headers: {
-
                 Authorization:
                   `Bearer ${token}`,
-
               },
             }
 
@@ -97,28 +107,56 @@ function Cart() {
         );
 
 
-        if (
-          response.data.success
-        ) {
+        // ==============================================
+        // SUCCESS
+        // ==============================================
 
-          setCartItems(
+        if (response.data.success) {
 
+          const items =
             Array.isArray(
               response.data.cartItems
             )
-
               ? response.data.cartItems
+              : Array.isArray(
+                  response.data.items
+                )
+              ? response.data.items
+              : Array.isArray(
+                  response.data.cart
+                )
+              ? response.data.cart
+              : [];
 
-              : []
 
-          );
+          setCartItems(items);
 
 
-          setTotal(
-            Number(
-              response.data.total || 0
-            )
-          );
+          const calculatedTotal =
+            response.data.total !== undefined
+              ? Number(response.data.total)
+              : items.reduce(
+                  (sum, item) => {
+
+                    return (
+                      sum +
+                      (
+                        Number(item.price || 0) *
+                        Number(item.quantity || 0)
+                      )
+                    );
+
+                  },
+                  0
+                );
+
+
+          setTotal(calculatedTotal);
+
+        } else {
+
+          setCartItems([]);
+          setTotal(0);
 
         }
 
@@ -136,9 +174,7 @@ function Cart() {
         ) {
 
           localStorage.removeItem("token");
-
           localStorage.removeItem("user");
-
 
           navigate(
             "/login",
@@ -198,6 +234,10 @@ function Cart() {
 
       try {
 
+        setError("");
+        setMessage("");
+
+
         if (
           quantity < 1
         ) {
@@ -211,23 +251,37 @@ function Cart() {
           localStorage.getItem("token");
 
 
-        await axios.put(
+        if (!token) {
 
-          `${API_URL}/api/cart/${productId}`,
+          navigate("/login");
 
-          {
-            quantity,
-          },
+          return;
 
-          {
-            headers: {
+        }
 
-              Authorization:
-                `Bearer ${token}`,
 
+        const response =
+          await axios.put(
+
+            `${API_URL}/api/cart/${productId}`,
+
+            {
+              quantity,
             },
-          }
 
+            {
+              headers: {
+                Authorization:
+                  `Bearer ${token}`,
+              },
+            }
+
+          );
+
+
+        console.log(
+          "UPDATE CART RESPONSE:",
+          response.data
         );
 
 
@@ -264,8 +318,21 @@ function Cart() {
 
       try {
 
+        setError("");
+        setMessage("");
+
+
         const token =
           localStorage.getItem("token");
+
+
+        if (!token) {
+
+          navigate("/login");
+
+          return;
+
+        }
 
 
         if (!productId) {
@@ -279,24 +346,29 @@ function Cart() {
         }
 
 
-        await axios.delete(
+        const response =
+          await axios.delete(
 
-          `${API_URL}/api/cart/${productId}`,
+            `${API_URL}/api/cart/${productId}`,
 
-          {
-            headers: {
+            {
+              headers: {
+                Authorization:
+                  `Bearer ${token}`,
+              },
+            }
 
-              Authorization:
-                `Bearer ${token}`,
+          );
 
-            },
-          }
 
+        console.log(
+          "REMOVE CART RESPONSE:",
+          response.data
         );
 
 
         setMessage(
-          "Product removed from cart"
+          "Product removed from cart successfully"
         );
 
 
@@ -334,9 +406,12 @@ function Cart() {
       try {
 
         setError("");
-
         setMessage("");
 
+
+        // ==============================================
+        // GET TOKEN
+        // ==============================================
 
         const token =
           localStorage.getItem("token");
@@ -356,7 +431,12 @@ function Cart() {
         }
 
 
+        // ==============================================
+        // CHECK CART
+        // ==============================================
+
         if (
+          !Array.isArray(cartItems) ||
           cartItems.length === 0
         ) {
 
@@ -369,12 +449,16 @@ function Cart() {
         }
 
 
-        // CONFIRM BEFORE PLACING ORDER
+        // ==============================================
+        // CONFIRM ORDER
+        // ==============================================
 
         const confirmed =
           window.confirm(
 
-            `Are you sure you want to place this order?\n\nTotal: ₹${total.toFixed(2)}`
+            `Are you sure you want to place this order?\n\nTotal: ₹${Number(
+              total
+            ).toFixed(2)}`
 
           );
 
@@ -385,6 +469,18 @@ function Cart() {
 
         }
 
+
+        setCheckoutLoading(true);
+
+
+        console.log(
+          "PLACING ORDER..."
+        );
+
+
+        // ==============================================
+        // PLACE ORDER
+        // ==============================================
 
         const response =
           await axios.post(
@@ -414,12 +510,20 @@ function Cart() {
         );
 
 
+        // ==============================================
+        // SUCCESS
+        // ==============================================
+
         if (
           response.data.success
         ) {
 
           setMessage(
-            `Order placed successfully! Order ID: ${response.data.orderId}`
+
+            `Order placed successfully! Order ID: ${
+              response.data.orderId || ""
+            }`
+
           );
 
 
@@ -428,15 +532,28 @@ function Cart() {
           setTotal(0);
 
 
+          // ============================================
+          // REDIRECT TO ORDERS
+          // ============================================
+
           setTimeout(
             () => {
 
-              navigate(
-                "/orders"
-              );
+              navigate("/orders");
 
             },
             1500
+          );
+
+
+        } else {
+
+          setError(
+
+            response.data.message ||
+
+            "Failed to place order"
+
           );
 
         }
@@ -463,6 +580,11 @@ function Cart() {
           "Failed to place order"
 
         );
+
+
+      } finally {
+
+        setCheckoutLoading(false);
 
       }
 
@@ -506,7 +628,9 @@ function Cart() {
     >
 
 
+      {/* ============================================== */}
       {/* NAVBAR */}
+      {/* ============================================== */}
 
       <div
         style={{
@@ -585,7 +709,9 @@ function Cart() {
       </h1>
 
 
-      {/* SUCCESS */}
+      {/* ============================================== */}
+      {/* SUCCESS MESSAGE */}
+      {/* ============================================== */}
 
       {
         message && (
@@ -593,6 +719,7 @@ function Cart() {
           <div
             style={{
               background: "#e8f5e9",
+              color: "#2e7d32",
               padding: "15px",
               borderRadius: "10px",
               marginBottom: "20px",
@@ -607,7 +734,9 @@ function Cart() {
       }
 
 
-      {/* ERROR */}
+      {/* ============================================== */}
+      {/* ERROR MESSAGE */}
+      {/* ============================================== */}
 
       {
         error && (
@@ -630,7 +759,9 @@ function Cart() {
       }
 
 
+      {/* ============================================== */}
       {/* LOADING */}
+      {/* ============================================== */}
 
       {
         loading && (
@@ -643,7 +774,9 @@ function Cart() {
       }
 
 
+      {/* ============================================== */}
       {/* EMPTY CART */}
+      {/* ============================================== */}
 
       {
         !loading &&
@@ -668,9 +801,7 @@ function Cart() {
                 navigate("/products")
               }
             >
-
               Continue Shopping
-
             </button>
 
           </div>
@@ -679,7 +810,9 @@ function Cart() {
       }
 
 
+      {/* ============================================== */}
       {/* CART ITEMS */}
+      {/* ============================================== */}
 
       {
         !loading &&
@@ -720,12 +853,12 @@ function Cart() {
 
                   >
 
+                    {/* PRODUCT */}
+
                     <div>
 
                       <h3>
-
                         {item.name}
-
                       </h3>
 
 
@@ -771,6 +904,8 @@ function Cart() {
                         style={{
                           margin:
                             "0 15px",
+                          fontWeight:
+                            "bold",
                         }}
                       >
 
@@ -848,7 +983,9 @@ function Cart() {
             }
 
 
+            {/* ========================================== */}
             {/* TOTAL */}
+            {/* ========================================== */}
 
             <div
               style={{
@@ -866,9 +1003,11 @@ function Cart() {
               <h2>
 
                 Total: ₹{
+
                   Number(
                     total
                   ).toFixed(2)
+
                 }
 
               </h2>
@@ -880,6 +1019,10 @@ function Cart() {
                   handleCheckout
                 }
 
+                disabled={
+                  checkoutLoading
+                }
+
                 style={{
                   width:
                     "100%",
@@ -888,12 +1031,18 @@ function Cart() {
                   fontSize:
                     "18px",
                   cursor:
-                    "pointer",
+                    checkoutLoading
+                      ? "not-allowed"
+                      : "pointer",
                 }}
 
               >
 
-                Proceed to Checkout
+                {
+                  checkoutLoading
+                    ? "Placing Order..."
+                    : "Proceed to Checkout"
+                }
 
               </button>
 
