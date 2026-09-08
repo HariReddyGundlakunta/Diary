@@ -150,7 +150,344 @@ router.get(
 
   }
 );
+// ==========================================
+// CREATE ORDER
+// POST /api/orders
+// ==========================================
 
+router.post(
+  "/",
+  authenticateToken,
+  async (req, res) => {
+
+    let connection;
+
+    try {
+
+      console.log("=================================");
+      console.log("CREATING ORDER");
+      console.log("=================================");
+
+
+      const userId =
+        req.user.id ||
+        req.user.userId ||
+        req.user.user_id;
+
+
+      if (!userId) {
+
+        return res.status(400).json({
+          success: false,
+          message: "User ID not found in token",
+        });
+
+      }
+
+
+      const {
+        payment,
+        address,
+      } = req.body;
+
+
+      // ==========================================
+      // VALIDATE ADDRESS
+      // ==========================================
+
+      if (
+        !address ||
+        !address.name ||
+        !address.phone ||
+        !address.address ||
+        !address.city ||
+        !address.pincode
+      ) {
+
+        return res.status(400).json({
+          success: false,
+          message:
+            "Please provide complete delivery details",
+        });
+
+      }
+
+
+      // ==========================================
+      // GET CART ITEMS
+      // ==========================================
+
+      const [cartItems] =
+        await db.query(
+          `
+          SELECT
+            cart_items.id AS cart_id,
+            cart_items.product_id,
+            cart_items.quantity,
+
+            products.name,
+            products.price,
+            products.emoji,
+            products.stock
+
+          FROM cart_items
+
+          INNER JOIN products
+
+          ON products.id =
+          cart_items.product_id
+
+          WHERE cart_items.user_id = ?
+          `,
+          [userId]
+        );
+
+
+      if (cartItems.length === 0) {
+
+        return res.status(400).json({
+          success: false,
+          message:
+            "Your cart is empty",
+        });
+
+      }
+
+
+      // ==========================================
+      // CHECK STOCK AND CALCULATE TOTAL
+      // ==========================================
+
+      let total = 0;
+
+
+      for (const item of cartItems) {
+
+        const quantity =
+          Number(item.quantity);
+
+
+        const price =
+          Number(item.price);
+
+
+        const stock =
+          Number(item.stock);
+
+
+        if (quantity > stock) {
+
+          return res.status(400).json({
+            success: false,
+            message:
+              `${item.name} does not have enough stock`,
+          });
+
+        }
+
+
+        total +=
+          price * quantity;
+
+      }
+
+
+      // ==========================================
+      // START TRANSACTION
+      // ==========================================
+
+      connection =
+        await db.getConnection();
+
+
+      await connection.beginTransaction();
+
+
+      // ==========================================
+      // CREATE ORDER
+      // ==========================================
+
+      const [orderResult] =
+        await connection.query(
+          `
+          INSERT INTO orders
+          (
+            user_id,
+            total,
+            status,
+            order_date
+          )
+
+          VALUES (?, ?, ?, NOW())
+          `,
+          [
+            userId,
+            total,
+            "Confirmed",
+          ]
+        );
+
+
+      const orderId =
+        orderResult.insertId;
+
+
+      // ==========================================
+      // CREATE ORDER ITEMS
+      // ==========================================
+
+      for (const item of cartItems) {
+
+        await connection.query(
+          `
+          INSERT INTO order_items
+          (
+            order_id,
+            product_id,
+            product_name,
+            price,
+            quantity,
+            emoji
+          )
+
+          VALUES (?, ?, ?, ?, ?, ?)
+          `,
+          [
+            orderId,
+            item.product_id,
+            item.name,
+            item.price,
+            item.quantity,
+            item.emoji || "🥛",
+          ]
+        );
+
+
+        // ========================================
+        // UPDATE PRODUCT STOCK
+        // ========================================
+
+        await connection.query(
+          `
+          UPDATE products
+
+          SET stock =
+          stock - ?
+
+          WHERE id = ?
+          `,
+          [
+            item.quantity,
+            item.product_id,
+          ]
+        );
+
+      }
+
+
+      // ==========================================
+      // CLEAR CART
+      // ==========================================
+
+      await connection.query(
+        `
+        DELETE FROM cart_items
+
+        WHERE user_id = ?
+        `,
+        [userId]
+      );
+
+
+      // ==========================================
+      // COMMIT TRANSACTION
+      // ==========================================
+
+      await connection.commit();
+
+
+      console.log(
+        "✅ ORDER CREATED:",
+        orderId
+      );
+
+
+      return res.status(201).json({
+
+        success: true,
+
+        message:
+          "Order placed successfully",
+
+        orderId:
+
+          orderId,
+
+        total:
+
+          Number(
+            total.toFixed(2)
+          ),
+
+        payment:
+
+          payment,
+
+      });
+
+
+    } catch (error) {
+
+      console.error(
+        "================================="
+      );
+
+      console.error(
+        "CREATE ORDER ERROR:"
+      );
+
+      console.error(error);
+
+      console.error(
+        "================================="
+      );
+
+
+      if (connection) {
+
+        await connection.rollback();
+
+      }
+
+
+      return res.status(500).json({
+
+        success: false,
+
+        message:
+          "Failed to create order",
+
+        error:
+          process.env.NODE_ENV ===
+          "development"
+            ? error.message
+            : undefined,
+
+      });
+
+
+    } finally {
+
+      if (connection) {
+
+        connection.release();
+
+      }
+
+    }
+
+  }
+);
 
 // ==========================================
 // GET SINGLE ORDER

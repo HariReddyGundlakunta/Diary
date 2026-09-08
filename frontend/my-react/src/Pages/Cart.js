@@ -38,8 +38,6 @@ function Cart() {
   const [loading, setLoading] =
     useState(true);
 
-  const [checkoutLoading, setCheckoutLoading] =
-    useState(false);
 
   const [error, setError] =
     useState("");
@@ -418,188 +416,80 @@ function Cart() {
 
 
   // ==================================================
-  // CHECKOUT
-  // ==================================================
+// CHECKOUT
+// ==================================================
 
-  const handleCheckout =
-    async () => {
+const handleCheckout = () => {
 
-      try {
+  try {
 
-        setError("");
-        setMessage("");
+    setError("");
+    setMessage("");
 
+    // CHECK LOGIN
 
-        // GET TOKEN
-
-        const token =
-          localStorage.getItem("token");
+    const token =
+      localStorage.getItem("token");
 
 
-        if (!token) {
+    if (!token) {
 
-          alert(
-            "Please login first"
-          );
+      alert(
+        "Please login first"
+      );
 
-          navigate(
-            "/login",
-            {
-              replace: true,
-            }
-          );
-
-          return;
-
+      navigate(
+        "/login",
+        {
+          replace: true,
         }
+      );
 
+      return;
 
-        // CHECK CART
+    }
 
-        if (
-          !Array.isArray(cartItems) ||
-          cartItems.length === 0
-        ) {
 
-          setError(
-            "Your cart is empty"
-          );
+    // CHECK CART
 
-          return;
+    if (
+      !Array.isArray(cartItems) ||
+      cartItems.length === 0
+    ) {
 
-        }
+      setError(
+        "Your cart is empty"
+      );
 
+      return;
 
-        // CONFIRM ORDER
+    }
 
-        const confirmed =
-          window.confirm(
 
-            `Are you sure you want to place this order?
+    console.log(
+      "🛒 GOING TO CHECKOUT..."
+    );
 
-Total: ₹${Number(total).toFixed(2)}`
 
-          );
+    // GO TO CHECKOUT PAGE
 
+    navigate("/checkout");
 
-        if (!confirmed) {
 
-          return;
+  } catch (error) {
 
-        }
+    console.error(
+      "CHECKOUT NAVIGATION ERROR:",
+      error
+    );
 
+    setError(
+      "Unable to proceed to checkout"
+    );
 
-        setCheckoutLoading(true);
+  }
 
-
-        console.log(
-          "🛒 PLACING ORDER..."
-        );
-
-
-        // PLACE ORDER
-
-        const response =
-          await axios.post(
-
-            `${API_URL}/api/orders/checkout`,
-
-            {},
-
-            {
-              headers: {
-
-                Authorization:
-                  `Bearer ${token}`,
-
-                "Content-Type":
-                  "application/json",
-
-              },
-            }
-
-          );
-
-
-        console.log(
-          "✅ CHECKOUT RESPONSE:",
-          response.data
-        );
-
-
-        // SUCCESS
-
-        if (response.data.success) {
-
-          setMessage(
-
-            `Order placed successfully! Order ID: ${
-
-              response.data.orderId || ""
-
-            }`
-
-          );
-
-
-          setCartItems([]);
-
-          setTotal(0);
-
-
-          setTimeout(
-            () => {
-
-              navigate("/orders");
-
-            },
-            1500
-          );
-
-
-        } else {
-
-          setError(
-
-            response.data.message ||
-
-            "Failed to place order"
-
-          );
-
-        }
-
-
-      } catch (error) {
-
-        console.error(
-          "❌ CHECKOUT ERROR:",
-          error
-        );
-
-
-        console.error(
-          "❌ SERVER RESPONSE:",
-          error.response?.data
-        );
-
-
-        setError(
-
-          error.response?.data?.message ||
-
-          "Failed to place order"
-
-        );
-
-
-      } finally {
-
-        setCheckoutLoading(false);
-
-      }
-
-    };
+};
 
 
   // ==================================================
@@ -1004,42 +894,24 @@ Total: ₹${Number(total).toFixed(2)}`
               </h2>
 
 
-              <button
+ <button
 
-                onClick={
-                  handleCheckout
-                }
+  onClick={
+    handleCheckout
+  }
 
-                disabled={
-                  checkoutLoading
-                }
+  style={{
+    width: "100%",
+    padding: "15px",
+    fontSize: "18px",
+    cursor: "pointer",
+  }}
 
-                style={{
-                  width:
-                    "100%",
-                  padding:
-                    "15px",
-                  fontSize:
-                    "18px",
-                  cursor:
-                    checkoutLoading
-                      ? "not-allowed"
-                      : "pointer",
-                  opacity:
-                    checkoutLoading
-                      ? 0.7
-                      : 1,
-                }}
+>
 
-              >
+  Proceed to Checkout
 
-                {
-                  checkoutLoading
-                    ? "Placing Order..."
-                    : "Proceed to Checkout"
-                }
-
-              </button>
+</button>
 
             </div>
 
