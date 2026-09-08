@@ -55,7 +55,7 @@ const authenticateToken = (req, res, next) => {
 // ==========================================
 
 router.get(
-  "/my-orders",...
+  "/my-orders",
   authenticateToken,
   async (req, res) => {
 
@@ -489,7 +489,7 @@ router.post(
   }
 );
 // ==========================================
-// ADMIN DASHBOARD STATISTICS
+// ADMIN - DASHBOARD STATISTICS
 // GET /api/orders/admin/stats
 // ==========================================
 
@@ -500,87 +500,28 @@ router.get(
 
     try {
 
-      // ==========================================
-      // TOTAL PRODUCTS
-      // ==========================================
+      console.log("📊 ADMIN STATS REQUEST");
 
-      const [[productsResult]] =
-        await db.query(
-          `
-          SELECT COUNT(*) AS totalProducts
-          FROM products
-          `
-        );
+      const [productResult] = await db.query(`
+        SELECT COUNT(*) AS totalProducts
+        FROM products
+      `);
 
+      const [orderResult] = await db.query(`
+        SELECT COUNT(*) AS totalOrders
+        FROM orders
+      `);
 
-      // ==========================================
-      // TOTAL ORDERS
-      // ==========================================
+      const [revenueResult] = await db.query(`
+        SELECT COALESCE(SUM(total), 0) AS totalRevenue
+        FROM orders
+      `);
 
-      const [[ordersResult]] =
-        await db.query(
-          `
-          SELECT COUNT(*) AS totalOrders
-          FROM orders
-          `
-        );
-
-
-      // ==========================================
-      // TOTAL REVENUE
-      // ==========================================
-
-      const [[revenueResult]] =
-        await db.query(
-          `
-          SELECT COALESCE(SUM(total), 0) AS totalRevenue
-          FROM orders
-          WHERE status != 'Cancelled'
-          `
-        );
-
-
-      // ==========================================
-      // TOTAL CUSTOMERS
-      // ==========================================
-
-      const [[customersResult]] =
-        await db.query(
-          `
-          SELECT COUNT(*) AS totalCustomers
-          FROM users
-          WHERE role != 'admin'
-          `
-        );
-
-
-      // ==========================================
-      // RECENT ORDERS
-      // ==========================================
-
-      const [recentOrders] =
-        await db.query(
-          `
-          SELECT
-            orders.id,
-            orders.user_id,
-            orders.total,
-            orders.status,
-            orders.order_date AS created_at,
-
-            users.name AS customer_name
-
-          FROM orders
-
-          LEFT JOIN users
-            ON orders.user_id = users.id
-
-          ORDER BY orders.order_date DESC
-
-          LIMIT 5
-          `
-        );
-
+      const [customerResult] = await db.query(`
+        SELECT COUNT(*) AS totalCustomers
+        FROM users
+        WHERE role != 'admin'
+      `);
 
       return res.status(200).json({
 
@@ -589,26 +530,16 @@ router.get(
         stats: {
 
           totalProducts:
-            Number(
-              productsResult.totalProducts || 0
-            ),
+            productResult[0].totalProducts,
 
           totalOrders:
-            Number(
-              ordersResult.totalOrders || 0
-            ),
+            orderResult[0].totalOrders,
 
           totalRevenue:
-            Number(
-              revenueResult.totalRevenue || 0
-            ),
+            revenueResult[0].totalRevenue,
 
           totalCustomers:
-            Number(
-              customersResult.totalCustomers || 0
-            ),
-
-          recentOrders,
+            customerResult[0].totalCustomers,
 
         },
 
@@ -626,7 +557,7 @@ router.get(
         success: false,
 
         message:
-          "Failed to load admin statistics",
+          "Failed to fetch admin statistics",
 
       });
 
@@ -634,7 +565,59 @@ router.get(
 
   }
 );
+// ==========================================
+// ADMIN - GET ALL ORDERS
+// GET /api/orders/admin/all
+// ==========================================
 
+router.get(
+  "/admin/all",
+  authenticateToken,
+  async (req, res) => {
+
+    try {
+
+      console.log("📦 ADMIN FETCHING ALL ORDERS");
+
+      const [orders] = await db.query(`
+        SELECT
+          id,
+          user_id,
+          total,
+          status,
+          order_date AS created_at
+        FROM orders
+        ORDER BY order_date DESC
+      `);
+
+      return res.status(200).json({
+
+        success: true,
+
+        orders: orders,
+
+      });
+
+    } catch (error) {
+
+      console.error(
+        "ADMIN ORDERS ERROR:",
+        error
+      );
+
+      return res.status(500).json({
+
+        success: false,
+
+        message:
+          "Failed to fetch orders",
+
+      });
+
+    }
+
+  }
+);
 // ==========================================
 // GET SINGLE ORDER
 // ==========================================
