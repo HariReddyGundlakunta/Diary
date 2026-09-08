@@ -55,7 +55,7 @@ const authenticateToken = (req, res, next) => {
 // ==========================================
 
 router.get(
-  "/my-orders",
+  "/my-orders",...
   authenticateToken,
   async (req, res) => {
 
@@ -483,6 +483,152 @@ router.post(
         connection.release();
 
       }
+
+    }
+
+  }
+);
+// ==========================================
+// ADMIN DASHBOARD STATISTICS
+// GET /api/orders/admin/stats
+// ==========================================
+
+router.get(
+  "/admin/stats",
+  authenticateToken,
+  async (req, res) => {
+
+    try {
+
+      // ==========================================
+      // TOTAL PRODUCTS
+      // ==========================================
+
+      const [[productsResult]] =
+        await db.query(
+          `
+          SELECT COUNT(*) AS totalProducts
+          FROM products
+          `
+        );
+
+
+      // ==========================================
+      // TOTAL ORDERS
+      // ==========================================
+
+      const [[ordersResult]] =
+        await db.query(
+          `
+          SELECT COUNT(*) AS totalOrders
+          FROM orders
+          `
+        );
+
+
+      // ==========================================
+      // TOTAL REVENUE
+      // ==========================================
+
+      const [[revenueResult]] =
+        await db.query(
+          `
+          SELECT COALESCE(SUM(total), 0) AS totalRevenue
+          FROM orders
+          WHERE status != 'Cancelled'
+          `
+        );
+
+
+      // ==========================================
+      // TOTAL CUSTOMERS
+      // ==========================================
+
+      const [[customersResult]] =
+        await db.query(
+          `
+          SELECT COUNT(*) AS totalCustomers
+          FROM users
+          WHERE role != 'admin'
+          `
+        );
+
+
+      // ==========================================
+      // RECENT ORDERS
+      // ==========================================
+
+      const [recentOrders] =
+        await db.query(
+          `
+          SELECT
+            orders.id,
+            orders.user_id,
+            orders.total,
+            orders.status,
+            orders.order_date AS created_at,
+
+            users.name AS customer_name
+
+          FROM orders
+
+          LEFT JOIN users
+            ON orders.user_id = users.id
+
+          ORDER BY orders.order_date DESC
+
+          LIMIT 5
+          `
+        );
+
+
+      return res.status(200).json({
+
+        success: true,
+
+        stats: {
+
+          totalProducts:
+            Number(
+              productsResult.totalProducts || 0
+            ),
+
+          totalOrders:
+            Number(
+              ordersResult.totalOrders || 0
+            ),
+
+          totalRevenue:
+            Number(
+              revenueResult.totalRevenue || 0
+            ),
+
+          totalCustomers:
+            Number(
+              customersResult.totalCustomers || 0
+            ),
+
+          recentOrders,
+
+        },
+
+      });
+
+    } catch (error) {
+
+      console.error(
+        "ADMIN STATS ERROR:",
+        error
+      );
+
+      return res.status(500).json({
+
+        success: false,
+
+        message:
+          "Failed to load admin statistics",
+
+      });
 
     }
 

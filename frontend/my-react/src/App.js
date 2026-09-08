@@ -10,7 +10,7 @@ import {
 // ================================================
 // PAGES
 // ================================================
-
+import Checkout from "./Pages/Checkout";
 import Register from "./Pages/Register";
 import Login from "./Pages/Login";
 
@@ -23,6 +23,7 @@ import Products from "./Pages/Products";
 import Cart from "./Pages/Cart";
 
 import Orders from "./Pages/Orders";
+import OrderConfirmation from "./Pages/OrderConfirmation";
 
 // ================================================
 // ADMIN PAGES
@@ -48,6 +49,36 @@ function App() {
     <BrowserRouter>
 
       <Routes>
+        {/* ================================================ */}
+{/* ORDER CONFIRMATION */}
+{/* ================================================ */}
+
+<Route
+  path="/order-confirmation"
+  element={
+    <ProtectedRoute>
+
+      <OrderConfirmation />
+
+    </ProtectedRoute>
+  }
+/>
+        {/* ================================================ */}
+{/* CHECKOUT */}
+{/* ================================================ */}
+
+<Route
+  path="/checkout"
+  element={
+
+    <ProtectedRoute>
+
+      <Checkout />
+
+    </ProtectedRoute>
+
+  }
+/>
 
         {/* ================================================ */}
         {/* HOME */}

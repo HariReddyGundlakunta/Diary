@@ -76,7 +76,7 @@ function Checkout() {
 
         const response =
           await axios.get(
-            `${API_URL}/api/cart/${user.id}`,
+            `${API_URL}/api/cart`,
             {
               headers: {
                 Authorization:
