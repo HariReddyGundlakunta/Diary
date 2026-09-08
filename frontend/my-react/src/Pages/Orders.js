@@ -754,7 +754,6 @@ function Orders() {
                             order.created_at
                           )
                         }
-
                       </p>
 
                     </div>
