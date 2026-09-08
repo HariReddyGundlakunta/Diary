@@ -14,7 +14,7 @@ const db = require("./db");
 const authRoutes = require("./routes/AuthRoutes");
 const productRoutes = require("./routes/ProductRoutes");
 const cartRoutes = require("./routes/CartRoutes");
-const orderRoutes = require("./routes/orders");
+const orderRoutes = require("./routes/orderRoutes");
 
 // ==================================================
 // APP
